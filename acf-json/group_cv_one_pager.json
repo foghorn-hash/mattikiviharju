@@ -1,0 +1,140 @@
+{
+  "key": "group_cv_one_pager",
+  "title": "CV One Pager",
+  "fields": [
+    {
+      "key": "field_cv_profile_badges",
+      "label": "Profile Badges",
+      "name": "cv_profile_badges",
+      "type": "repeater",
+      "layout": "table",
+      "min": 0,
+      "button_label": "Add Badge",
+      "sub_fields": [
+        {
+          "key": "field_cv_profile_badge_label",
+          "label": "Badge",
+          "name": "label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "key": "field_cv_experience_title",
+      "label": "Experience Section Title",
+      "name": "cv_experience_title",
+      "type": "text"
+    },
+    {
+      "key": "field_cv_experience_items",
+      "label": "Experience Items",
+      "name": "cv_experience_items",
+      "type": "repeater",
+      "layout": "row",
+      "button_label": "Add Experience",
+      "sub_fields": [
+        {
+          "key": "field_cv_experience_role",
+          "label": "Role",
+          "name": "role",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_experience_dates",
+          "label": "Dates",
+          "name": "dates",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_experience_summary",
+          "label": "Summary",
+          "name": "summary",
+          "type": "textarea",
+          "rows": 3
+        }
+      ]
+    },
+    {
+      "key": "field_cv_projects_title",
+      "label": "Projects Section Title",
+      "name": "cv_projects_title",
+      "type": "text"
+    },
+    {
+      "key": "field_cv_projects",
+      "label": "Projects",
+      "name": "cv_projects",
+      "type": "repeater",
+      "layout": "row",
+      "button_label": "Add Project",
+      "sub_fields": [
+        {
+          "key": "field_cv_project_title",
+          "label": "Title",
+          "name": "title",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_project_meta",
+          "label": "Meta",
+          "name": "meta",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_project_description",
+          "label": "Description",
+          "name": "description",
+          "type": "textarea",
+          "rows": 3
+        }
+      ]
+    },
+    {
+      "key": "field_cv_skills_title",
+      "label": "Skills Section Title",
+      "name": "cv_skills_title",
+      "type": "text"
+    },
+    {
+      "key": "field_cv_skills",
+      "label": "Skills",
+      "name": "cv_skills",
+      "type": "repeater",
+      "layout": "table",
+      "button_label": "Add Skill",
+      "sub_fields": [
+        {
+          "key": "field_cv_skill_label",
+          "label": "Skill",
+          "name": "label",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "page_type",
+        "operator": "==",
+        "value": "front_page"
+      }
+    ],
+    [
+      {
+        "param": "post_type",
+        "operator": "==",
+        "value": "page"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "acf_after_title",
+  "style": "seamless",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "modified": 1760000000
+}
