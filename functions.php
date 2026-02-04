@@ -114,6 +114,14 @@ function cv_one_pager_assets() {
     );
     wp_enqueue_style('cv-one-pager-style', get_stylesheet_uri(), array('cv-one-pager-fonts', 'bootstrap-icons'), '1.0.0');
 
+    wp_enqueue_script(
+        'cv-one-pager-nav',
+        get_template_directory_uri() . '/js/nav.js',
+        array(),
+        '1.0.0',
+        true
+    );
+
     if (is_front_page()) {
         wp_enqueue_script(
             'cv-one-pager-gallery',

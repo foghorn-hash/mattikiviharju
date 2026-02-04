@@ -65,7 +65,13 @@ $anchor_base = is_front_page() ? '' : $home_url;
                     </div>
                 </div>
             <?php endif; ?>
-            <nav class="nav-links" aria-label="Primary">
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav">
+                <span class="nav-toggle-bar" aria-hidden="true"></span>
+                <span class="nav-toggle-bar" aria-hidden="true"></span>
+                <span class="nav-toggle-bar" aria-hidden="true"></span>
+                <span class="nav-toggle-label">Menu</span>
+            </button>
+            <nav class="nav-links" id="primary-nav" aria-label="Primary">
                 <a href="<?php echo esc_url($anchor_base . '#about'); ?>"><?php echo esc_html($nav_about); ?></a>
                 <a href="<?php echo esc_url($anchor_base . '#experience'); ?>"><?php echo esc_html($nav_experience); ?></a>
                 <a href="<?php echo esc_url($anchor_base . '#education'); ?>"><?php echo esc_html($nav_education); ?></a>
