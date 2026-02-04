@@ -457,6 +457,19 @@ img {
   font-size: 0.9rem;
 }
 
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-link {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .blog-page {
   padding-bottom: 40px;
 }
