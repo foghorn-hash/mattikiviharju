@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CV PDF to ACF Filler
- * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, and populate ACF fields on home pages (overwrites existing content)
- * Version: 2.0.0
+ * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, and populate custom post types (cv_badge, cv_experience, cv_project, cv_skill) with language-specific content
+ * Version: 2.1.0
  * Author: GitHub Copilot
  * Requires Plugins: advanced-custom-fields, polylang
  */
@@ -47,6 +47,13 @@ function cv_pdf_acf_render_settings_page() {
     if (!empty($_GET['cv_pdf_acf_message'])) {
         $message_type = !empty($_GET['cv_pdf_acf_type']) ? $_GET['cv_pdf_acf_type'] : 'success';
         echo '<div class="notice notice-' . esc_attr($message_type) . '"><p>' . esc_html(wp_unslash($_GET['cv_pdf_acf_message'])) . '</p></div>';
+    }
+
+    // Display imported data if available
+    $import_results = get_transient('cv_pdf_acf_last_import');
+    if ($import_results && is_array($import_results)) {
+        delete_transient('cv_pdf_acf_last_import');
+        cv_pdf_acf_display_import_results($import_results);
     }
 
     // Check dependencies
@@ -123,7 +130,7 @@ function cv_pdf_acf_render_settings_page() {
         <?php if (!$dependencies_ok) : ?>
             <div class="notice notice-warning"><p><strong>Warning:</strong> Please resolve the errors above before uploading a PDF.</p></div>
         <?php else : ?>
-        <p>Upload a PDF CV file to extract data and populate ACF fields on Home pages (Fi, En, Sv). <strong>Existing content will be overwritten.</strong></p>
+        <p>Upload a PDF CV file to extract data and create language-specific custom posts (cv_badge, cv_experience, cv_project, cv_skill). <strong>Existing posts will be deleted and replaced.</strong></p>
         <?php
         // Check for Polylang and get home page translations
         $front_page_id = get_option('page_on_front');
@@ -392,70 +399,157 @@ function cv_pdf_acf_translate_cv($cv_data, $target_lang, $api_key, $model) {
 }
 
 // Populate ACF fields with extracted CV data (OVERWRITE mode)
-function cv_pdf_acf_populate_fields($page_id, $cv_data) {
+function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
     $updated = array();
 
-    // Profile Badges
-    if (!empty($cv_data['profile_badges']) && is_array($cv_data['profile_badges'])) {
-        $badges = array();
-        foreach ($cv_data['profile_badges'] as $badge) {
-            $badges[] = array('label' => sanitize_text_field($badge));
-        }
-        update_field('cv_profile_badges', $badges, $page_id);
-        $updated[] = 'Profile Badges';
-    }
-
-    // Experience
+    // Update title fields
     if (!empty($cv_data['experience_title'])) {
         update_field('cv_experience_title', sanitize_text_field($cv_data['experience_title']), $page_id);
         $updated[] = 'Experience Title';
     }
 
-    if (!empty($cv_data['experience_items']) && is_array($cv_data['experience_items'])) {
-        $experience = array();
-        foreach ($cv_data['experience_items'] as $item) {
-            $experience[] = array(
-                'role' => sanitize_text_field($item['role'] ?? ''),
-                'dates' => sanitize_text_field($item['dates'] ?? ''),
-                'summary' => sanitize_textarea_field($item['summary'] ?? '')
-            );
-        }
-        update_field('cv_experience_items', $experience, $page_id);
-        $updated[] = 'Experience Items';
-    }
-
-    // Projects
     if (!empty($cv_data['projects_title'])) {
         update_field('cv_projects_title', sanitize_text_field($cv_data['projects_title']), $page_id);
         $updated[] = 'Projects Title';
     }
 
-    if (!empty($cv_data['projects']) && is_array($cv_data['projects'])) {
-        $projects = array();
-        foreach ($cv_data['projects'] as $project) {
-            $projects[] = array(
-                'title' => sanitize_text_field($project['title'] ?? ''),
-                'meta' => sanitize_text_field($project['meta'] ?? ''),
-                'description' => sanitize_textarea_field($project['description'] ?? '')
-            );
-        }
-        update_field('cv_projects', $projects, $page_id);
-        $updated[] = 'Projects';
-    }
-
-    // Skills
     if (!empty($cv_data['skills_title'])) {
         update_field('cv_skills_title', sanitize_text_field($cv_data['skills_title']), $page_id);
         $updated[] = 'Skills Title';
     }
 
-    if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
-        $skills = array();
-        foreach ($cv_data['skills'] as $skill) {
-            $skills[] = array('label' => sanitize_text_field($skill));
+    // Create/update custom post types (OVERWRITE existing)
+    
+    // Profile Badges
+    if (!empty($cv_data['profile_badges']) && is_array($cv_data['profile_badges'])) {
+        // Delete existing badges for this language
+        $existing_badges = get_posts(array(
+            'post_type' => 'cv_badge',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_badges as $badge) {
+            wp_delete_post($badge->ID, true);
         }
-        update_field('cv_skills', $skills, $page_id);
-        $updated[] = 'Skills';
+        
+        // Create new badges
+        $menu_order = count($cv_data['profile_badges']);
+        foreach ($cv_data['profile_badges'] as $badge) {
+            $post_data = array(
+                'post_title' => sanitize_text_field($badge),
+                'post_type' => 'cv_badge',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id && function_exists('pll_set_post_language')) {
+                pll_set_post_language($post_id, $lang);
+            }
+        }
+        $updated[] = 'Profile Badges (' . count($cv_data['profile_badges']) . ')';
+    }
+
+    // Experience Items
+    if (!empty($cv_data['experience_items']) && is_array($cv_data['experience_items'])) {
+        // Delete existing experience for this language
+        $existing_experience = get_posts(array(
+            'post_type' => 'cv_experience',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_experience as $exp) {
+            wp_delete_post($exp->ID, true);
+        }
+        
+        // Create new experience items
+        $menu_order = count($cv_data['experience_items']);
+        foreach ($cv_data['experience_items'] as $item) {
+            $post_data = array(
+                'post_title' => sanitize_text_field($item['role'] ?? ''),
+                'post_excerpt' => sanitize_textarea_field($item['summary'] ?? ''),
+                'post_type' => 'cv_experience',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id) {
+                if (!empty($item['dates'])) {
+                    update_post_meta($post_id, '_cv_experience_dates', sanitize_text_field($item['dates']));
+                }
+                if (function_exists('pll_set_post_language')) {
+                    pll_set_post_language($post_id, $lang);
+                }
+            }
+        }
+        $updated[] = 'Experience Items (' . count($cv_data['experience_items']) . ')';
+    }
+
+    // Projects
+    if (!empty($cv_data['projects']) && is_array($cv_data['projects'])) {
+        // Delete existing projects for this language
+        $existing_projects = get_posts(array(
+            'post_type' => 'cv_project',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_projects as $proj) {
+            wp_delete_post($proj->ID, true);
+        }
+        
+        // Create new projects
+        $menu_order = count($cv_data['projects']);
+        foreach ($cv_data['projects'] as $project) {
+            $post_data = array(
+                'post_title' => sanitize_text_field($project['title'] ?? ''),
+                'post_excerpt' => sanitize_textarea_field($project['description'] ?? ''),
+                'post_type' => 'cv_project',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id) {
+                if (!empty($project['meta'])) {
+                    update_post_meta($post_id, '_cv_project_meta', sanitize_text_field($project['meta']));
+                }
+                if (function_exists('pll_set_post_language')) {
+                    pll_set_post_language($post_id, $lang);
+                }
+            }
+        }
+        $updated[] = 'Projects (' . count($cv_data['projects']) . ')';
+    }
+
+    // Skills
+    if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
+        // Delete existing skills for this language
+        $existing_skills = get_posts(array(
+            'post_type' => 'cv_skill',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_skills as $skill) {
+            wp_delete_post($skill->ID, true);
+        }
+        
+        // Create new skills
+        $menu_order = count($cv_data['skills']);
+        foreach ($cv_data['skills'] as $skill) {
+            $post_data = array(
+                'post_title' => sanitize_text_field($skill),
+                'post_type' => 'cv_skill',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id && function_exists('pll_set_post_language')) {
+                pll_set_post_language($post_id, $lang);
+            }
+        }
+        $updated[] = 'Skills (' . count($cv_data['skills']) . ')';
     }
 
     return array(
@@ -554,10 +648,18 @@ function cv_pdf_acf_handle_upload() {
 
     // Populate source language first
     $source_page_id = $translations[$source_lang];
-    $result_source = cv_pdf_acf_populate_fields($source_page_id, $cv_data);
+    $result_source = cv_pdf_acf_populate_fields($source_page_id, $cv_data, $source_lang);
     
     $results = array();
     $results[strtoupper($source_lang)] = $result_source['updated'];
+    
+    // Store import results for display
+    $import_data = array(
+        'source_lang' => strtoupper($source_lang),
+        'cv_data' => $cv_data,
+        'translations' => array(),
+        'results' => $results
+    );
     
     // Translate and populate other languages
     $target_langs = array_diff($required_langs, array($source_lang));
@@ -570,21 +672,113 @@ function cv_pdf_acf_handle_upload() {
             continue;
         }
         
+        // Store translated data for display
+        $import_data['translations'][strtoupper($target_lang)] = $translated_data;
+        
         $target_page_id = $translations[$target_lang];
-        $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data);
+        $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data, $target_lang);
         $results[strtoupper($target_lang)] = $result_target['updated'];
     }
-
-    // Build success message
-    $message_parts = array('PDF processed successfully!');
-    foreach ($results as $lang => $updated) {
-        $message_parts[] = $lang . ': ' . (!empty($updated) ? implode(', ', $updated) : 'No fields');
-    }
     
-    $message = implode(' | ', $message_parts);
+    $import_data['results'] = $results;
+    set_transient('cv_pdf_acf_last_import', $import_data, 300); // Store for 5 minutes
+    
+    // Build success message
+    $message = 'PDF processed successfully! See imported items below.';
     cv_pdf_acf_redirect_with_message($message, 'success');
 }
 add_action('admin_post_cv_pdf_acf_upload', 'cv_pdf_acf_handle_upload');
+
+// Display imported CV data
+function cv_pdf_acf_display_import_results($import_data) {
+    ?>
+    <div class="notice notice-success" style="padding: 15px; margin-top: 20px;">
+        <h2 style="margin-top: 0;">✓ Imported CV Data (Source: <?php echo esc_html($import_data['source_lang']); ?>)</h2>
+        
+        <?php
+        $cv_data = $import_data['cv_data'];
+        $translations = $import_data['translations'];
+        
+        // Display source language data
+        echo '<div style="background: #f9f9f9; padding: 15px; margin-bottom: 15px; border-left: 4px solid #2271b1;">';
+        echo '<h3 style="margin-top: 0;">' . esc_html($import_data['source_lang']) . ' (Source)</h3>';
+        cv_pdf_acf_display_cv_content($cv_data);
+        echo '</div>';
+        
+        // Display translations
+        foreach ($translations as $lang => $translated_data) {
+            echo '<div style="background: #f9f9f9; padding: 15px; margin-bottom: 15px; border-left: 4px solid #2271b1;">';
+            echo '<h3 style="margin-top: 0;">' . esc_html($lang) . ' (Translated)</h3>';
+            cv_pdf_acf_display_cv_content($translated_data);
+            echo '</div>';
+        }
+        ?>
+    </div>
+    <?php
+}
+
+// Display CV content in a formatted list
+function cv_pdf_acf_display_cv_content($cv_data) {
+    // Profile Badges
+    if (!empty($cv_data['profile_badges']) && is_array($cv_data['profile_badges'])) {
+        echo '<h4>Profile Badges</h4>';
+        echo '<ul>';
+        foreach ($cv_data['profile_badges'] as $badge) {
+            echo '<li>' . esc_html($badge) . '</li>';
+        }
+        echo '</ul>';
+    }
+    
+    // Experience
+    if (!empty($cv_data['experience_title']) || !empty($cv_data['experience_items'])) {
+        echo '<h4>' . esc_html($cv_data['experience_title'] ?? 'Experience') . '</h4>';
+        if (!empty($cv_data['experience_items']) && is_array($cv_data['experience_items'])) {
+            echo '<ul>';
+            foreach ($cv_data['experience_items'] as $item) {
+                echo '<li><strong>' . esc_html($item['role'] ?? '') . '</strong>';
+                if (!empty($item['dates'])) {
+                    echo ' <em>(' . esc_html($item['dates']) . ')</em>';
+                }
+                if (!empty($item['summary'])) {
+                    echo '<br>' . esc_html($item['summary']);
+                }
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+    
+    // Projects
+    if (!empty($cv_data['projects_title']) || !empty($cv_data['projects'])) {
+        echo '<h4>' . esc_html($cv_data['projects_title'] ?? 'Projects') . '</h4>';
+        if (!empty($cv_data['projects']) && is_array($cv_data['projects'])) {
+            echo '<ul>';
+            foreach ($cv_data['projects'] as $project) {
+                echo '<li><strong>' . esc_html($project['title'] ?? '') . '</strong>';
+                if (!empty($project['meta'])) {
+                    echo ' <em>(' . esc_html($project['meta']) . ')</em>';
+                }
+                if (!empty($project['description'])) {
+                    echo '<br>' . esc_html($project['description']);
+                }
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+    
+    // Skills
+    if (!empty($cv_data['skills_title']) || !empty($cv_data['skills'])) {
+        echo '<h4>' . esc_html($cv_data['skills_title'] ?? 'Skills') . '</h4>';
+        if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
+            echo '<ul style="column-count: 2;">';
+            foreach ($cv_data['skills'] as $skill) {
+                echo '<li>' . esc_html($skill) . '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+}
 
 // Helper function to redirect with message
 function cv_pdf_acf_redirect_with_message($message, $type = 'success') {
