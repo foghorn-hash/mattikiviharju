@@ -765,6 +765,37 @@ img {
   margin-top: 24px;
 }
 
+/* Responsive YouTube video embed (Block Editor) */
+.post-content .wp-block-embed,
+.post-content .wp-block-embed-youtube,
+.post-content figure.wp-block-embed {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  margin: 24px 0;
+}
+
+.post-content .wp-block-embed__wrapper {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+}
+
+.post-content iframe,
+.post-content .wp-block-embed iframe,
+.post-content .wp-block-embed__wrapper iframe,
+.post-content .wp-block-embed__wrapper object,
+.post-content .wp-block-embed__wrapper embed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
+
 @media (max-width: 720px) {
   .nav {
     flex-direction: column;
