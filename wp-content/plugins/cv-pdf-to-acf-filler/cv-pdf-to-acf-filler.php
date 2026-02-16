@@ -49,12 +49,54 @@ function cv_pdf_acf_render_settings_page() {
         echo '<div class="notice notice-' . esc_attr($message_type) . '"><p>' . esc_html(wp_unslash($_GET['cv_pdf_acf_message'])) . '</p></div>';
     }
 
+    // Check dependencies
+    $dependencies_ok = true;
+    
     if (!function_exists('get_field')) {
-        echo '<div class="notice notice-error"><p>Advanced Custom Fields (ACF) is not active. Please activate ACF to use this plugin.</p></div>';
+        echo '<div class="notice notice-error"><p><strong>Error:</strong> Advanced Custom Fields (ACF) is not active. Please activate ACF to use this plugin.</p></div>';
+        $dependencies_ok = false;
+    }
+    
+    if (!function_exists('pll_get_post_translations')) {
+        echo '<div class="notice notice-error"><p><strong>Error:</strong> Polylang is not active. Please activate Polylang for multi-language support.</p></div>';
+        $dependencies_ok = false;
+    }
+    
+    // Check PDF parsing capability
+    $pdf_method = cv_pdf_acf_check_pdf_capability();
+    if (!$pdf_method) {
+        echo '<div class="notice notice-error"><p><strong>Error:</strong> No PDF parsing library found. Please install one of the following:<br>';
+        echo '<strong>Option 1 (Recommended):</strong> Run <code>composer require smalot/pdfparser</code> in the plugin directory<br>';
+        echo '<strong>Option 2:</strong> Install <code>pdftotext</code> command-line tool (poppler-utils)</p></div>';
+        $dependencies_ok = false;
+    } else {
+        echo '<div class="notice notice-success"><p><strong>PDF Parser:</strong> ' . esc_html($pdf_method) . ' is available ✓</p></div>';
     }
     ?>
     <div class="wrap">
         <h1>CV PDF to ACF Filler</h1>
+        
+        <h2>Status</h2>
+        <table class="form-table" role="presentation">
+            <tr>
+                <th scope="row">ACF Plugin</th>
+                <td><?php echo function_exists('get_field') ? '✓ Active' : '✗ Not installed'; ?></td>
+            </tr>
+            <tr>
+                <th scope="row">Polylang Plugin</th>
+                <td><?php echo function_exists('pll_get_post_translations') ? '✓ Active' : '✗ Not installed'; ?></td>
+            </tr>
+            <tr>
+                <th scope="row">PDF Parser</th>
+                <td><?php echo $pdf_method ? '✓ ' . esc_html($pdf_method) : '✗ Not available'; ?></td>
+            </tr>
+            <tr>
+                <th scope="row">OpenAI API Key</th>
+                <td><?php echo !empty($api_key) ? '✓ Configured' : '✗ Not configured'; ?></td>
+            </tr>
+        </table>
+        
+        <hr />
         
         <h2>Settings</h2>
         <form method="post" action="options.php">
@@ -78,6 +120,9 @@ function cv_pdf_acf_render_settings_page() {
         <hr />
 
         <h2>Upload CV PDF</h2>
+        <?php if (!$dependencies_ok) : ?>
+            <div class="notice notice-warning"><p><strong>Warning:</strong> Please resolve the errors above before uploading a PDF.</p></div>
+        <?php else : ?>
         <p>Upload a PDF CV file to extract data and populate ACF fields on Home pages (Fi, En, Sv). <strong>Existing content will be overwritten.</strong></p>
         <?php
         // Check for Polylang and get home page translations
@@ -135,8 +180,27 @@ function cv_pdf_acf_render_settings_page() {
             </table>
             <?php submit_button('Upload and Process PDF'); ?>
         </form>
+        <?php endif; ?>
     </div>
     <?php
+}
+
+// Check PDF parsing capability
+function cv_pdf_acf_check_pdf_capability() {
+    // Check for Smalot PDF Parser
+    if (class_exists('\\Smalot\\PdfParser\\Parser')) {
+        return 'Smalot PDF Parser (Composer)';
+    }
+    
+    // Check for pdftotext command
+    if (function_exists('shell_exec')) {
+        $test = shell_exec('pdftotext -v 2>&1');
+        if ($test && stripos($test, 'pdftotext') !== false) {
+            return 'pdftotext (Command-line)';
+        }
+    }
+    
+    return false;
 }
 
 // Call OpenAI API
@@ -187,18 +251,23 @@ function cv_pdf_acf_parse_json($content) {
 
 // Extract text from PDF
 function cv_pdf_acf_extract_pdf_text($file_path) {
+    $errors = array();
+    
     // Try using Smalot PDF Parser if available
-    if (class_exists('\Smalot\PdfParser\Parser')) {
+    if (class_exists('\\Smalot\\PdfParser\\Parser')) {
         try {
             $parser = new \Smalot\PdfParser\Parser();
             $pdf = $parser->parseFile($file_path);
             $text = $pdf->getText();
-            if (!empty($text)) {
+            if (!empty(trim($text))) {
                 return $text;
             }
+            $errors[] = 'Smalot parser returned empty text';
         } catch (Exception $e) {
-            // Fall through to next method
+            $errors[] = 'Smalot parser error: ' . $e->getMessage();
         }
+    } else {
+        $errors[] = 'Smalot PDF Parser not installed (run: composer install)';
     }
     
     // Try using pdftotext command line tool
@@ -209,14 +278,20 @@ function cv_pdf_acf_extract_pdf_text($file_path) {
         
         if (file_exists($output_file)) {
             $text = file_get_contents($output_file);
-            unlink($output_file);
-            if (!empty($text)) {
+            @unlink($output_file);
+            if (!empty(trim($text))) {
                 return $text;
             }
+            $errors[] = 'pdftotext returned empty text';
+        } else {
+            $errors[] = 'pdftotext command failed or not installed';
         }
+    } else {
+        $errors[] = 'shell_exec is disabled';
     }
     
-    return new WP_Error('pdf_parse_error', 'Unable to extract text from PDF. Please install smalot/pdfparser: composer require smalot/pdfparser');
+    $error_message = 'Unable to extract text from PDF. Tried methods: ' . implode(' | ', $errors);
+    return new WP_Error('pdf_parse_error', $error_message);
 }
 
 // Extract CV data from PDF using OpenAI
@@ -463,10 +538,17 @@ function cv_pdf_acf_handle_upload() {
     $cv_data = cv_pdf_acf_extract_cv_from_pdf($temp_file, $api_key, $model);
     
     // Clean up temp file
-    unlink($temp_file);
+    if (file_exists($temp_file)) {
+        @unlink($temp_file);
+    }
 
     if (is_wp_error($cv_data)) {
-        cv_pdf_acf_redirect_with_message('OpenAI extraction failed: ' . $cv_data->get_error_message(), 'error');
+        cv_pdf_acf_redirect_with_message('PDF Processing failed: ' . $cv_data->get_error_message(), 'error');
+        return;
+    }
+    
+    if (empty($cv_data) || !is_array($cv_data)) {
+        cv_pdf_acf_redirect_with_message('Extracted data is empty or invalid. Please check if your PDF contains readable text.', 'error');
         return;
     }
 

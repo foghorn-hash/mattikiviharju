@@ -11,8 +11,5 @@
         {
             "name": "Matti Kiviharju"
         }
-    ],
-    "autoload": {
-        "files": ["cv-pdf-to-acf-filler.php"]
-    }
+    ]
 }

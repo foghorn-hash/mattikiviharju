@@ -33,18 +33,25 @@ WordPress plugin that extracts CV data from PDF files using OpenAI, translates t
 
 1. Copy the `cv-pdf-to-acf-filler` folder to your WordPress `wp-content/plugins/` directory
 
-2. Install PDF parser library (choose one method):
+2. **IMPORTANT:** Install PDF parser library (choose one method):
    
-   **Method A: Using Composer (Recommended)**
+   **Method A: Using Composer (Recommended for best results)**
    ```bash
+   # Navigate to the plugin directory
    cd wp-content/plugins/cv-pdf-to-acf-filler
-   composer require smalot/pdfparser
+   
+   # Install dependencies
+   composer install
    ```
    
-   **Method B: Using pdftotext command**
+   This will install the `smalot/pdfparser` package which provides the most reliable PDF text extraction.
+   
+   **Method B: Using pdftotext command (Alternative)**
    - Ubuntu/Debian: `sudo apt-get install poppler-utils`
    - macOS: `brew install poppler`
    - Windows: Download from [Xpdf tools](https://www.xpdfreader.com/download.html)
+   
+   > **Note:** Without a PDF parser, the plugin **will not work**. You must install at least one of these options.
 
 3. Activate the plugin in WordPress admin (Plugins > Installed Plugins)
 
@@ -53,6 +60,33 @@ WordPress plugin that extracts CV data from PDF files using OpenAI, translates t
 5. Install and activate **Polylang** if not already installed
 
 6. Set up Polylang languages (Finnish, English, Swedish) and create home page translations for all three languages
+
+## Troubleshooting
+
+### PDF Import Not Working
+
+If the PDF import is failing, check the following:
+
+1. **Check Plugin Status** - Go to Settings > CV PDF to ACF and check the "Status" section:
+   - ACF Plugin: Must show "✓ Active"
+   - Polylang Plugin: Must show "✓ Active"  
+   - PDF Parser: Must show "✓ Smalot PDF Parser (Composer)" or "✓ pdftotext (Command-line)"
+   - OpenAI API Key: Must show "✓ Configured"
+
+2. **Install PDF Parser** - If PDF Parser shows "✗ Not available":
+   ```bash
+   cd wp-content/plugins/cv-pdf-to-acf-filler
+   composer install
+   ```
+
+3. **Check PDF Quality** - Ensure your PDF:
+   - Contains selectable text (not scanned images)
+   - Is not password protected
+   - Is a valid PDF file
+
+4. **Check Error Messages** - The plugin now shows detailed error messages that will help identify the issue
+
+5. **API Key** - Verify your OpenAI API key is correct and has sufficient credits
 
 ## Configuration
 
