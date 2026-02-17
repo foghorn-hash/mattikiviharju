@@ -69,12 +69,18 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				<p><?php echo esc_html($profile_body); ?></p>
 				<div class="badges">
 					<?php
-					$profile_badges = get_posts(array(
+					$badges_query = array(
 						'post_type' => 'cv_badge',
 						'numberposts' => -1,
 						'orderby' => 'menu_order',
 						'order' => 'DESC',
-					));
+					);
+					if (function_exists('pll_current_language')) {
+						$badges_query['lang'] = pll_current_language();
+					} else {
+						$badges_query['suppress_filters'] = false;
+					}
+					$profile_badges = get_posts($badges_query);
 					?>
 					<?php foreach ($profile_badges as $badge) : ?>
 						<span class="badge"><?php echo esc_html(get_the_title($badge)); ?></span>
@@ -119,9 +125,15 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				$experience_items = get_posts($experience_query);
 				?>
 				<?php foreach ($experience_items as $item) : ?>
-					<?php $dates = get_post_meta($item->ID, '_cv_experience_dates', true); ?>
+					<?php 
+					$company = get_post_meta($item->ID, '_cv_experience_company', true);
+					$dates = get_post_meta($item->ID, '_cv_experience_dates', true); 
+					?>
 					<div class="card timeline-item">
 						<h3><?php echo esc_html(get_the_title($item)); ?></h3>
+						<?php if (!empty($company)) : ?>
+							<strong><?php echo esc_html($company); ?></strong>
+						<?php endif; ?>
 						<?php if (!empty($dates)) : ?>
 							<span><?php echo esc_html($dates); ?></span>
 						<?php endif; ?>
@@ -310,12 +322,18 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 			<h2 class="section-title"><?php echo esc_html($skills_title); ?></h2>
 			<div class="skill-list">
 				<?php
-				$skills = get_posts(array(
+				$skills_query = array(
 					'post_type' => 'cv_skill',
 					'numberposts' => -1,
 					'orderby' => 'menu_order',
 					'order' => 'DESC',
-				));
+				);
+				if (function_exists('pll_current_language')) {
+					$skills_query['lang'] = pll_current_language();
+				} else {
+					$skills_query['suppress_filters'] = false;
+				}
+				$skills = get_posts($skills_query);
 				?>
 				<?php foreach ($skills as $skill) : ?>
 					<div class="skill"><?php echo esc_html(get_the_title($skill)); ?></div>

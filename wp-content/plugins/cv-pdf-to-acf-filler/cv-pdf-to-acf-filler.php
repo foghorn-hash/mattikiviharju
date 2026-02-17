@@ -239,6 +239,27 @@ function cv_pdf_acf_call_openai($payload, $api_key) {
     return $json['choices'][0]['message']['content'];
 }
 
+// Sanitize text while preserving date formatting
+function cv_pdf_acf_sanitize_preserve_dashes($text) {
+    if (empty($text)) {
+        return '';
+    }
+    // Normalize various dash/hyphen characters to standard ASCII hyphen
+    // This includes en-dash (–), em-dash (—), minus sign (−), and figure dash
+    $dashes = array(
+        "\xE2\x80\x93", // En dash (UTF-8)
+        "\xE2\x80\x94", // Em dash (UTF-8)
+        "\xE2\x80\x92", // Figure dash (UTF-8)
+        "\xE2\x88\x92", // Minus sign (UTF-8)
+        '–',            // En dash (direct)
+        '—',            // Em dash (direct)
+        '−',            // Minus sign (direct)
+    );
+    $text = str_replace($dashes, '-', $text);
+    // Use standard WordPress sanitization
+    return sanitize_text_field($text);
+}
+
 // Parse JSON response from OpenAI
 function cv_pdf_acf_parse_json($content) {
     $content = trim($content);
@@ -315,7 +336,7 @@ function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
   "profile_badges": ["badge1", "badge2", ...],
   "experience_title": "Experience" or appropriate section title,
   "experience_items": [
-    {"role": "Job Title", "dates": "Month Year - Month Year", "summary": "Job description and achievements"}
+    {"company": "Company Name", "role": "Job Title", "dates": "Year - Year", "summary": "Job description and achievements"}
   ],
   "projects_title": "Projects" or appropriate section title,
   "projects": [
@@ -325,7 +346,7 @@ function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
   "skills": ["Skill1", "Skill2", ...]
 }
 
-Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV.';
+Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title.';
 
     $payload = array(
         'model' => $model,
@@ -401,6 +422,12 @@ function cv_pdf_acf_translate_cv($cv_data, $target_lang, $api_key, $model) {
 // Populate ACF fields with extracted CV data (OVERWRITE mode)
 function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
     $updated = array();
+    $created_ids = array(
+        'badges' => array(),
+        'experience' => array(),
+        'projects' => array(),
+        'skills' => array()
+    );
 
     // Update title fields
     if (!empty($cv_data['experience_title'])) {
@@ -435,7 +462,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
         
         // Create new badges
         $menu_order = count($cv_data['profile_badges']);
-        foreach ($cv_data['profile_badges'] as $badge) {
+        foreach ($cv_data['profile_badges'] as $index => $badge) {
             $post_data = array(
                 'post_title' => sanitize_text_field($badge),
                 'post_type' => 'cv_badge',
@@ -445,6 +472,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
             $post_id = wp_insert_post($post_data);
             if ($post_id && function_exists('pll_set_post_language')) {
                 pll_set_post_language($post_id, $lang);
+                $created_ids['badges'][$index] = $post_id;
             }
         }
         $updated[] = 'Profile Badges (' . count($cv_data['profile_badges']) . ')';
@@ -465,7 +493,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
         
         // Create new experience items
         $menu_order = count($cv_data['experience_items']);
-        foreach ($cv_data['experience_items'] as $item) {
+        foreach ($cv_data['experience_items'] as $index => $item) {
             $post_data = array(
                 'post_title' => sanitize_text_field($item['role'] ?? ''),
                 'post_excerpt' => sanitize_textarea_field($item['summary'] ?? ''),
@@ -475,11 +503,15 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
             );
             $post_id = wp_insert_post($post_data);
             if ($post_id) {
+                if (!empty($item['company'])) {
+                    update_post_meta($post_id, '_cv_experience_company', sanitize_text_field($item['company']));
+                }
                 if (!empty($item['dates'])) {
-                    update_post_meta($post_id, '_cv_experience_dates', sanitize_text_field($item['dates']));
+                    update_post_meta($post_id, '_cv_experience_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
+                    $created_ids['experience'][$index] = $post_id;
                 }
             }
         }
@@ -501,7 +533,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
         
         // Create new projects
         $menu_order = count($cv_data['projects']);
-        foreach ($cv_data['projects'] as $project) {
+        foreach ($cv_data['projects'] as $index => $project) {
             $post_data = array(
                 'post_title' => sanitize_text_field($project['title'] ?? ''),
                 'post_excerpt' => sanitize_textarea_field($project['description'] ?? ''),
@@ -516,6 +548,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
+                    $created_ids['projects'][$index] = $post_id;
                 }
             }
         }
@@ -537,7 +570,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
         
         // Create new skills
         $menu_order = count($cv_data['skills']);
-        foreach ($cv_data['skills'] as $skill) {
+        foreach ($cv_data['skills'] as $index => $skill) {
             $post_data = array(
                 'post_title' => sanitize_text_field($skill),
                 'post_type' => 'cv_skill',
@@ -547,13 +580,15 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
             $post_id = wp_insert_post($post_data);
             if ($post_id && function_exists('pll_set_post_language')) {
                 pll_set_post_language($post_id, $lang);
+                $created_ids['skills'][$index] = $post_id;
             }
         }
         $updated[] = 'Skills (' . count($cv_data['skills']) . ')';
     }
 
     return array(
-        'updated' => $updated
+        'updated' => $updated,
+        'created_ids' => $created_ids
     );
 }
 
@@ -653,6 +688,11 @@ function cv_pdf_acf_handle_upload() {
     $results = array();
     $results[strtoupper($source_lang)] = $result_source['updated'];
     
+    // Store created post IDs for linking translations
+    $all_created_ids = array(
+        $source_lang => $result_source['created_ids']
+    );
+    
     // Store import results for display
     $import_data = array(
         'source_lang' => strtoupper($source_lang),
@@ -678,6 +718,63 @@ function cv_pdf_acf_handle_upload() {
         $target_page_id = $translations[$target_lang];
         $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data, $target_lang);
         $results[strtoupper($target_lang)] = $result_target['updated'];
+        
+        $all_created_ids[$target_lang] = $result_target['created_ids'];
+    }
+    
+    // Link all language versions in Polylang
+    if (function_exists('pll_save_post_translations')) {
+        // Link badges
+        if (!empty($all_created_ids[$source_lang]['badges'])) {
+            foreach ($all_created_ids[$source_lang]['badges'] as $index => $source_id) {
+                $translation_ids = array($source_lang => $source_id);
+                foreach ($target_langs as $target_lang) {
+                    if (!empty($all_created_ids[$target_lang]['badges'][$index])) {
+                        $translation_ids[$target_lang] = $all_created_ids[$target_lang]['badges'][$index];
+                    }
+                }
+                pll_save_post_translations($translation_ids);
+            }
+        }
+        
+        // Link experience items
+        if (!empty($all_created_ids[$source_lang]['experience'])) {
+            foreach ($all_created_ids[$source_lang]['experience'] as $index => $source_id) {
+                $translation_ids = array($source_lang => $source_id);
+                foreach ($target_langs as $target_lang) {
+                    if (!empty($all_created_ids[$target_lang]['experience'][$index])) {
+                        $translation_ids[$target_lang] = $all_created_ids[$target_lang]['experience'][$index];
+                    }
+                }
+                pll_save_post_translations($translation_ids);
+            }
+        }
+        
+        // Link projects
+        if (!empty($all_created_ids[$source_lang]['projects'])) {
+            foreach ($all_created_ids[$source_lang]['projects'] as $index => $source_id) {
+                $translation_ids = array($source_lang => $source_id);
+                foreach ($target_langs as $target_lang) {
+                    if (!empty($all_created_ids[$target_lang]['projects'][$index])) {
+                        $translation_ids[$target_lang] = $all_created_ids[$target_lang]['projects'][$index];
+                    }
+                }
+                pll_save_post_translations($translation_ids);
+            }
+        }
+        
+        // Link skills
+        if (!empty($all_created_ids[$source_lang]['skills'])) {
+            foreach ($all_created_ids[$source_lang]['skills'] as $index => $source_id) {
+                $translation_ids = array($source_lang => $source_id);
+                foreach ($target_langs as $target_lang) {
+                    if (!empty($all_created_ids[$target_lang]['skills'][$index])) {
+                        $translation_ids[$target_lang] = $all_created_ids[$target_lang]['skills'][$index];
+                    }
+                }
+                pll_save_post_translations($translation_ids);
+            }
+        }
     }
     
     $import_data['results'] = $results;
