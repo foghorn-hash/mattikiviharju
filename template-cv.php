@@ -62,6 +62,10 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					<a class="button secondary" href="<?php echo esc_url($secondary_cta_url); ?>">
 						<?php echo esc_html($secondary_cta_label); ?>
 					</a>
+				<a href="<?php echo esc_url(add_query_arg('cv_export_pdf', '1', home_url('/'))); ?>" class="nav-download" title="<?php echo esc_attr(function_exists('cv_one_pager_t') ? cv_one_pager_t('Download CV as PDF') : 'Download CV as PDF'); ?>">
+					<i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+					<span class="sr-only"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Download PDF') : 'Download PDF'); ?></span>
+					</a>
 				</div>
 			</div>
 			<div class="hero-card">
@@ -203,8 +207,12 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				$courses = get_posts($courses_query);
 				?>
 				<?php foreach ($courses as $course) : ?>
+					<?php $dates = get_post_meta($course->ID, '_cv_course_dates', true); ?>
 					<article class="card">
 						<h3><?php echo esc_html(get_the_title($course)); ?></h3>
+						<?php if (!empty($dates)) : ?>
+							<span><?php echo esc_html($dates); ?></span>
+						<?php endif; ?>
 						<?php if (!empty($course->post_excerpt)) : ?>
 							<p><?php echo esc_html($course->post_excerpt); ?></p>
 						<?php elseif (!empty($course->post_content)) : ?>
@@ -264,7 +272,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 						<?php endif; ?>
 						<?php if (!empty($screenshots) && is_array($screenshots)) : ?>
 							<div class="project-gallery js-project-gallery" aria-label="Project screenshots">
-								<?php foreach ($screenshots as $shot) : ?>
+								<?php $i = 0; foreach ($screenshots as $shot) : ?>
 									<?php
 									$thumb = '';
 									$full = '';
@@ -296,9 +304,10 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 									if (empty($thumb) || empty($full)) {
 										continue;
 									}
+									$i++;
 									?>
 									<button type="button" class="project-shot" data-full="<?php echo esc_url($full); ?>" aria-label="Open screenshot: <?php echo esc_attr($alt); ?>">
-										<img src="<?php echo esc_url($thumb); ?>" alt="<?php echo esc_attr($alt); ?>" loading="lazy" />
+										<img src="<?php echo esc_url($thumb); ?>" alt="<?php echo esc_html("$i"); ?>" loading="lazy" />
 									</button>
 								<?php endforeach; ?>
 							</div>
@@ -350,10 +359,10 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				<?php if (!empty($contact_business_id) || !empty($contact_vat_id)) : ?>
 					<div class="contact-meta">
 						<?php if (!empty($contact_business_id)) : ?>
-							<p><strong>Y-tunnus:</strong> <?php echo esc_html($contact_business_id); ?></p>
-						<?php endif; ?>
-						<?php if (!empty($contact_vat_id)) : ?>
-							<p><strong>ALV-rek. nro:</strong> <?php echo esc_html($contact_vat_id); ?></p>
+						<p><strong><?php echo esc_html(cv_one_pager_t('Y-tunnus:')); ?></strong> <?php echo esc_html($contact_business_id); ?></p>
+					<?php endif; ?>
+					<?php if (!empty($contact_vat_id)) : ?>
+						<p><strong><?php echo esc_html(cv_one_pager_t('ALV-rek. nro:')); ?></strong> <?php echo esc_html($contact_vat_id); ?></p>
 						<?php endif; ?>
 					</div>
 				<?php endif; ?>

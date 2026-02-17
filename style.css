@@ -100,6 +100,47 @@ img {
 }
 
 .nav-links a {
+  position: relative;
+}
+
+.nav-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #0f172a;
+  border-radius: 999px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.nav-download:hover {
+  background: var(--accent-2);
+  transform: translateY(-2px);
+}
+
+.nav-download i {
+  font-size: 1.1rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.nav-links a:not(.nav-download) {
+  position: relative;
+}
+
+.nav-links a {
   color: var(--text);
 }
 
@@ -414,8 +455,8 @@ img {
 }
 
 .skill-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -423,8 +464,14 @@ img {
   background: rgba(148, 163, 184, 0.1);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 12px;
-  font-size: 0.9rem;
+  padding: 16px 20px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.skill strong {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .cta {

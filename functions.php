@@ -196,6 +196,8 @@ function cv_one_pager_register_polylang_strings() {
         'LinkedIn',
         'GitHub',
         'YouTube',
+        'Y-tunnus:',
+        'ALV-rek. nro:',
     );
 
     foreach ($strings as $string) {
@@ -255,6 +257,15 @@ function cv_one_pager_add_meta_boxes() {
     );
 
     add_meta_box(
+        'cv_course_meta',
+        'Course Details',
+        'cv_one_pager_render_course_meta_box',
+        'cv_course',
+        'normal',
+        'default'
+    );
+
+    add_meta_box(
         'cv_project_meta',
         'Project Details',
         'cv_one_pager_render_project_meta_box',
@@ -286,6 +297,13 @@ function cv_one_pager_render_education_meta_box($post) {
     $dates = get_post_meta($post->ID, '_cv_education_dates', true);
     echo '<p><label for="cv_education_dates"><strong>Dates</strong></label></p>';
     echo '<input type="text" id="cv_education_dates" name="cv_education_dates" value="' . esc_attr($dates) . '" class="widefat" />';
+}
+
+function cv_one_pager_render_course_meta_box($post) {
+    wp_nonce_field('cv_course_meta_save', 'cv_course_meta_nonce');
+    $dates = get_post_meta($post->ID, '_cv_course_dates', true);
+    echo '<p><label for="cv_course_dates"><strong>Dates</strong></label></p>';
+    echo '<input type="text" id="cv_course_dates" name="cv_course_dates" value="' . esc_attr($dates) . '" class="widefat" />';
 }
 
 function cv_one_pager_render_project_meta_box($post) {
@@ -396,6 +414,11 @@ function cv_one_pager_save_meta_boxes($post_id) {
     if (isset($_POST['cv_education_meta_nonce']) && wp_verify_nonce($_POST['cv_education_meta_nonce'], 'cv_education_meta_save')) {
         if (isset($_POST['cv_education_dates'])) {
             update_post_meta($post_id, '_cv_education_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_education_dates']));
+        }
+    }
+    if (isset($_POST['cv_course_meta_nonce']) && wp_verify_nonce($_POST['cv_course_meta_nonce'], 'cv_course_meta_save')) {
+        if (isset($_POST['cv_course_dates'])) {
+            update_post_meta($post_id, '_cv_course_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_course_dates']));
         }
     }
     if (isset($_POST['cv_project_meta_nonce']) && wp_verify_nonce($_POST['cv_project_meta_nonce'], 'cv_project_meta_save')) {

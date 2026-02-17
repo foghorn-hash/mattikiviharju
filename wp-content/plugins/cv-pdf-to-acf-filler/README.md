@@ -10,6 +10,7 @@ WordPress plugin that extracts CV data from PDF files using OpenAI, translates t
 - Automatically extract structured CV data using OpenAI
 - **Translate to all three languages** (Fi, En, Sv) using OpenAI
 - Populate ACF fields on Home pages in all languages
+- **Export CV as Word document** (.docx) from the frontend
 - **Overwrites existing content** - truncates and replaces all CV data
 - Support for:
   - Profile badges
@@ -40,11 +41,13 @@ WordPress plugin that extracts CV data from PDF files using OpenAI, translates t
    # Navigate to the plugin directory
    cd wp-content/plugins/cv-pdf-to-acf-filler
    
-   # Install dependencies
+   # Install dependencies (includes PDF parser and Word export)
    composer install
    ```
    
-   This will install the `smalot/pdfparser` package which provides the most reliable PDF text extraction.
+   This will install:
+   - `smalot/pdfparser` - for reliable PDF text extraction
+   - `phpoffice/phpword` - for Word document export
    
    **Method B: Using pdftotext command (Alternative)**
    - Ubuntu/Debian: `sudo apt-get install poppler-utils`

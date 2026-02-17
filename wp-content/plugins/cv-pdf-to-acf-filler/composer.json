@@ -2,7 +2,7 @@
     "name": "mattikiviharju/cv-pdf-to-acf-filler",
     "description": "WordPress plugin to extract CV data from PDF files using OpenAI and populate ACF fields on home pages in Fi/En/Sv",
     "type": "wordpress-plugin",
-    "version": "2.0.0",
+    "version": "2.4.0",
     "require": {
         "php": ">=7.4",
         "smalot/pdfparser": "^2.12"

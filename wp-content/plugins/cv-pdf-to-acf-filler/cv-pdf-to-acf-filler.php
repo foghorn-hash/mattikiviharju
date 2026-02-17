@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CV PDF to ACF Filler
- * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, and populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill) with language-specific content
- * Version: 2.2.0
+ * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill) with language-specific content, and export CV as Word document
+ * Version: 2.3.0
  * Author: GitHub Copilot
  * Requires Plugins: advanced-custom-fields, polylang
  */
@@ -349,17 +349,17 @@ function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
   ],
   "courses_title": "Additional training" or "Courses" or appropriate section title,
   "courses": [
-    {"title": "Course Name", "provider": "Course Provider", "description": "Course details"}
+    {"title": "Course Name", "provider": "Course Provider", "dates": "Year - Year", "description": "Course details"}
   ],
   "projects_title": "Projects" or appropriate section title,
   "projects": [
     {"title": "Project Name", "meta": "Technology/Role", "description": "Project description"}
   ],
   "skills_title": "Skills" or appropriate section title,
-  "skills": ["Skill1", "Skill2", ...]
+  "skills": ["Category 1: skill1, skill2, skill3, ...", "Category 2: skill4, skill5, skill6, ..."]
 }
 
-Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title. For education, extract the institution separately from the degree/program name.';
+Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title. For education, extract the institution separately from the degree/program name. For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas. Each category should be a separate array item.';
 
     $payload = array(
         'model' => $model,
@@ -599,6 +599,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
         foreach ($cv_data['courses'] as $index => $course) {
             $title = !empty($course['title']) ? $course['title'] : '';
             $provider = !empty($course['provider']) ? $course['provider'] : '';
+            $dates = !empty($course['dates']) ? $course['dates'] : '';
             $description = !empty($course['description']) ? $course['description'] : '';
             
             $post_data = array(
@@ -610,8 +611,13 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
                 'menu_order' => $menu_order--
             );
             $post_id = wp_insert_post($post_data);
-            if ($post_id && function_exists('pll_set_post_language')) {
-                pll_set_post_language($post_id, $lang);
+            if ($post_id) {
+                if (!empty($dates)) {
+                    update_post_meta($post_id, '_cv_course_dates', sanitize_text_field($dates));
+                }
+                if (function_exists('pll_set_post_language')) {
+                    pll_set_post_language($post_id, $lang);
+                }
                 $created_ids['courses'][$index] = $post_id;
             }
         }
@@ -656,7 +662,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
     }
 
     // Skills
-    if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
+    if (!empty($cv_data['skills'])) {
         // Delete existing skills for this language
         $existing_skills = get_posts(array(
             'post_type' => 'cv_skill',
@@ -668,22 +674,38 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
             wp_delete_post($skill->ID, true);
         }
         
-        // Create new skills
-        $menu_order = count($cv_data['skills']);
-        foreach ($cv_data['skills'] as $index => $skill) {
+        // Create skill posts - one per category line
+        if (is_array($cv_data['skills'])) {
+            $menu_order = count($cv_data['skills']);
+            foreach ($cv_data['skills'] as $index => $skill_line) {
+                $post_data = array(
+                    'post_title' => sanitize_text_field($skill_line),
+                    'post_type' => 'cv_skill',
+                    'post_status' => 'publish',
+                    'menu_order' => $menu_order--
+                );
+                $post_id = wp_insert_post($post_data);
+                if ($post_id && function_exists('pll_set_post_language')) {
+                    pll_set_post_language($post_id, $lang);
+                    $created_ids['skills'][$index] = $post_id;
+                }
+            }
+            $updated[] = 'Skills (' . count($cv_data['skills']) . ' categories)';
+        } elseif (is_string($cv_data['skills'])) {
+            // Fallback: single string (backward compatibility)
             $post_data = array(
-                'post_title' => sanitize_text_field($skill),
+                'post_title' => sanitize_text_field($cv_data['skills']),
                 'post_type' => 'cv_skill',
                 'post_status' => 'publish',
-                'menu_order' => $menu_order--
+                'menu_order' => 1
             );
             $post_id = wp_insert_post($post_data);
             if ($post_id && function_exists('pll_set_post_language')) {
                 pll_set_post_language($post_id, $lang);
-                $created_ids['skills'][$index] = $post_id;
+                $created_ids['skills'][0] = $post_id;
             }
+            $updated[] = 'Skills (1 line)';
         }
-        $updated[] = 'Skills (' . count($cv_data['skills']) . ')';
     }
 
     return array(
@@ -1006,6 +1028,9 @@ function cv_pdf_acf_display_cv_content($cv_data) {
                 if (!empty($course['provider'])) {
                     echo ' - ' . esc_html($course['provider']);
                 }
+                if (!empty($course['dates'])) {
+                    echo ' <em>(' . esc_html($course['dates']) . ')</em>';
+                }
                 if (!empty($course['description'])) {
                     echo '<br>' . esc_html($course['description']);
                 }
@@ -1037,12 +1062,18 @@ function cv_pdf_acf_display_cv_content($cv_data) {
     // Skills
     if (!empty($cv_data['skills_title']) || !empty($cv_data['skills'])) {
         echo '<h4>' . esc_html($cv_data['skills_title'] ?? 'Skills') . '</h4>';
-        if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
-            echo '<ul style="column-count: 2;">';
-            foreach ($cv_data['skills'] as $skill) {
-                echo '<li>' . esc_html($skill) . '</li>';
+        if (!empty($cv_data['skills'])) {
+            if (is_array($cv_data['skills'])) {
+                // Array format - each item is a category line
+                echo '<ul>';
+                foreach ($cv_data['skills'] as $skill_line) {
+                    echo '<li>' . esc_html($skill_line) . '</li>';
+                }
+                echo '</ul>';
+            } elseif (is_string($cv_data['skills'])) {
+                // Single line format (backward compatibility)
+                echo '<p>' . esc_html($cv_data['skills']) . '</p>';
             }
-            echo '</ul>';
         }
     }
 }
@@ -1058,5 +1089,447 @@ function cv_pdf_acf_redirect_with_message($message, $type = 'success') {
         'cv_pdf_acf_message' => rawurlencode($message),
         'cv_pdf_acf_type' => $type
     ), $referer));
+    exit;
+}
+
+// Hook to handle PDF export
+function cv_pdf_acf_handle_pdf_export() {
+    if (!isset($_GET['cv_export_pdf'])) {
+        return;
+    }
+
+    try {
+        // Include FPDF library
+        if (!class_exists('FPDF')) {
+            require_once __DIR__ . '/fpdf.php';
+        }
+        
+        if (!class_exists('FPDF')) {
+            wp_die('FPDF library not found.', 'FPDF Missing', array('response' => 500));
+        }
+
+        if (!function_exists('cv_one_pager_front_page_id')) {
+            wp_die('Front page ID function not found.', 'Function Missing', array('response' => 500));
+        }
+
+        $page_id = cv_one_pager_front_page_id();
+        if (!$page_id) {
+            wp_die('Front page not found. Please ensure you have a front page set.', 'No Front Page', array('response' => 404));
+        }
+
+        $lang = function_exists('pll_current_language') ? pll_current_language() : 'fi';
+        
+        // Collect CV data from ACF and custom posts
+        $cv_data = cv_pdf_acf_collect_cv_data($page_id, $lang);
+        
+        // Generate PDF document
+        $file_path = cv_pdf_acf_generate_pdf_document($cv_data, $lang);
+        
+        if (is_wp_error($file_path)) {
+            wp_die($file_path->get_error_message(), 'Generation Error', array('response' => 500));
+        }
+
+        // Send file for download
+        cv_pdf_acf_download_file($file_path, 'pdf');
+        
+    } catch (Exception $e) {
+        error_log('CV PDF Export Error: ' . $e->getMessage());
+        wp_die('Error generating PDF document: ' . esc_html($e->getMessage()), 'Export Error', array('response' => 500));
+    }
+}
+add_action('template_redirect', 'cv_pdf_acf_handle_pdf_export');
+
+// Collect CV data from ACF fields and custom post types
+function cv_pdf_acf_collect_cv_data($page_id, $lang) {
+    $data = array(
+        'name' => get_bloginfo('name'),
+        'hero_headline' => function_exists('get_field') ? get_field('cv_hero_headline', $page_id) : '',
+        'hero_intro' => function_exists('get_field') ? get_field('cv_hero_intro', $page_id) : '',
+        'profile_title' => function_exists('get_field') ? get_field('cv_profile_title', $page_id) : '',
+        'profile_body' => function_exists('get_field') ? get_field('cv_profile_body', $page_id) : '',
+        'contact_email' => function_exists('get_field') ? get_field('cv_contact_email', $page_id) : '',
+        'contact_phone' => function_exists('get_field') ? get_field('cv_contact_phone', $page_id) : '',
+        'contact_linkedin' => function_exists('get_field') ? get_field('cv_contact_linkedin', $page_id) : '',
+        'badges' => array(),
+        'experience' => array(),
+        'education' => array(),
+        'courses' => array(),
+        'projects' => array(),
+        'skills' => array(),
+    );
+
+    // Collect badges
+    $badges_query = array(
+        'post_type' => 'cv_badge',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $badges = get_posts($badges_query);
+    foreach ($badges as $badge) {
+        $data['badges'][] = get_the_title($badge);
+    }
+
+    // Collect experience
+    $experience_query = array(
+        'post_type' => 'cv_experience',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $experience_items = get_posts($experience_query);
+    foreach ($experience_items as $item) {
+        $data['experience'][] = array(
+            'company' => get_post_meta($item->ID, '_cv_experience_company', true),
+            'role' => get_the_title($item),
+            'dates' => get_post_meta($item->ID, '_cv_experience_dates', true),
+            'summary' => $item->post_excerpt ?: wp_trim_words($item->post_content, 50)
+        );
+    }
+
+    // Collect education
+    $education_query = array(
+        'post_type' => 'cv_education',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $education_items = get_posts($education_query);
+    foreach ($education_items as $item) {
+        $data['education'][] = array(
+            'institution' => get_the_title($item),
+            'dates' => get_post_meta($item->ID, '_cv_education_dates', true),
+            'description' => $item->post_excerpt ?: wp_trim_words($item->post_content, 50)
+        );
+    }
+
+    // Collect courses
+    $courses_query = array(
+        'post_type' => 'cv_course',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $courses_items = get_posts($courses_query);
+    foreach ($courses_items as $item) {
+        $data['courses'][] = array(
+            'title' => get_the_title($item),
+            'provider' => $item->post_excerpt,
+            'dates' => get_post_meta($item->ID, '_cv_course_dates', true),
+            'description' => wp_trim_words($item->post_content, 50)
+        );
+    }
+
+    // Collect projects
+    $projects_query = array(
+        'post_type' => 'cv_project',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $projects_items = get_posts($projects_query);
+    foreach ($projects_items as $item) {
+        $data['projects'][] = array(
+            'title' => get_the_title($item),
+            'meta' => get_post_meta($item->ID, '_cv_project_meta', true),
+            'description' => $item->post_excerpt ?: wp_trim_words($item->post_content, 50)
+        );
+    }
+
+    // Collect skills
+    $skills_query = array(
+        'post_type' => 'cv_skill',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $skills_items = get_posts($skills_query);
+    foreach ($skills_items as $item) {
+        $data['skills'][] = get_the_title($item);
+    }
+
+    return $data;
+}
+
+// Generate PDF document using FPDF
+function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
+    try {
+        // Helper function to clean text for PDF
+        $clean_text = function($text) {
+            if (empty($text)) return '';
+            $text = wp_strip_all_tags($text);
+            $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+            // Convert UTF-8 to ISO-8859-1 for FPDF
+            $text = iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $text);
+            return trim($text);
+        };
+        
+        $pdf = new FPDF();
+        $pdf->AddPage();
+        $pdf->SetFont('Arial', '', 10);
+        
+        // Set metadata
+        $pdf->SetAuthor($clean_text($cv_data['name']));
+        $pdf->SetTitle('CV - ' . $clean_text($cv_data['name']));
+        $pdf->SetCreator('CV PDF Exporter');
+        
+        // Header - Name and title
+        if (!empty($cv_data['hero_headline']) || !empty($cv_data['name'])) {
+            $pdf->SetFont('Arial', 'B', 20);
+            $pdf->SetTextColor(31, 73, 125); // Blue color
+            $pdf->MultiCell(0, 12, $clean_text(!empty($cv_data['hero_headline']) ? $cv_data['hero_headline'] : $cv_data['name']), 0, 'L');
+            $pdf->Ln(2);
+        }
+        
+        if (!empty($cv_data['hero_intro'])) {
+            $pdf->SetFont('Arial', 'I', 11);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->MultiCell(0, 6, $clean_text($cv_data['hero_intro']), 0, 'L');
+            $pdf->Ln(5);
+        }
+        
+        // Contact information
+        if (!empty($cv_data['contact_email']) || !empty($cv_data['contact_phone'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->Cell(0, 8, 'Contact', 0, 1);
+            $pdf->Ln(1);
+            
+            $pdf->SetFont('Arial', '', 10);
+            if (!empty($cv_data['contact_email'])) {
+                $pdf->Cell(0, 5, 'Email: ' . $clean_text($cv_data['contact_email']), 0, 1);
+            }
+            if (!empty($cv_data['contact_phone'])) {
+                $pdf->Cell(0, 5, 'Phone: ' . $clean_text($cv_data['contact_phone']), 0, 1);
+            }
+            if (!empty($cv_data['contact_linkedin'])) {
+                $pdf->Cell(0, 5, 'LinkedIn: ' . $clean_text($cv_data['contact_linkedin']), 0, 1);
+            }
+            $pdf->Ln(3);
+        }
+        
+        // Profile
+        if (!empty($cv_data['profile_title']) || !empty($cv_data['profile_body'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, $clean_text(!empty($cv_data['profile_title']) ? $cv_data['profile_title'] : 'Profile'), 0, 1);
+            $pdf->Ln(1);
+            
+            if (!empty($cv_data['profile_body'])) {
+                $pdf->SetFont('Arial', '', 10);
+                $pdf->MultiCell(0, 5, $clean_text($cv_data['profile_body']), 0, 'L');
+                $pdf->Ln(3);
+            }
+        }
+        
+        // Badges
+        if (!empty($cv_data['badges']) && is_array($cv_data['badges'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, 'Certifications & Badges', 0, 1);
+            $pdf->Ln(1);
+            
+            $pdf->SetFont('Arial', '', 10);
+            foreach ($cv_data['badges'] as $badge) {
+                if (!empty($badge)) {
+                    $pdf->Cell(10, 5, chr(149), 0, 0); // Bullet point
+                    $pdf->MultiCell(0, 5, $clean_text($badge), 0, 'L');
+                }
+            }
+            $pdf->Ln(3);
+        }
+        
+        // Experience
+        if (!empty($cv_data['experience']) && is_array($cv_data['experience'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, 'Experience', 0, 1);
+            $pdf->Ln(1);
+            
+            foreach ($cv_data['experience'] as $exp) {
+                if (!empty($exp['company'])) {
+                    $pdf->SetFont('Arial', 'B', 11);
+                    $pdf->Cell(0, 6, $clean_text($exp['company']), 0, 1);
+                }
+                if (!empty($exp['role'])) {
+                    $pdf->SetFont('Arial', 'B', 10);
+                    $pdf->Cell(0, 5, $clean_text($exp['role']), 0, 1);
+                }
+                if (!empty($exp['dates'])) {
+                    $pdf->SetFont('Arial', 'I', 9);
+                    $pdf->Cell(0, 5, $clean_text($exp['dates']), 0, 1);
+                }
+                if (!empty($exp['summary'])) {
+                    $pdf->SetFont('Arial', '', 10);
+                    $pdf->MultiCell(0, 5, $clean_text($exp['summary']), 0, 'L');
+                }
+                $pdf->Ln(2);
+            }
+            $pdf->Ln(1);
+        }
+        
+        // Education
+        if (!empty($cv_data['education']) && is_array($cv_data['education'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, 'Education', 0, 1);
+            $pdf->Ln(1);
+            
+            foreach ($cv_data['education'] as $edu) {
+                if (!empty($edu['institution'])) {
+                    $pdf->SetFont('Arial', 'B', 11);
+                    $pdf->Cell(0, 6, $clean_text($edu['institution']), 0, 1);
+                }
+                if (!empty($edu['dates'])) {
+                    $pdf->SetFont('Arial', 'I', 9);
+                    $pdf->Cell(0, 5, $clean_text($edu['dates']), 0, 1);
+                }
+                if (!empty($edu['description'])) {
+                    $pdf->SetFont('Arial', '', 10);
+                    $pdf->MultiCell(0, 5, $clean_text($edu['description']), 0, 'L');
+                }
+                $pdf->Ln(2);
+            }
+            $pdf->Ln(1);
+        }
+        
+        // Courses
+        if (!empty($cv_data['courses']) && is_array($cv_data['courses'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, 'Additional Training', 0, 1);
+            $pdf->Ln(1);
+            
+            $pdf->SetFont('Arial', '', 10);
+            foreach ($cv_data['courses'] as $course) {
+                $course_line = $clean_text($course['title']);
+                if (!empty($course['provider'])) {
+                    $course_line .= ' - ' . $clean_text($course['provider']);
+                }
+                if (!empty($course['dates'])) {
+                    $course_line .= ' (' . $clean_text($course['dates']) . ')';
+                }
+                if (!empty($course_line)) {
+                    $pdf->Cell(10, 5, chr(149), 0, 0); // Bullet point
+                    $pdf->MultiCell(0, 5, $course_line, 0, 'L');
+                }
+                if (!empty($course['description'])) {
+                    $pdf->SetFont('Arial', '', 9);
+                    $pdf->SetX(20);
+                    $pdf->MultiCell(0, 4, $clean_text($course['description']), 0, 'L');
+                    $pdf->SetFont('Arial', '', 10);
+                }
+            }
+            $pdf->Ln(3);
+        }
+        
+        // Projects
+        if (!empty($cv_data['projects']) && is_array($cv_data['projects'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, 'Projects', 0, 1);
+            $pdf->Ln(1);
+            
+            foreach ($cv_data['projects'] as $project) {
+                $project_title = $clean_text($project['title']);
+                if (!empty($project['meta'])) {
+                    $project_title .= ' (' . $clean_text($project['meta']) . ')';
+                }
+                if (!empty($project_title)) {
+                    $pdf->SetFont('Arial', 'B', 10);
+                    $pdf->Cell(0, 6, $project_title, 0, 1);
+                }
+                if (!empty($project['description'])) {
+                    $pdf->SetFont('Arial', '', 10);
+                    $pdf->MultiCell(0, 5, $clean_text($project['description']), 0, 'L');
+                }
+                $pdf->Ln(2);
+            }
+            $pdf->Ln(1);
+        }
+        
+        // Skills
+        if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, 'Skills', 0, 1);
+            $pdf->Ln(1);
+            
+            $pdf->SetFont('Arial', '', 10);
+            foreach ($cv_data['skills'] as $skill_line) {
+                if (!empty($skill_line)) {
+                    $pdf->MultiCell(0, 5, $clean_text($skill_line), 0, 'L');
+                }
+            }
+        }
+        
+        // Save to temporary file
+        $upload_dir = wp_upload_dir();
+        $temp_dir = $upload_dir['basedir'] . '/cv-exports';
+        
+        if (!file_exists($temp_dir)) {
+            wp_mkdir_p($temp_dir);
+        }
+        
+        if (!is_writable($temp_dir)) {
+            return new WP_Error('directory_not_writable', 'Export directory is not writable: ' . $temp_dir);
+        }
+        
+        $filename = 'CV-' . sanitize_file_name($clean_text($cv_data['name'])) . '-' . $lang . '-' . time() . '.pdf';
+        $file_path = $temp_dir . '/' . $filename;
+        
+        $pdf->Output('F', $file_path);
+        
+        if (!file_exists($file_path)) {
+            return new WP_Error('file_not_created', 'Failed to create PDF document');
+        }
+        
+        return $file_path;
+        
+    } catch (Exception $e) {
+        error_log('PDF document generation error: ' . $e->getMessage());
+        return new WP_Error('generation_failed', 'Failed to generate document: ' . $e->getMessage());
+    }
+}
+
+// Download file and clean up
+function cv_pdf_acf_download_file($file_path, $file_type = 'pdf') {
+    if (!file_exists($file_path)) {
+        wp_die('File not found');
+    }
+    
+    $filename = basename($file_path);
+    
+    // Clean any output buffer
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Set content type based on file type
+    $content_type = $file_type === 'pdf' 
+        ? 'application/pdf' 
+        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    
+    // Set headers for download
+    header('Content-Description: File Transfer');
+    header('Content-Type: ' . $content_type);
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Transfer-Encoding: binary');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($file_path));
+    
+    // Output file
+    flush();
+    readfile($file_path);
+    
+    // Clean up temporary file
+    @unlink($file_path);
     exit;
 }
