@@ -15,10 +15,10 @@ add_action('after_setup_theme', 'cv_one_pager_setup');
 function cv_one_pager_register_post_types() {
     register_post_type('cv_experience', array(
         'labels' => array(
-            'name' => 'Experience',
-            'singular_name' => 'Experience',
-            'add_new_item' => 'Add Experience',
-            'edit_item' => 'Edit Experience',
+            'name' => cv_one_pager_t('Experience'),
+            'singular_name' => cv_one_pager_t('Experience'),
+            'add_new_item' => cv_one_pager_t('Add Experience'),
+            'edit_item' => cv_one_pager_t('Edit Experience'),
         ),
         'public' => true,
         'show_in_rest' => true,
@@ -29,10 +29,10 @@ function cv_one_pager_register_post_types() {
 
     register_post_type('cv_project', array(
         'labels' => array(
-            'name' => 'Projects',
-            'singular_name' => 'Project',
-            'add_new_item' => 'Add Project',
-            'edit_item' => 'Edit Project',
+            'name' => cv_one_pager_t('Projects'),
+            'singular_name' => cv_one_pager_t('Project'),
+            'add_new_item' => cv_one_pager_t('Add Project'),
+            'edit_item' => cv_one_pager_t('Edit Project'),
         ),
         'public' => true,
         'show_in_rest' => true,
@@ -43,10 +43,10 @@ function cv_one_pager_register_post_types() {
 
     register_post_type('cv_education', array(
         'labels' => array(
-            'name' => 'Education',
-            'singular_name' => 'Education',
-            'add_new_item' => 'Add Education',
-            'edit_item' => 'Edit Education',
+            'name' => cv_one_pager_t('Education'),
+            'singular_name' => cv_one_pager_t('Education'),
+            'add_new_item' => cv_one_pager_t('Add Education'),
+            'edit_item' => cv_one_pager_t('Edit Education'),
         ),
         'public' => true,
         'show_in_rest' => true,
@@ -57,10 +57,10 @@ function cv_one_pager_register_post_types() {
 
     register_post_type('cv_course', array(
         'labels' => array(
-            'name' => 'Courses',
-            'singular_name' => 'Course',
-            'add_new_item' => 'Add Course',
-            'edit_item' => 'Edit Course',
+            'name' => cv_one_pager_t('Courses'),
+            'singular_name' => cv_one_pager_t('Course'),
+            'add_new_item' => cv_one_pager_t('Add Course'),
+            'edit_item' => cv_one_pager_t('Edit Course'),
         ),
         'public' => true,
         'show_in_rest' => true,
@@ -71,10 +71,10 @@ function cv_one_pager_register_post_types() {
 
     register_post_type('cv_skill', array(
         'labels' => array(
-            'name' => 'Skills',
-            'singular_name' => 'Skill',
-            'add_new_item' => 'Add Skill',
-            'edit_item' => 'Edit Skill',
+            'name' => cv_one_pager_t('Skills'),
+            'singular_name' => cv_one_pager_t('Skill'),
+            'add_new_item' => cv_one_pager_t('Add Skill'),
+            'edit_item' => cv_one_pager_t('Edit Skill'),
         ),
         'public' => true,
         'show_in_rest' => true,
@@ -85,10 +85,10 @@ function cv_one_pager_register_post_types() {
 
     register_post_type('cv_badge', array(
         'labels' => array(
-            'name' => 'Profile Badges',
-            'singular_name' => 'Profile Badge',
-            'add_new_item' => 'Add Profile Badge',
-            'edit_item' => 'Edit Profile Badge',
+            'name' => cv_one_pager_t('Profile Badges'),
+            'singular_name' => cv_one_pager_t('Profile Badge'),
+            'add_new_item' => cv_one_pager_t('Add Profile Badge'),
+            'edit_item' => cv_one_pager_t('Edit Profile Badge'),
         ),
         'public' => true,
         'show_in_rest' => true,
@@ -165,6 +165,22 @@ function cv_one_pager_register_polylang_strings() {
         'Additional training',
         'Projects',
         'Skills',
+        'Profile Badges',
+        'Profile Badge',
+        'Add Profile Badge',
+        'Edit Profile Badge',
+        'Add Experience',
+        'Edit Experience',
+        'Add Project',
+        'Edit Project',
+        'Add Education',
+        'Edit Education',
+        'Courses',
+        'Course',
+        'Add Course',
+        'Edit Course',
+        'Add Skill',
+        'Edit Skill',
         'Contact',
         'Blogi',
         'Blog',
@@ -194,6 +210,8 @@ function cv_one_pager_polylang_post_types($post_types, $is_settings) {
         $post_types['cv_education'] = 'cv_education';
         $post_types['cv_course'] = 'cv_course';
         $post_types['cv_project'] = 'cv_project';
+        $post_types['cv_skill'] = 'cv_skill';
+        $post_types['cv_badge'] = 'cv_badge';
         return $post_types;
     }
 
@@ -201,6 +219,8 @@ function cv_one_pager_polylang_post_types($post_types, $is_settings) {
     $post_types[] = 'cv_education';
     $post_types[] = 'cv_course';
     $post_types[] = 'cv_project';
+    $post_types[] = 'cv_skill';
+    $post_types[] = 'cv_badge';
     return array_unique($post_types);
 }
 add_filter('pll_get_post_types', 'cv_one_pager_polylang_post_types', 10, 2);
@@ -339,18 +359,43 @@ function cv_one_pager_admin_assets($hook) {
 }
 add_action('admin_enqueue_scripts', 'cv_one_pager_admin_assets');
 
+function cv_one_pager_sanitize_preserve_dashes($text) {
+    if (empty($text)) {
+        return '';
+    }
+    
+    // Normalize various dash/hyphen characters to standard ASCII hyphen (-)
+    // en dash, em dash, minus sign
+    $text = str_replace(
+        ["–", "—", "−"],
+        "-",
+        $text
+    );
+    
+    // Manual sanitization that preserves dashes
+    $text = wp_check_invalid_utf8($text);
+    $text = wp_strip_all_tags($text);
+    // Remove line breaks but preserve dashes and normal whitespace
+    $text = preg_replace('/[\r\n\t]+/', ' ', $text);
+    // Normalize multiple spaces to single space
+    $text = preg_replace('/\s{2,}/', ' ', $text);
+    $text = trim($text);
+    
+    return $text;
+}
+
 function cv_one_pager_save_meta_boxes($post_id) {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
         return;
     }
     if (isset($_POST['cv_experience_meta_nonce']) && wp_verify_nonce($_POST['cv_experience_meta_nonce'], 'cv_experience_meta_save')) {
         if (isset($_POST['cv_experience_dates'])) {
-            update_post_meta($post_id, '_cv_experience_dates', sanitize_text_field($_POST['cv_experience_dates']));
+            update_post_meta($post_id, '_cv_experience_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_experience_dates']));
         }
     }
     if (isset($_POST['cv_education_meta_nonce']) && wp_verify_nonce($_POST['cv_education_meta_nonce'], 'cv_education_meta_save')) {
         if (isset($_POST['cv_education_dates'])) {
-            update_post_meta($post_id, '_cv_education_dates', sanitize_text_field($_POST['cv_education_dates']));
+            update_post_meta($post_id, '_cv_education_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_education_dates']));
         }
     }
     if (isset($_POST['cv_project_meta_nonce']) && wp_verify_nonce($_POST['cv_project_meta_nonce'], 'cv_project_meta_save')) {

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CV PDF to ACF Filler
- * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, and populate custom post types (cv_badge, cv_experience, cv_project, cv_skill) with language-specific content
- * Version: 2.1.0
+ * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, and populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill) with language-specific content
+ * Version: 2.2.0
  * Author: GitHub Copilot
  * Requires Plugins: advanced-custom-fields, polylang
  */
@@ -130,7 +130,7 @@ function cv_pdf_acf_render_settings_page() {
         <?php if (!$dependencies_ok) : ?>
             <div class="notice notice-warning"><p><strong>Warning:</strong> Please resolve the errors above before uploading a PDF.</p></div>
         <?php else : ?>
-        <p>Upload a PDF CV file to extract data and create language-specific custom posts (cv_badge, cv_experience, cv_project, cv_skill). <strong>Existing posts will be deleted and replaced.</strong></p>
+        <p>Upload a PDF CV file to extract data and create language-specific custom posts (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill). <strong>Existing posts will be deleted and replaced.</strong></p>
         <?php
         // Check for Polylang and get home page translations
         $front_page_id = get_option('page_on_front');
@@ -244,20 +244,25 @@ function cv_pdf_acf_sanitize_preserve_dashes($text) {
     if (empty($text)) {
         return '';
     }
-    // Normalize various dash/hyphen characters to standard ASCII hyphen
-    // This includes en-dash (–), em-dash (—), minus sign (−), and figure dash
-    $dashes = array(
-        "\xE2\x80\x93", // En dash (UTF-8)
-        "\xE2\x80\x94", // Em dash (UTF-8)
-        "\xE2\x80\x92", // Figure dash (UTF-8)
-        "\xE2\x88\x92", // Minus sign (UTF-8)
-        '–',            // En dash (direct)
-        '—',            // Em dash (direct)
-        '−',            // Minus sign (direct)
+    
+    // Normalize various dash/hyphen characters to standard ASCII hyphen (-)
+    // en dash, em dash, minus sign
+    $text = str_replace(
+        ["–", "—", "−"],
+        "-",
+        $text
     );
-    $text = str_replace($dashes, '-', $text);
-    // Use standard WordPress sanitization
-    return sanitize_text_field($text);
+    
+    // Manual sanitization that preserves dashes
+    $text = wp_check_invalid_utf8($text);
+    $text = wp_strip_all_tags($text);
+    // Remove line breaks but preserve dashes and normal whitespace
+    $text = preg_replace('/[\r\n\t]+/', ' ', $text);
+    // Normalize multiple spaces to single space
+    $text = preg_replace('/\s{2,}/', ' ', $text);
+    $text = trim($text);
+    
+    return $text;
 }
 
 // Parse JSON response from OpenAI
@@ -338,6 +343,14 @@ function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
   "experience_items": [
     {"company": "Company Name", "role": "Job Title", "dates": "Year - Year", "summary": "Job description and achievements"}
   ],
+  "education_title": "Education" or appropriate section title,
+  "education_items": [
+    {"institution": "School/University Name", "degree": "Degree/Certificate Name", "dates": "Year - Year", "description": "Details or achievements"}
+  ],
+  "courses_title": "Additional training" or "Courses" or appropriate section title,
+  "courses": [
+    {"title": "Course Name", "provider": "Course Provider", "description": "Course details"}
+  ],
   "projects_title": "Projects" or appropriate section title,
   "projects": [
     {"title": "Project Name", "meta": "Technology/Role", "description": "Project description"}
@@ -346,7 +359,7 @@ function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
   "skills": ["Skill1", "Skill2", ...]
 }
 
-Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title.';
+Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title. For education, extract the institution separately from the degree/program name.';
 
     $payload = array(
         'model' => $model,
@@ -425,6 +438,8 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
     $created_ids = array(
         'badges' => array(),
         'experience' => array(),
+        'education' => array(),
+        'courses' => array(),
         'projects' => array(),
         'skills' => array()
     );
@@ -438,6 +453,16 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
     if (!empty($cv_data['projects_title'])) {
         update_field('cv_projects_title', sanitize_text_field($cv_data['projects_title']), $page_id);
         $updated[] = 'Projects Title';
+    }
+
+    if (!empty($cv_data['education_title'])) {
+        update_field('cv_education_title', sanitize_text_field($cv_data['education_title']), $page_id);
+        $updated[] = 'Education Title';
+    }
+
+    if (!empty($cv_data['courses_title'])) {
+        update_field('cv_courses_title', sanitize_text_field($cv_data['courses_title']), $page_id);
+        $updated[] = 'Courses Title';
     }
 
     if (!empty($cv_data['skills_title'])) {
@@ -516,6 +541,81 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
             }
         }
         $updated[] = 'Experience Items (' . count($cv_data['experience_items']) . ')';
+    }
+
+    // Education Items
+    if (!empty($cv_data['education_items']) && is_array($cv_data['education_items'])) {
+        // Delete existing education for this language
+        $existing_education = get_posts(array(
+            'post_type' => 'cv_education',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_education as $edu) {
+            wp_delete_post($edu->ID, true);
+        }
+        
+        // Create new education items
+        $menu_order = count($cv_data['education_items']);
+        foreach ($cv_data['education_items'] as $index => $item) {
+            $post_data = array(
+                'post_title' => sanitize_text_field($item['degree'] ?? ''),
+                'post_excerpt' => sanitize_text_field($item['institution'] ?? ''),
+                'post_content' => sanitize_textarea_field($item['description'] ?? ''),
+                'post_type' => 'cv_education',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id) {
+                if (!empty($item['dates'])) {
+                    update_post_meta($post_id, '_cv_education_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
+                }
+                if (function_exists('pll_set_post_language')) {
+                    pll_set_post_language($post_id, $lang);
+                    $created_ids['education'][$index] = $post_id;
+                }
+            }
+        }
+        $updated[] = 'Education Items (' . count($cv_data['education_items']) . ')';
+    }
+
+    // Courses
+    if (!empty($cv_data['courses']) && is_array($cv_data['courses'])) {
+        // Delete existing courses for this language
+        $existing_courses = get_posts(array(
+            'post_type' => 'cv_course',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_courses as $course) {
+            wp_delete_post($course->ID, true);
+        }
+        
+        // Create new courses
+        $menu_order = count($cv_data['courses']);
+        foreach ($cv_data['courses'] as $index => $course) {
+            $title = !empty($course['title']) ? $course['title'] : '';
+            $provider = !empty($course['provider']) ? $course['provider'] : '';
+            $description = !empty($course['description']) ? $course['description'] : '';
+            
+            $post_data = array(
+                'post_title' => sanitize_text_field($title),
+                'post_excerpt' => sanitize_text_field($provider),
+                'post_content' => sanitize_textarea_field($description),
+                'post_type' => 'cv_course',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id && function_exists('pll_set_post_language')) {
+                pll_set_post_language($post_id, $lang);
+                $created_ids['courses'][$index] = $post_id;
+            }
+        }
+        $updated[] = 'Courses (' . count($cv_data['courses']) . ')';
     }
 
     // Projects
@@ -750,6 +850,32 @@ function cv_pdf_acf_handle_upload() {
             }
         }
         
+        // Link education items
+        if (!empty($all_created_ids[$source_lang]['education'])) {
+            foreach ($all_created_ids[$source_lang]['education'] as $index => $source_id) {
+                $translation_ids = array($source_lang => $source_id);
+                foreach ($target_langs as $target_lang) {
+                    if (!empty($all_created_ids[$target_lang]['education'][$index])) {
+                        $translation_ids[$target_lang] = $all_created_ids[$target_lang]['education'][$index];
+                    }
+                }
+                pll_save_post_translations($translation_ids);
+            }
+        }
+        
+        // Link courses
+        if (!empty($all_created_ids[$source_lang]['courses'])) {
+            foreach ($all_created_ids[$source_lang]['courses'] as $index => $source_id) {
+                $translation_ids = array($source_lang => $source_id);
+                foreach ($target_langs as $target_lang) {
+                    if (!empty($all_created_ids[$target_lang]['courses'][$index])) {
+                        $translation_ids[$target_lang] = $all_created_ids[$target_lang]['courses'][$index];
+                    }
+                }
+                pll_save_post_translations($translation_ids);
+            }
+        }
+        
         // Link projects
         if (!empty($all_created_ids[$source_lang]['projects'])) {
             foreach ($all_created_ids[$source_lang]['projects'] as $index => $source_id) {
@@ -833,11 +959,55 @@ function cv_pdf_acf_display_cv_content($cv_data) {
             echo '<ul>';
             foreach ($cv_data['experience_items'] as $item) {
                 echo '<li><strong>' . esc_html($item['role'] ?? '') . '</strong>';
+                if (!empty($item['company'])) {
+                    echo ' at ' . esc_html($item['company']);
+                }
                 if (!empty($item['dates'])) {
                     echo ' <em>(' . esc_html($item['dates']) . ')</em>';
                 }
                 if (!empty($item['summary'])) {
                     echo '<br>' . esc_html($item['summary']);
+                }
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+    
+    // Education
+    if (!empty($cv_data['education_title']) || !empty($cv_data['education_items'])) {
+        echo '<h4>' . esc_html($cv_data['education_title'] ?? 'Education') . '</h4>';
+        if (!empty($cv_data['education_items']) && is_array($cv_data['education_items'])) {
+            echo '<ul>';
+            foreach ($cv_data['education_items'] as $item) {
+                echo '<li><strong>' . esc_html($item['degree'] ?? '') . '</strong>';
+                if (!empty($item['institution'])) {
+                    echo ' - ' . esc_html($item['institution']);
+                }
+                if (!empty($item['dates'])) {
+                    echo ' <em>(' . esc_html($item['dates']) . ')</em>';
+                }
+                if (!empty($item['description'])) {
+                    echo '<br>' . esc_html($item['description']);
+                }
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+    }
+    
+    // Courses
+    if (!empty($cv_data['courses_title']) || !empty($cv_data['courses'])) {
+        echo '<h4>' . esc_html($cv_data['courses_title'] ?? 'Courses') . '</h4>';
+        if (!empty($cv_data['courses']) && is_array($cv_data['courses'])) {
+            echo '<ul>';
+            foreach ($cv_data['courses'] as $course) {
+                echo '<li><strong>' . esc_html($course['title'] ?? '') . '</strong>';
+                if (!empty($course['provider'])) {
+                    echo ' - ' . esc_html($course['provider']);
+                }
+                if (!empty($course['description'])) {
+                    echo '<br>' . esc_html($course['description']);
                 }
                 echo '</li>';
             }

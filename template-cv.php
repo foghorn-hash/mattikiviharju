@@ -130,10 +130,10 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					$dates = get_post_meta($item->ID, '_cv_experience_dates', true); 
 					?>
 					<div class="card timeline-item">
-						<h3><?php echo esc_html(get_the_title($item)); ?></h3>
 						<?php if (!empty($company)) : ?>
-							<strong><?php echo esc_html($company); ?></strong>
+							<h3><?php echo esc_html($company); ?></h3>
 						<?php endif; ?>
+						<strong><?php echo esc_html(get_the_title($item)); ?></strong>
 						<?php if (!empty($dates)) : ?>
 							<span><?php echo esc_html($dates); ?></span>
 						<?php endif; ?>
