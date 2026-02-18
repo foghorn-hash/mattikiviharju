@@ -364,6 +364,8 @@ function cv_one_pager_render_project_meta_box($post) {
 function cv_one_pager_render_project_screenshots_meta_box($post) {
     wp_nonce_field('cv_project_screenshots_save', 'cv_project_screenshots_nonce');
     $value = get_post_meta($post->ID, '_cv_project_screenshots', true);
+    $saved_alts = get_post_meta($post->ID, '_cv_project_screenshot_alts', true);
+    $saved_alts = is_array($saved_alts) ? $saved_alts : array();
     $ids = array();
 
     if (is_array($value)) {
@@ -380,14 +382,27 @@ function cv_one_pager_render_project_screenshots_meta_box($post) {
         if (!$thumb) {
             continue;
         }
-        $alt = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+        $default_alt = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+        $alt = isset($saved_alts[$attachment_id]) ? $saved_alts[$attachment_id] : $default_alt;
+        $full = wp_get_attachment_image_url($attachment_id, 'large');
+        if (!$full) {
+            $full = wp_get_attachment_image_url($attachment_id, 'full');
+        }
+        if (!$full) {
+            $full = $thumb;
+        }
         echo '<div class="cv-project-screenshot" data-id="' . esc_attr($attachment_id) . '">';
-        echo '<img src="' . esc_url($thumb) . '" alt="' . esc_attr($alt) . '" />';
+        echo '<img src="' . esc_url($thumb) . '" data-full="' . esc_url($full) . '" alt="' . esc_attr($alt) . '" />';
+        echo '<input type="text" class="widefat cv-project-screenshot-alt" name="cv_project_screenshot_alts[' . esc_attr($attachment_id) . ']" value="' . esc_attr($alt) . '" placeholder="Image alt text" />';
         echo '<button type="button" class="button-link cv-project-screenshot-remove">Remove</button>';
         echo '</div>';
     }
     echo '</div>';
-    echo '<style>.cv-project-screenshots-list{display:flex;flex-wrap:wrap;gap:12px}.cv-project-screenshot{display:flex;flex-direction:column;align-items:flex-start;gap:6px}.cv-project-screenshot img{width:120px;height:auto;border:1px solid #ccd0d4;border-radius:4px}</style>';
+    echo '<div id="cv-project-preview-modal" class="cv-project-preview-modal" aria-hidden="true">';
+    echo '<button type="button" class="cv-project-preview-close" aria-label="Close preview">&times;</button>';
+    echo '<img src="" alt="" class="cv-project-preview-image" />';
+    echo '</div>';
+    echo '<style>.cv-project-screenshots-list{display:flex;flex-wrap:wrap;gap:12px}.cv-project-screenshot{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:180px}.cv-project-screenshot img{width:120px;height:auto;border:1px solid #ccd0d4;border-radius:4px;cursor:zoom-in}.cv-project-screenshot-alt{max-width:220px}.cv-project-preview-modal{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:100000}.cv-project-preview-modal.is-visible{display:flex}.cv-project-preview-image{max-width:min(92vw,1400px);max-height:88vh;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.5)}.cv-project-preview-close{position:absolute;top:16px;right:20px;font-size:34px;line-height:1;border:0;background:transparent;color:#fff;cursor:pointer}</style>';
 }
 
 function cv_one_pager_admin_assets($hook) {
@@ -509,6 +524,17 @@ function cv_one_pager_save_meta_boxes($post_id) {
             $raw_ids = sanitize_text_field($_POST['cv_project_screenshots']);
             $ids = array_filter(array_map('absint', explode(',', $raw_ids)));
             update_post_meta($post_id, '_cv_project_screenshots', $ids);
+
+            $alts = array();
+            if (isset($_POST['cv_project_screenshot_alts']) && is_array($_POST['cv_project_screenshot_alts'])) {
+                foreach ($_POST['cv_project_screenshot_alts'] as $attachment_id => $alt_text) {
+                    $attachment_id = absint($attachment_id);
+                    if ($attachment_id > 0 && in_array($attachment_id, $ids, true)) {
+                        $alts[$attachment_id] = sanitize_text_field($alt_text);
+                    }
+                }
+            }
+            update_post_meta($post_id, '_cv_project_screenshot_alts', $alts);
         }
     }
 }
@@ -976,3 +1002,23 @@ function cv_one_pager_register_acf_fields() {
     }
 }
 add_action('acf/init', 'cv_one_pager_register_acf_fields');
+
+function cv_one_pager_customize_register($wp_customize) {
+    $wp_customize->add_section('cv_one_pager_contact', array(
+        'title' => __('CV Contact', 'cv-one-pager'),
+        'priority' => 160,
+    ));
+
+    $wp_customize->add_setting('cv_contact_homepage_url', array(
+        'default' => home_url('/'),
+        'sanitize_callback' => 'esc_url_raw',
+        'transport' => 'refresh',
+    ));
+
+    $wp_customize->add_control('cv_contact_homepage_url', array(
+        'label' => __('Homepage URL (PDF Export)', 'cv-one-pager'),
+        'section' => 'cv_one_pager_contact',
+        'type' => 'url',
+    ));
+}
+add_action('customize_register', 'cv_one_pager_customize_register');

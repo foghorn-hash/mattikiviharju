@@ -1145,11 +1145,13 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang) {
         'name' => get_bloginfo('name'),
         'hero_headline' => function_exists('get_field') ? get_field('cv_hero_headline', $page_id) : '',
         'hero_intro' => function_exists('get_field') ? get_field('cv_hero_intro', $page_id) : '',
+        'about_photo' => function_exists('get_field') ? get_field('cv_about_photo', $page_id) : '',
         'profile_title' => function_exists('get_field') ? get_field('cv_profile_title', $page_id) : '',
         'profile_body' => function_exists('get_field') ? get_field('cv_profile_body', $page_id) : '',
         'contact_email' => function_exists('get_field') ? get_field('cv_contact_email', $page_id) : '',
         'contact_phone' => function_exists('get_field') ? get_field('cv_contact_phone', $page_id) : '',
         'contact_linkedin' => function_exists('get_field') ? get_field('cv_contact_linkedin', $page_id) : '',
+        'contact_homepage_url' => get_theme_mod('cv_contact_homepage_url', home_url('/')),
         'badges' => array(),
         'experience' => array(),
         'education' => array(),
@@ -1288,6 +1290,11 @@ function cv_pdf_acf_get_translation($key, $lang) {
             'en' => 'LinkedIn',
             'sv' => 'LinkedIn'
         ),
+        'website' => array(
+            'fi' => 'Kotisivut',
+            'en' => 'Website',
+            'sv' => 'Webbplats'
+        ),
         'profile' => array(
             'fi' => 'Profiili',
             'en' => 'Profile',
@@ -1360,10 +1367,96 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
             $text = iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $text);
             return trim($text);
         };
+
+        $resolve_photo_file = function($photo) {
+            if (empty($photo)) {
+                return '';
+            }
+
+            $find_local_from_url = function($url) {
+                if (empty($url) || !is_string($url)) {
+                    return '';
+                }
+
+                $uploads = wp_upload_dir();
+                if (!empty($uploads['baseurl']) && !empty($uploads['basedir']) && strpos($url, $uploads['baseurl']) === 0) {
+                    $candidate = str_replace($uploads['baseurl'], $uploads['basedir'], $url);
+                    if (file_exists($candidate)) {
+                        return $candidate;
+                    }
+                }
+
+                return '';
+            };
+
+            if (is_array($photo)) {
+                if (!empty($photo['ID'])) {
+                    $candidate = get_attached_file((int) $photo['ID']);
+                    if (!empty($candidate) && file_exists($candidate)) {
+                        return $candidate;
+                    }
+                }
+
+                if (!empty($photo['url'])) {
+                    $candidate = $find_local_from_url($photo['url']);
+                    if (!empty($candidate)) {
+                        return $candidate;
+                    }
+                }
+            }
+
+            if (is_numeric($photo)) {
+                $candidate = get_attached_file((int) $photo);
+                if (!empty($candidate) && file_exists($candidate)) {
+                    return $candidate;
+                }
+            }
+
+            if (is_string($photo)) {
+                if (file_exists($photo)) {
+                    return $photo;
+                }
+
+                $candidate = $find_local_from_url($photo);
+                if (!empty($candidate)) {
+                    return $candidate;
+                }
+            }
+
+            return '';
+        };
         
         $pdf = new FPDF();
         $pdf->AddPage();
         $pdf->SetFont('Arial', '', 10);
+
+        $page_width = $pdf->GetPageWidth();
+        $left_margin = 10;
+        $right_margin = 10;
+
+        $header_top_y = $pdf->GetY();
+        $photo_file = $resolve_photo_file($cv_data['about_photo'] ?? '');
+        $photo_width = 0;
+        $photo_height = 0;
+        $photo_gap = 6;
+
+        if (!empty($photo_file)) {
+            $photo_width = 36;
+            $img_size = @getimagesize($photo_file);
+            if (!empty($img_size[0]) && !empty($img_size[1])) {
+                $photo_height = $photo_width * ($img_size[1] / $img_size[0]);
+            } else {
+                $photo_height = $photo_width;
+            }
+
+            $photo_x = $page_width - $right_margin - $photo_width;
+            $pdf->Image($photo_file, $photo_x, $header_top_y, $photo_width);
+        }
+
+        $header_text_width = 0;
+        if ($photo_width > 0) {
+            $header_text_width = $page_width - $left_margin - $right_margin - $photo_width - $photo_gap;
+        }
         
         // Set metadata
         $pdf->SetAuthor($clean_text($cv_data['name']));
@@ -1374,19 +1467,26 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         if (!empty($cv_data['hero_headline']) || !empty($cv_data['name'])) {
             $pdf->SetFont('Arial', 'B', 20);
             $pdf->SetTextColor(31, 73, 125); // Blue color
-            $pdf->MultiCell(0, 12, $clean_text(!empty($cv_data['hero_headline']) ? $cv_data['hero_headline'] : $cv_data['name']), 0, 'L');
+            $pdf->MultiCell($header_text_width > 0 ? $header_text_width : 0, 12, $clean_text(!empty($cv_data['hero_headline']) ? $cv_data['hero_headline'] : $cv_data['name']), 0, 'L');
             $pdf->Ln(2);
         }
         
         if (!empty($cv_data['hero_intro'])) {
             $pdf->SetFont('Arial', 'I', 11);
             $pdf->SetTextColor(0, 0, 0);
-            $pdf->MultiCell(0, 6, $clean_text($cv_data['hero_intro']), 0, 'L');
+            $pdf->MultiCell($header_text_width > 0 ? $header_text_width : 0, 6, $clean_text($cv_data['hero_intro']), 0, 'L');
             $pdf->Ln(5);
+        }
+
+        if ($photo_height > 0) {
+            $min_y_after_photo = $header_top_y + $photo_height + 4;
+            if ($pdf->GetY() < $min_y_after_photo) {
+                $pdf->SetY($min_y_after_photo);
+            }
         }
         
         // Contact information
-        if (!empty($cv_data['contact_email']) || !empty($cv_data['contact_phone'])) {
+        if (!empty($cv_data['contact_email']) || !empty($cv_data['contact_phone']) || !empty($cv_data['contact_linkedin']) || !empty($cv_data['contact_homepage_url'])) {
             $pdf->SetFont('Arial', 'B', 14);
             $pdf->SetTextColor(0, 0, 0);
             $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('contact', $lang)), 0, 1);
@@ -1401,6 +1501,9 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
             }
             if (!empty($cv_data['contact_linkedin'])) {
                 $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('linkedin', $lang)) . ': ' . $clean_text($cv_data['contact_linkedin']), 0, 1);
+            }
+            if (!empty($cv_data['contact_homepage_url'])) {
+                $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('website', $lang)) . ': ' . $clean_text($cv_data['contact_homepage_url']), 0, 1);
             }
             $pdf->Ln(3);
         }

@@ -7,6 +7,7 @@
   var lightbox = document.querySelector('.project-lightbox');
   var lightboxImage = lightbox ? lightbox.querySelector('.project-lightbox-image') : null;
   var lightboxVideo = lightbox ? lightbox.querySelector('.project-lightbox-video') : null;
+  var lightboxCaption = lightbox ? lightbox.querySelector('.project-lightbox-caption strong') : null;
   var lightboxClose = lightbox ? lightbox.querySelector('.project-lightbox-close') : null;
   var lightboxPrev = lightbox ? lightbox.querySelector('.project-lightbox-prev') : null;
   var lightboxNext = lightbox ? lightbox.querySelector('.project-lightbox-next') : null;
@@ -77,6 +78,10 @@
       lightboxImage.alt = item.alt;
       lightboxImage.style.display = 'block';
     }
+
+    if (lightboxCaption) {
+      lightboxCaption.textContent = item.alt || String(currentIndex + 1);
+    }
     
     // Update button states if navigation is available
     if (hasNavigation) {
@@ -96,6 +101,9 @@
     lightboxImage.style.display = 'none';
     lightboxVideo.innerHTML = '';
     lightboxVideo.style.display = 'none';
+    if (lightboxCaption) {
+      lightboxCaption.textContent = '';
+    }
   };
 
   var goToPrev = function () {

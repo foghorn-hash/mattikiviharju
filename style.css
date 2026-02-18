@@ -466,6 +466,23 @@ img {
   border: none;
 }
 
+.project-lightbox-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: min(92vw, 1400px);
+  text-align: center;
+  pointer-events: none;
+}
+
+.project-lightbox-caption strong {
+  color: #22c55e;
+  font-size: clamp(1.05rem, 2vw, 1.5rem);
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
 .project-lightbox-close {
   position: absolute;
   top: 24px;

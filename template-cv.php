@@ -249,6 +249,8 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					$link = get_post_meta($project->ID, '_cv_project_link', true);
 					$link_label = get_post_meta($project->ID, '_cv_project_link_label', true);
 					$youtube_url = get_post_meta($project->ID, '_cv_project_youtube', true);
+					$screenshot_alts = get_post_meta($project->ID, '_cv_project_screenshot_alts', true);
+					$screenshot_alts = is_array($screenshot_alts) ? $screenshot_alts : array();
 					$screenshots = array();
 					if (function_exists('get_field') && function_exists('acf_get_field_type') && acf_get_field_type('gallery')) {
 						$screenshots = get_field('cv_project_screenshots', $project->ID);
@@ -290,9 +292,10 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 								if (!empty($youtube_id)) :
 									$i++;
 									$youtube_thumb = 'https://img.youtube.com/vi/' . esc_attr($youtube_id) . '/mqdefault.jpg';
+									$youtube_alt = $i . ' - ' . (get_the_title($project) ?: 'Project video');
 								?>
 									<button type="button" class="project-shot project-shot-video" data-youtube="<?php echo esc_attr($youtube_id); ?>" aria-label="Play video">
-										<img src="<?php echo esc_url($youtube_thumb); ?>" alt="<?php echo esc_html($i); ?>" loading="lazy" />
+										<img src="<?php echo esc_url($youtube_thumb); ?>" alt="<?php echo esc_attr($youtube_alt); ?>" loading="lazy" />
 										<i class="bi bi-play-circle project-shot-play-icon" aria-hidden="true"></i>
 									</button>
 								<?php 
@@ -328,14 +331,18 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 									if (empty($alt)) {
 										$alt = get_the_title($project);
 									}
+									if ($attachment_id > 0 && isset($screenshot_alts[$attachment_id]) && $screenshot_alts[$attachment_id] !== '') {
+										$alt = $screenshot_alts[$attachment_id];
+									}
 
 									if (empty($thumb) || empty($full)) {
 										continue;
 									}
 									$i++;
+									$shot_alt = $i . ' - ' . $alt;
 									?>
 									<button type="button" class="project-shot" data-full="<?php echo esc_url($full); ?>" aria-label="Open screenshot: <?php echo esc_attr($alt); ?>">
-										<img src="<?php echo esc_url($thumb); ?>" alt="<?php echo esc_html("$i"); ?>" loading="lazy" />
+										<img src="<?php echo esc_url($thumb); ?>" alt="<?php echo esc_attr($shot_alt); ?>" loading="lazy" />
 									</button>
 								<?php 
 									endforeach;
@@ -346,6 +353,12 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 						<?php if (!empty($link)) : ?>
 							<?php $link_text = !empty($link_label) ? $link_label : 'View project'; ?>
 							<p><a href="<?php echo esc_url($link); ?>" target="_blank" rel="noopener"><?php echo esc_html($link_text); ?></a></p>
+						<?php endif; ?>
+						<?php if (is_user_logged_in() && current_user_can('manage_options')) : ?>
+							<?php $edit_project_url = get_edit_post_link($project->ID); ?>
+							<?php if (!empty($edit_project_url)) : ?>
+								<p><a href="<?php echo esc_url($edit_project_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Project') : 'Edit Project'); ?></a></p>
+							<?php endif; ?>
 						<?php endif; ?>
 					</article>
 				<?php endforeach; ?>
@@ -362,6 +375,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				</button>
 				<img class="project-lightbox-image" src="" alt="" />
 				<div class="project-lightbox-video"></div>
+				<div class="project-lightbox-caption"><strong></strong></div>
 			</div>
 		</div>
 	</section>
