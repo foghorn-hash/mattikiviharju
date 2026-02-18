@@ -320,7 +320,15 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				<?php endforeach; ?>
 			</div>
 			<div class="project-lightbox" aria-hidden="true">
-				<button class="project-lightbox-close" type="button" aria-label="Close image">×</button>
+				<button class="project-lightbox-close" type="button" aria-label="Close image">
+					<i class="bi bi-x-lg" aria-hidden="true"></i>
+				</button>
+				<button class="project-lightbox-prev" type="button" aria-label="Previous image">
+					<i class="bi bi-chevron-left" aria-hidden="true"></i>
+				</button>
+				<button class="project-lightbox-next" type="button" aria-label="Next image">
+					<i class="bi bi-chevron-right" aria-hidden="true"></i>
+				</button>
 				<img class="project-lightbox-image" src="" alt="" />
 			</div>
 		</div>

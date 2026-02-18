@@ -1263,6 +1263,74 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang) {
     return $data;
 }
 
+// Get translated text for PDF export
+function cv_pdf_acf_get_translation($key, $lang) {
+    $translations = array(
+        'contact' => array(
+            'fi' => 'Yhteystiedot',
+            'en' => 'Contact',
+            'sv' => 'Kontakt'
+        ),
+        'email' => array(
+            'fi' => 'Sähköposti',
+            'en' => 'Email',
+            'sv' => 'E-post'
+        ),
+        'phone' => array(
+            'fi' => 'Puhelin',
+            'en' => 'Phone',
+            'sv' => 'Telefon'
+        ),
+        'linkedin' => array(
+            'fi' => 'LinkedIn',
+            'en' => 'LinkedIn',
+            'sv' => 'LinkedIn'
+        ),
+        'profile' => array(
+            'fi' => 'Profiili',
+            'en' => 'Profile',
+            'sv' => 'Profil'
+        ),
+        'certifications' => array(
+            'fi' => 'Sertifikaatit ja merkit',
+            'en' => 'Certifications & Badges',
+            'sv' => 'Certifieringar och märken'
+        ),
+        'experience' => array(
+            'fi' => 'Työkokemus',
+            'en' => 'Experience',
+            'sv' => 'Arbetslivserfarenhet'
+        ),
+        'education' => array(
+            'fi' => 'Koulutus',
+            'en' => 'Education',
+            'sv' => 'Utbildning'
+        ),
+        'training' => array(
+            'fi' => 'Lisäkoulutus',
+            'en' => 'Additional Training',
+            'sv' => 'Ytterligare utbildning'
+        ),
+        'projects' => array(
+            'fi' => 'Projektit',
+            'en' => 'Projects',
+            'sv' => 'Projekt'
+        ),
+        'skills' => array(
+            'fi' => 'Taidot',
+            'en' => 'Skills',
+            'sv' => 'Färdigheter'
+        )
+    );
+    
+    if (isset($translations[$key][$lang])) {
+        return $translations[$key][$lang];
+    }
+    
+    // Fallback to English if translation not found
+    return isset($translations[$key]['en']) ? $translations[$key]['en'] : $key;
+}
+
 // Generate PDF document using FPDF
 function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
     try {
@@ -1304,18 +1372,18 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         if (!empty($cv_data['contact_email']) || !empty($cv_data['contact_phone'])) {
             $pdf->SetFont('Arial', 'B', 14);
             $pdf->SetTextColor(0, 0, 0);
-            $pdf->Cell(0, 8, 'Contact', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('contact', $lang)), 0, 1);
             $pdf->Ln(1);
             
             $pdf->SetFont('Arial', '', 10);
             if (!empty($cv_data['contact_email'])) {
-                $pdf->Cell(0, 5, 'Email: ' . $clean_text($cv_data['contact_email']), 0, 1);
+                $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('email', $lang)) . ': ' . $clean_text($cv_data['contact_email']), 0, 1);
             }
             if (!empty($cv_data['contact_phone'])) {
-                $pdf->Cell(0, 5, 'Phone: ' . $clean_text($cv_data['contact_phone']), 0, 1);
+                $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('phone', $lang)) . ': ' . $clean_text($cv_data['contact_phone']), 0, 1);
             }
             if (!empty($cv_data['contact_linkedin'])) {
-                $pdf->Cell(0, 5, 'LinkedIn: ' . $clean_text($cv_data['contact_linkedin']), 0, 1);
+                $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('linkedin', $lang)) . ': ' . $clean_text($cv_data['contact_linkedin']), 0, 1);
             }
             $pdf->Ln(3);
         }
@@ -1323,7 +1391,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Profile
         if (!empty($cv_data['profile_title']) || !empty($cv_data['profile_body'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, $clean_text(!empty($cv_data['profile_title']) ? $cv_data['profile_title'] : 'Profile'), 0, 1);
+            $pdf->Cell(0, 8, $clean_text(!empty($cv_data['profile_title']) ? $cv_data['profile_title'] : cv_pdf_acf_get_translation('profile', $lang)), 0, 1);
             $pdf->Ln(1);
             
             if (!empty($cv_data['profile_body'])) {
@@ -1336,7 +1404,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Badges
         if (!empty($cv_data['badges']) && is_array($cv_data['badges'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, 'Certifications & Badges', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('certifications', $lang)), 0, 1);
             $pdf->Ln(1);
             
             $pdf->SetFont('Arial', '', 10);
@@ -1352,7 +1420,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Experience
         if (!empty($cv_data['experience']) && is_array($cv_data['experience'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, 'Experience', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('experience', $lang)), 0, 1);
             $pdf->Ln(1);
             
             foreach ($cv_data['experience'] as $exp) {
@@ -1380,7 +1448,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Education
         if (!empty($cv_data['education']) && is_array($cv_data['education'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, 'Education', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('education', $lang)), 0, 1);
             $pdf->Ln(1);
             
             foreach ($cv_data['education'] as $edu) {
@@ -1404,7 +1472,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Courses
         if (!empty($cv_data['courses']) && is_array($cv_data['courses'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, 'Additional Training', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('training', $lang)), 0, 1);
             $pdf->Ln(1);
             
             $pdf->SetFont('Arial', '', 10);
@@ -1433,7 +1501,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Projects
         if (!empty($cv_data['projects']) && is_array($cv_data['projects'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, 'Projects', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('projects', $lang)), 0, 1);
             $pdf->Ln(1);
             
             foreach ($cv_data['projects'] as $project) {
@@ -1457,7 +1525,7 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         // Skills
         if (!empty($cv_data['skills']) && is_array($cv_data['skills'])) {
             $pdf->SetFont('Arial', 'B', 14);
-            $pdf->Cell(0, 8, 'Skills', 0, 1);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('skills', $lang)), 0, 1);
             $pdf->Ln(1);
             
             $pdf->SetFont('Arial', '', 10);
