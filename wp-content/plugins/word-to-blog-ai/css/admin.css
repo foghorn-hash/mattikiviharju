@@ -1,0 +1,130 @@
+.wtbai-container {
+    max-width: 1200px;
+    margin: 20px 0;
+}
+
+.wtbai-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.wtbai-card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.wtbai-upload-area {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 20px 0;
+}
+
+#wtbai-word-file {
+    flex: 1;
+    max-width: 400px;
+}
+
+#wtbai-upload-btn,
+#wtbai-generate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#wtbai-upload-btn .dashicons,
+#wtbai-generate-btn .dashicons {
+    line-height: inherit;
+}
+
+.wtbai-status {
+    margin: 15px 0;
+    padding: 10px;
+}
+
+.wtbai-preview {
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.wtbai-preview p {
+    margin: 10px 0;
+}
+
+.wtbai-images {
+    margin: 15px 0;
+}
+
+.wtbai-images img {
+    max-width: 150px;
+    height: auto;
+    margin: 5px;
+    border: 1px solid #ddd;
+}
+
+#wtbai-tone {
+    margin-left: 10px;
+}
+
+#wtbai-result-content {
+    padding: 15px;
+    background: #f0f9ff;
+    border: 1px solid #0284c7;
+    border-radius: 4px;
+}
+
+#wtbai-result-content p {
+    margin: 10px 0;
+}
+
+.button-hero {
+    padding: 10px 20px !important;
+    height: auto !important;
+    font-size: 14px !important;
+}
+
+/* Loading animation */
+.wtbai-status.notice-info {
+    position: relative;
+}
+
+.wtbai-status.notice-info::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    border: 2px solid #2271b1;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: wtbai-spin 0.6s linear infinite;
+    vertical-align: middle;
+}
+
+@keyframes wtbai-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Success state */
+#wtbai-result-section h2 {
+    color: #00a32a;
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+    .wtbai-upload-area {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    #wtbai-word-file {
+        max-width: 100%;
+    }
+}

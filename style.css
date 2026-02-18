@@ -414,8 +414,8 @@ img {
 }
 
 .project-lightbox-image {
-  max-width: min(90vw, 980px);
-  max-height: 80vh;
+  max-width: min(95vw, 1600px);
+  max-height: 90vh;
   border-radius: 16px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);

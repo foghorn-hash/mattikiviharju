@@ -1,0 +1,19 @@
+{
+    "name": "mattikiviharju/word-to-blog-ai",
+    "description": "WordPress plugin to create Finnish blog posts from Word documents using OpenAI",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=7.4",
+        "phpoffice/phpword": "^1.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "WordToBlogAI\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Matti Kiviharju"
+        }
+    ]
+}
