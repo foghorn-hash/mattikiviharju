@@ -353,6 +353,11 @@ function cv_one_pager_render_project_meta_box($post) {
     echo '<input type="url" id="cv_project_link" name="cv_project_link" value="' . esc_attr($link) . '" class="widefat" />';
     echo '<p><label for="cv_project_link_label"><strong>Project Link Title</strong></label></p>';
     echo '<input type="text" id="cv_project_link_label" name="cv_project_link_label" value="' . esc_attr($link_label) . '" class="widefat" placeholder="View project" />';
+    
+    $youtube_url = get_post_meta($post->ID, '_cv_project_youtube', true);
+    echo '<p><label for="cv_project_youtube"><strong>YouTube Video URL</strong></label></p>';
+    echo '<input type="url" id="cv_project_youtube" name="cv_project_youtube" value="' . esc_attr($youtube_url) . '" class="widefat" placeholder="https://www.youtube.com/watch?v=..." />';
+    echo '<p style="margin-top: 5px; font-size: 12px; color: #646970;">Video will be shown with screenshots in gallery</p>';
 }
 
 function cv_one_pager_render_project_screenshots_meta_box($post) {
@@ -492,6 +497,9 @@ function cv_one_pager_save_meta_boxes($post_id) {
         }
         if (isset($_POST['cv_project_link_label'])) {
             update_post_meta($post_id, '_cv_project_link_label', sanitize_text_field($_POST['cv_project_link_label']));
+        }
+        if (isset($_POST['cv_project_youtube'])) {
+            update_post_meta($post_id, '_cv_project_youtube', esc_url_raw($_POST['cv_project_youtube']));
         }
     }
 

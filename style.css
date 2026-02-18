@@ -386,6 +386,29 @@ img {
   overflow: hidden;
   cursor: pointer;
   display: block;
+  position: relative;
+}
+
+.project-shot-video {
+  position: relative;
+}
+
+.project-shot-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.project-shot:hover .project-shot-play-icon {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.1);
+  transition: all 0.2s ease;
 }
 
 .project-shot img {
@@ -419,6 +442,22 @@ img {
   border-radius: 16px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+}
+
+.project-lightbox-video {
+  display: none;
+  width: min(90vw, 1400px);
+  height: min(calc(90vw * 9 / 16), calc(90vh - 100px));
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.project-lightbox-video iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .project-lightbox-close {

@@ -247,6 +247,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					$meta = get_post_meta($project->ID, '_cv_project_meta', true);
 					$link = get_post_meta($project->ID, '_cv_project_link', true);
 					$link_label = get_post_meta($project->ID, '_cv_project_link_label', true);
+					$youtube_url = get_post_meta($project->ID, '_cv_project_youtube', true);
 					$screenshots = array();
 					if (function_exists('get_field') && function_exists('acf_get_field_type') && acf_get_field_type('gallery')) {
 						$screenshots = get_field('cv_project_screenshots', $project->ID);
@@ -257,6 +258,15 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 							$screenshots = $stored;
 						} elseif (is_string($stored) && $stored !== '') {
 							$screenshots = array_filter(array_map('absint', explode(',', $stored)));
+						}
+					}
+					
+					// Extract YouTube video ID
+					$youtube_id = '';
+					if (!empty($youtube_url)) {
+						preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/', $youtube_url, $matches);
+						if (!empty($matches[1])) {
+							$youtube_id = $matches[1];
 						}
 					}
 					?>
@@ -270,9 +280,26 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 						<?php elseif (!empty($project->post_content)) : ?>
 							<p><?php echo esc_html(wp_trim_words($project->post_content, 24)); ?></p>
 						<?php endif; ?>
-						<?php if (!empty($screenshots) && is_array($screenshots)) : ?>
+						<?php if (!empty($screenshots) && is_array($screenshots) || !empty($youtube_id)) : ?>
 							<div class="project-gallery js-project-gallery" aria-label="Project screenshots">
-								<?php $i = 0; foreach ($screenshots as $shot) : ?>
+								<?php 
+								$i = 0;
+								
+								// Show YouTube video first if available
+								if (!empty($youtube_id)) :
+									$i++;
+									$youtube_thumb = 'https://img.youtube.com/vi/' . esc_attr($youtube_id) . '/mqdefault.jpg';
+								?>
+									<button type="button" class="project-shot project-shot-video" data-youtube="<?php echo esc_attr($youtube_id); ?>" aria-label="Play video">
+										<img src="<?php echo esc_url($youtube_thumb); ?>" alt="<?php echo esc_html($i); ?>" loading="lazy" />
+										<i class="bi bi-play-circle project-shot-play-icon" aria-hidden="true"></i>
+									</button>
+								<?php 
+								endif;
+								
+								// Show screenshots
+								if (!empty($screenshots) && is_array($screenshots)) :
+									foreach ($screenshots as $shot) : ?>
 									<?php
 									$thumb = '';
 									$full = '';
@@ -309,7 +336,10 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 									<button type="button" class="project-shot" data-full="<?php echo esc_url($full); ?>" aria-label="Open screenshot: <?php echo esc_attr($alt); ?>">
 										<img src="<?php echo esc_url($thumb); ?>" alt="<?php echo esc_html("$i"); ?>" loading="lazy" />
 									</button>
-								<?php endforeach; ?>
+								<?php 
+									endforeach;
+								endif;
+								?>
 							</div>
 						<?php endif; ?>
 						<?php if (!empty($link)) : ?>
@@ -330,6 +360,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					<i class="bi bi-chevron-right" aria-hidden="true"></i>
 				</button>
 				<img class="project-lightbox-image" src="" alt="" />
+				<div class="project-lightbox-video"></div>
 			</div>
 		</div>
 	</section>
