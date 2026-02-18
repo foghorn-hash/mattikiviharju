@@ -283,7 +283,7 @@ function cv_one_pager_add_meta_boxes() {
         'default'
     );
 }
-add_action('add_meta_boxes', 'cv_one_pager_add_meta_boxes');
+add_action('add_meta_boxes', 'cv_one_pager_add_meta_boxes', 10);
 
 function cv_one_pager_render_experience_meta_box($post) {
     wp_nonce_field('cv_experience_meta_save', 'cv_experience_meta_nonce');
@@ -302,8 +302,30 @@ function cv_one_pager_render_education_meta_box($post) {
 function cv_one_pager_render_course_meta_box($post) {
     wp_nonce_field('cv_course_meta_save', 'cv_course_meta_nonce');
     $dates = get_post_meta($post->ID, '_cv_course_dates', true);
-    echo '<p><label for="cv_course_dates"><strong>Dates</strong></label></p>';
-    echo '<input type="text" id="cv_course_dates" name="cv_course_dates" value="' . esc_attr($dates) . '" class="widefat" />';
+    $provider = $post->post_excerpt;
+    ?>
+    <div style="padding: 10px 0;">
+        <p><label for="cv_course_provider"><strong>Provider / Organizer (School/Institution)</strong></label></p>
+        <input type="text" id="cv_course_provider" name="cv_course_provider" value="<?php echo esc_attr($provider); ?>" class="widefat" placeholder="e.g., University of Helsinki, Coursera, etc." />
+        <p class="description">Enter the name of the organization or institution providing this course.</p>
+        
+        <hr style="margin: 15px 0;" />
+        
+        <p><label for="cv_course_dates"><strong>Dates / Training Period</strong></label></p>
+        <input type="text" id="cv_course_dates" name="cv_course_dates" value="<?php echo esc_attr($dates); ?>" class="widefat" placeholder="e.g., 2023-2024, March 2024, etc." />
+        <p class="description">Enter the dates or time period when this training/course took place.</p>
+        
+        <hr style="margin: 15px 0;" />
+        
+        <p class="description" style="margin-top: 10px;">
+            <strong>How to edit:</strong><br>
+            • <strong>Course Title:</strong> Use the title field at the top of this page<br>
+            • <strong>Provider/School:</strong> Use the field above<br>
+            • <strong>Description:</strong> Use the main content editor below<br>
+            • <strong>Dates:</strong> Use the field above
+        </p>
+    </div>
+    <?php
 }
 
 function cv_one_pager_render_project_meta_box($post) {
@@ -417,6 +439,13 @@ function cv_one_pager_save_meta_boxes($post_id) {
         }
     }
     if (isset($_POST['cv_course_meta_nonce']) && wp_verify_nonce($_POST['cv_course_meta_nonce'], 'cv_course_meta_save')) {
+        if (isset($_POST['cv_course_provider'])) {
+            // Update provider in post_excerpt
+            wp_update_post(array(
+                'ID' => $post_id,
+                'post_excerpt' => sanitize_text_field($_POST['cv_course_provider'])
+            ));
+        }
         if (isset($_POST['cv_course_dates'])) {
             update_post_meta($post_id, '_cv_course_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_course_dates']));
         }
