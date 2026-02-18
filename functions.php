@@ -454,11 +454,17 @@ function cv_one_pager_save_meta_boxes($post_id) {
     }
     if (isset($_POST['cv_course_meta_nonce']) && wp_verify_nonce($_POST['cv_course_meta_nonce'], 'cv_course_meta_save')) {
         if (isset($_POST['cv_course_provider'])) {
+            // Unhook to prevent infinite loop
+            remove_action('save_post', 'cv_one_pager_save_meta_boxes');
+            
             // Update provider in post_excerpt
             wp_update_post(array(
                 'ID' => $post_id,
                 'post_excerpt' => sanitize_text_field($_POST['cv_course_provider'])
             ));
+            
+            // Re-hook
+            add_action('save_post', 'cv_one_pager_save_meta_boxes');
         }
         if (isset($_POST['cv_course_dates'])) {
             update_post_meta($post_id, '_cv_course_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_course_dates']));
@@ -466,11 +472,17 @@ function cv_one_pager_save_meta_boxes($post_id) {
     }
     if (isset($_POST['cv_project_meta_nonce']) && wp_verify_nonce($_POST['cv_project_meta_nonce'], 'cv_project_meta_save')) {
         if (isset($_POST['cv_project_description'])) {
+            // Unhook to prevent infinite loop
+            remove_action('save_post', 'cv_one_pager_save_meta_boxes');
+            
             // Update description in post_excerpt
             wp_update_post(array(
                 'ID' => $post_id,
                 'post_excerpt' => sanitize_textarea_field($_POST['cv_project_description'])
             ));
+            
+            // Re-hook
+            add_action('save_post', 'cv_one_pager_save_meta_boxes');
         }
         if (isset($_POST['cv_project_meta'])) {
             update_post_meta($post_id, '_cv_project_meta', sanitize_text_field($_POST['cv_project_meta']));

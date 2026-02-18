@@ -33,12 +33,18 @@
 #wtbai-generate-btn {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    vertical-align: middle;
 }
 
 #wtbai-upload-btn .dashicons,
 #wtbai-generate-btn .dashicons {
-    line-height: inherit;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+    line-height: 1;
+    margin-top: 0;
+    vertical-align: middle;
 }
 
 .wtbai-status {
