@@ -245,6 +245,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				<?php foreach ($projects as $project) : ?>
 					<?php
 					$meta = get_post_meta($project->ID, '_cv_project_meta', true);
+					$tech_stack_label = function_exists('cv_one_pager_t') ? cv_one_pager_t('Tech Stack:') : 'Tech Stack:';
 					$link = get_post_meta($project->ID, '_cv_project_link', true);
 					$link_label = get_post_meta($project->ID, '_cv_project_link_label', true);
 					$youtube_url = get_post_meta($project->ID, '_cv_project_youtube', true);
@@ -273,7 +274,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					<article class="card">
 						<h3><?php echo esc_html(get_the_title($project)); ?></h3>
 						<?php if (!empty($meta)) : ?>
-							<span><?php echo esc_html($meta); ?></span>
+							<p class="project-tech-stack"><strong><?php echo esc_html($tech_stack_label); ?></strong> <?php echo esc_html($meta); ?></p>
 						<?php endif; ?>
 						<?php if (!empty($project->post_excerpt)) : ?>
 							<p><?php echo esc_html($project->post_excerpt); ?></p>

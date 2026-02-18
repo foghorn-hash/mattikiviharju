@@ -20,6 +20,7 @@ Tags: one-column, custom-background, custom-logo, custom-menu, featured-images, 
   --accent: #38bdf8;
   --accent-2: #22c55e;
   --accent-3: #fa4fa7;
+  --alert-red: #ef4444;
   --border: rgba(148, 163, 184, 0.2);
   --shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
 }
@@ -351,6 +352,11 @@ img {
 
 #projects .card-grid {
   grid-template-columns: repeat(2, minmax(260px, 1fr));
+}
+
+#projects .project-tech-stack,
+#projects .project-tech-stack strong {
+  color: var(--alert-red);
 }
 
 .card {

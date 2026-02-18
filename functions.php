@@ -196,6 +196,7 @@ function cv_one_pager_register_polylang_strings() {
         'LinkedIn',
         'GitHub',
         'YouTube',
+        'Tech Stack:',
         'Y-tunnus:',
         'ALV-rek. nro:',
     );
@@ -339,7 +340,7 @@ function cv_one_pager_render_project_meta_box($post) {
     echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
     echo 'Project Title: Use title field above<br>';
     echo 'Description: Use field below<br>';
-    echo 'Meta/Dates: Use Meta field below<br>';
+    echo 'Tech Stack: Use Tech Stack field below<br>';
     echo 'Full Details: Use main editor below</p>';
     echo '</div>';
     
@@ -347,8 +348,8 @@ function cv_one_pager_render_project_meta_box($post) {
     echo '<textarea id="cv_project_description" name="cv_project_description" rows="3" class="widefat" placeholder="Short project description...">' . esc_textarea($description) . '</textarea>';
     echo '<p style="margin-top: 5px; font-size: 12px; color: #646970;">Brief summary shown on CV page</p>';
     
-    echo '<p><label for="cv_project_meta"><strong>Meta (e.g. dates, client)</strong></label></p>';
-    echo '<input type="text" id="cv_project_meta" name="cv_project_meta" value="' . esc_attr($meta) . '" class="widefat" placeholder="2024-2025, Client Name" />';
+    echo '<p><label for="cv_project_meta"><strong>Tech Stack (e.g. React, PHP, MySQL)</strong></label></p>';
+    echo '<input type="text" id="cv_project_meta" name="cv_project_meta" value="' . esc_attr($meta) . '" class="widefat" placeholder="React, PHP, MySQL" />';
     echo '<p><label for="cv_project_link"><strong>Project URL</strong></label></p>';
     echo '<input type="url" id="cv_project_link" name="cv_project_link" value="' . esc_attr($link) . '" class="widefat" />';
     echo '<p><label for="cv_project_link_label"><strong>Project Link Title</strong></label></p>';

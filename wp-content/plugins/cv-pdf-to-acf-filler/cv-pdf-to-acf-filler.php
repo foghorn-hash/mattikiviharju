@@ -1242,6 +1242,8 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang) {
         $data['projects'][] = array(
             'title' => get_the_title($item),
             'meta' => get_post_meta($item->ID, '_cv_project_meta', true),
+            'url_title' => get_post_meta($item->ID, '_cv_project_link_label', true),
+            'url' => get_post_meta($item->ID, '_cv_project_link', true),
             'description' => $item->post_excerpt ?: wp_trim_words($item->post_content, 50)
         );
     }
@@ -1315,6 +1317,21 @@ function cv_pdf_acf_get_translation($key, $lang) {
             'fi' => 'Projektit',
             'en' => 'Projects',
             'sv' => 'Projekt'
+        ),
+        'tech_stack' => array(
+            'fi' => 'Tekninen pino',
+            'en' => 'Tech Stack',
+            'sv' => 'Teknisk stack'
+        ),
+        'url_title' => array(
+            'fi' => 'URL-otsikko',
+            'en' => 'URL Title',
+            'sv' => 'URL-titel'
+        ),
+        'url' => array(
+            'fi' => 'URL',
+            'en' => 'URL',
+            'sv' => 'URL'
         ),
         'skills' => array(
             'fi' => 'Taidot',
@@ -1505,13 +1522,22 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
             $pdf->Ln(1);
             
             foreach ($cv_data['projects'] as $project) {
-                $project_title = $clean_text($project['title']);
-                if (!empty($project['meta'])) {
-                    $project_title .= ' (' . $clean_text($project['meta']) . ')';
-                }
+                $project_title = $clean_text($project['title'] ?? '');
                 if (!empty($project_title)) {
                     $pdf->SetFont('Arial', 'B', 10);
                     $pdf->Cell(0, 6, $project_title, 0, 1);
+                }
+                if (!empty($project['meta'])) {
+                    $pdf->SetFont('Arial', '', 10);
+                    $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('tech_stack', $lang) . ': ' . $project['meta']), 0, 'L');
+                }
+                if (!empty($project['url_title'])) {
+                    $pdf->SetFont('Arial', '', 10);
+                    $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url_title', $lang) . ': ' . $project['url_title']), 0, 'L');
+                }
+                if (!empty($project['url'])) {
+                    $pdf->SetFont('Arial', '', 10);
+                    $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url', $lang) . ': ' . $project['url']), 0, 'L');
                 }
                 if (!empty($project['description'])) {
                     $pdf->SetFont('Arial', '', 10);
