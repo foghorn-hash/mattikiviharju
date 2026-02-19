@@ -1,0 +1,12 @@
+/* Keep Gutenberg editor content fully visible if front-end overlay classes leak into admin */
+body.block-editor-page .project-lightbox,
+body.block-editor-page .editor-styles-wrapper .project-lightbox {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.block-editor-page .editor-styles-wrapper,
+body.block-editor-page .editor-styles-wrapper .block-editor-block-list__layout {
+  opacity: 1 !important;
+}

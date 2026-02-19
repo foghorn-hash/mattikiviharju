@@ -207,6 +207,33 @@ function cv_one_pager_register_polylang_strings() {
 }
 add_action('init', 'cv_one_pager_register_polylang_strings', 20);
 
+function cv_one_pager_limit_acf_group_to_front_page($match, $rule, $screen, $field_group) {
+    if (empty($field_group['key']) || $field_group['key'] !== 'group_cv_one_pager') {
+        return $match;
+    }
+
+    if (!is_array($screen) || empty($screen['post_type']) || $screen['post_type'] !== 'page') {
+        return false;
+    }
+
+    $front_page_id = (int) get_option('page_on_front');
+    if ($front_page_id <= 0) {
+        return false;
+    }
+
+    $post_id = 0;
+    if (!empty($screen['post_id'])) {
+        $post_id = (int) $screen['post_id'];
+    } elseif (!empty($_GET['post'])) {
+        $post_id = (int) $_GET['post'];
+    } elseif (!empty($_POST['post_ID'])) {
+        $post_id = (int) $_POST['post_ID'];
+    }
+
+    return $post_id === $front_page_id;
+}
+add_filter('acf/location/rule_match', 'cv_one_pager_limit_acf_group_to_front_page', 20, 4);
+
 function cv_one_pager_polylang_post_types($post_types, $is_settings) {
     if ($is_settings) {
         $post_types['cv_experience'] = 'cv_experience';
