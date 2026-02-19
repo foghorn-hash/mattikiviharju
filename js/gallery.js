@@ -4,6 +4,23 @@
     return;
   }
 
+  var forEachNode = function (nodes, callback) {
+    Array.prototype.forEach.call(nodes, callback);
+  };
+
+  var findClosestProjectShot = function (target, container) {
+    var element = target;
+
+    while (element && element !== container) {
+      if (element.nodeType === 1 && element.classList && element.classList.contains('project-shot')) {
+        return element;
+      }
+      element = element.parentNode;
+    }
+
+    return null;
+  };
+
   var lightbox = document.querySelector('.project-lightbox');
   var lightboxImage = lightbox ? lightbox.querySelector('.project-lightbox-image') : null;
   var lightboxVideo = lightbox ? lightbox.querySelector('.project-lightbox-video') : null;
@@ -19,41 +36,46 @@
   // Check if navigation buttons are available
   var hasNavigation = lightboxPrev && lightboxNext;
 
-  // Collect all screenshots and videos from all galleries
-  var allItems = [];
+  var activeItems = [];
   var currentIndex = 0;
 
-  galleries.forEach(function (gallery) {
+  var collectGalleryItems = function (gallery) {
+    var items = [];
     var shots = gallery.querySelectorAll('.project-shot');
-    shots.forEach(function (shot) {
+    forEachNode(shots, function (shot) {
       var full = shot.getAttribute('data-full');
       var youtube = shot.getAttribute('data-youtube');
       var img = shot.querySelector('img');
       
       if (youtube) {
-        // YouTube video
-        allItems.push({
+        items.push({
           type: 'video',
           youtubeId: youtube,
-          alt: img ? (img.alt || 'Project video') : 'Project video'
+          alt: img ? (img.alt || 'Project video') : 'Project video',
+          source: shot
         });
       } else if (full && img) {
-        // Image screenshot
-        allItems.push({
+        items.push({
           type: 'image',
           url: full,
-          alt: img.alt || 'Project screenshot'
+          alt: img.alt || 'Project screenshot',
+          source: shot
         });
       }
     });
-  });
+
+    return items;
+  };
 
   var showItem = function (index) {
-    if (index < 0 || index >= allItems.length) {
+    if (index < 0 || index >= activeItems.length) {
       return;
     }
     currentIndex = index;
-    var item = allItems[currentIndex];
+    var item = activeItems[currentIndex];
+    if (!item) {
+      return;
+    }
     
     // Hide both image and video first
     lightboxImage.style.display = 'none';
@@ -85,8 +107,9 @@
     
     // Update button states if navigation is available
     if (hasNavigation) {
-      lightboxPrev.disabled = currentIndex === 0;
-      lightboxNext.disabled = currentIndex === allItems.length - 1;
+      var hasMultipleItems = activeItems.length > 1;
+      lightboxPrev.disabled = !hasMultipleItems || currentIndex === 0;
+      lightboxNext.disabled = !hasMultipleItems || currentIndex === activeItems.length - 1;
     }
     
     lightbox.classList.add('is-visible');
@@ -113,18 +136,21 @@
   };
 
   var goToNext = function () {
-    if (currentIndex < allItems.length - 1) {
+    if (currentIndex < activeItems.length - 1) {
       showItem(currentIndex + 1);
     }
   };
 
   // Handle gallery clicks
-  galleries.forEach(function (gallery) {
+  forEachNode(galleries, function (gallery) {
     gallery.addEventListener('click', function (event) {
-      var button = event.target.closest('.project-shot');
+      var button = findClosestProjectShot(event.target, gallery);
       if (!button) {
         return;
       }
+
+      event.preventDefault();
+      event.stopPropagation();
 
       var full = button.getAttribute('data-full');
       var youtube = button.getAttribute('data-youtube');
@@ -133,16 +159,18 @@
         return;
       }
 
-      // Find the index of this item in allItems
+      activeItems = collectGalleryItems(gallery);
+      if (!activeItems.length) {
+        return;
+      }
+
       var index = -1;
-      if (youtube) {
-        index = allItems.findIndex(function (item) {
-          return item.type === 'video' && item.youtubeId === youtube;
-        });
-      } else if (full) {
-        index = allItems.findIndex(function (item) {
-          return item.type === 'image' && item.url === full;
-        });
+      var i;
+      for (i = 0; i < activeItems.length; i += 1) {
+        if (activeItems[i].source === button) {
+          index = i;
+          break;
+        }
       }
       
       if (index !== -1) {

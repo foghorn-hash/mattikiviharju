@@ -112,7 +112,7 @@ function cv_one_pager_assets() {
         array(),
         '1.11.3'
     );
-    wp_enqueue_style('cv-one-pager-style', get_stylesheet_uri(), array('cv-one-pager-fonts', 'bootstrap-icons'), '1.0.0');
+    wp_enqueue_style('cv-one-pager-style', get_stylesheet_uri(), array('cv-one-pager-fonts', 'bootstrap-icons'), '1.0.1');
 
     wp_enqueue_script(
         'cv-one-pager-nav',
@@ -122,12 +122,12 @@ function cv_one_pager_assets() {
         true
     );
 
-    if (is_front_page()) {
+    if (is_front_page() || is_page_template('template-cv.php')) {
         wp_enqueue_script(
             'cv-one-pager-gallery',
             get_template_directory_uri() . '/js/gallery.js',
             array(),
-            '1.0.0',
+            '1.0.3',
             true
         );
     }

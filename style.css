@@ -431,6 +431,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -443,6 +444,9 @@ img {
 }
 
 .project-lightbox-image {
+  display: block;
+  position: relative;
+  margin: 0 auto;
   max-width: min(95vw, 1600px);
   max-height: 90vh;
   border-radius: 16px;
@@ -452,6 +456,8 @@ img {
 
 .project-lightbox-video {
   display: none;
+  position: relative;
+  margin: 0 auto;
   width: min(90vw, 1400px);
   height: min(calc(90vw * 9 / 16), calc(90vh - 100px));
   aspect-ratio: 16 / 9;
@@ -461,6 +467,10 @@ img {
 }
 
 .project-lightbox-video iframe {
+  display: block;
+  position: static !important;
+  inset: auto !important;
+  max-width: none;
   width: 100%;
   height: 100%;
   border: none;
