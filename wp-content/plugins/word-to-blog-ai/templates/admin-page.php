@@ -50,6 +50,7 @@
             <button type="button" class="button button-primary button-hero" id="wtbai-generate-btn">
                 <span class="dashicons dashicons-admin-generic"></span> Luo blogiartikkeli AI:lla
             </button>
+            <p class="description">OpenAI luo artikkeliin myös aiheeseen liittyvät kuvat satunnaisella määrällä.</p>
         </div>
         
         <!-- Result Section -->

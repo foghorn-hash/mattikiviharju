@@ -167,6 +167,10 @@ class Word_To_Blog_AI {
         
         try {
             $blog_post = $this->generate_blog_post($content, $api_key);
+            $blog_post['content'] = $this->remove_duplicate_title_from_content($blog_post['title'], $blog_post['content']);
+
+            $random_image_count = wp_rand(1, 4);
+            $generated_images = $this->generate_images_with_ai($blog_post['title'], $blog_post['content'], $api_key, $random_image_count);
             
             // Create WordPress post
             $post_id = wp_insert_post(array(
@@ -180,15 +184,22 @@ class Word_To_Blog_AI {
                 wp_send_json_error('Error creating post: ' . $post_id->get_error_message());
             }
             
-            // Handle images if provided
-            if (!empty($_POST['images'])) {
-                $this->import_images($post_id, json_decode(stripslashes($_POST['images']), true));
+            $attached_image_ids = array();
+            if (!empty($generated_images)) {
+                $attached_image_ids = $this->import_images($post_id, $generated_images);
+                $updated_content = $this->embed_images_into_content($blog_post['content'], $attached_image_ids);
+
+                wp_update_post(array(
+                    'ID' => $post_id,
+                    'post_content' => $updated_content
+                ));
             }
             
             wp_send_json_success(array(
                 'post_id' => $post_id,
                 'edit_url' => admin_url('post.php?post=' . $post_id . '&action=edit'),
-                'title' => $blog_post['title']
+                'title' => $blog_post['title'],
+                'image_count' => count($attached_image_ids)
             ));
             
         } catch (Exception $e) {
@@ -199,7 +210,7 @@ class Word_To_Blog_AI {
     private function generate_blog_post($content, $api_key) {
         $api_url = 'https://api.openai.com/v1/chat/completions';
         
-        $prompt = "Luo suomenkielinen blogiartikkeli seuraavasta sisällöstä. Anna vastaus JSON-muodossa kentillä 'title' (otsikko) ja 'content' (sisältö HTML-muodossa).\n\nSisältö:\n" . $content;
+        $prompt = "Luo suomenkielinen blogiartikkeli seuraavasta sisällöstä. Anna vastaus JSON-muodossa kentillä 'title' (otsikko) ja 'content' (vain leipäteksti HTML-muodossa).\n\nTärkeää: ÄLÄ lisää content-kentän alkuun tai minnekään H1/H2-otsikkoa, joka toistaa title-kentän. Content alkaa suoraan johdantokappaleella.\n\nSisältö:\n" . $content;
         
         $data = array(
             'model' => 'gpt-4o',
@@ -243,8 +254,70 @@ class Word_To_Blog_AI {
             'content' => $result['content'] ?? ''
         );
     }
+
+    private function remove_duplicate_title_from_content($title, $content) {
+        $normalized_title = trim(wp_strip_all_tags($title));
+
+        if (empty($normalized_title) || empty($content)) {
+            return $content;
+        }
+
+        $escaped_title = preg_quote($normalized_title, '/');
+
+        $content = preg_replace('/^\s*<h1[^>]*>\s*' . $escaped_title . '\s*<\/h1>\s*/iu', '', $content);
+        $content = preg_replace('/^\s*<h2[^>]*>\s*' . $escaped_title . '\s*<\/h2>\s*/iu', '', $content);
+        $content = preg_replace('/^\s*<p>\s*' . $escaped_title . '\s*<\/p>\s*/iu', '', $content);
+        $content = preg_replace('/^\s*' . $escaped_title . '\s*/iu', '', $content);
+
+        return ltrim($content);
+    }
+
+    private function generate_images_with_ai($title, $content, $api_key, $count = 2) {
+        $api_url = 'https://api.openai.com/v1/images/generations';
+        $image_count = max(1, min(5, intval($count)));
+
+        $topic_snippet = mb_substr(wp_strip_all_tags($content), 0, 400);
+        $prompt = sprintf(
+            'Luo blogiartikkeliin sopiva valokuvamainen kuva. Aihe: %s. Konteksti: %s. Ei tekstiä kuvaan, ei logoja, ei vesileimoja.',
+            $title,
+            $topic_snippet
+        );
+
+        $images = array();
+
+        for ($i = 0; $i < $image_count; $i++) {
+            $data = array(
+                'model' => 'gpt-image-1',
+                'prompt' => $prompt,
+                'size' => '1536x1024'
+            );
+
+            $response = wp_remote_post($api_url, array(
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                    'Authorization' => 'Bearer ' . $api_key
+                ),
+                'body' => wp_json_encode($data),
+                'timeout' => 120
+            ));
+
+            if (is_wp_error($response)) {
+                continue;
+            }
+
+            $body = json_decode(wp_remote_retrieve_body($response), true);
+
+            if (isset($body['data'][0]['b64_json']) && !empty($body['data'][0]['b64_json'])) {
+                $images[] = array('data' => $body['data'][0]['b64_json']);
+            }
+        }
+
+        return $images;
+    }
     
     private function import_images($post_id, $images) {
+        $attachment_ids = array();
+
         foreach ($images as $image_data) {
             if (empty($image_data['data'])) {
                 continue;
@@ -272,8 +345,49 @@ class Word_To_Blog_AI {
                 require_once(ABSPATH . 'wp-admin/includes/image.php');
                 $attachment_data = wp_generate_attachment_metadata($attachment_id, $file_path);
                 wp_update_attachment_metadata($attachment_id, $attachment_data);
+                $attachment_ids[] = $attachment_id;
             }
         }
+
+        return $attachment_ids;
+    }
+
+    private function embed_images_into_content($content, $attachment_ids) {
+        if (empty($content) || empty($attachment_ids)) {
+            return $content;
+        }
+
+        $paragraphs = preg_split('/<\/p>/i', $content);
+        $clean_paragraphs = array();
+
+        foreach ($paragraphs as $paragraph) {
+            $trimmed = trim($paragraph);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            if (stripos($trimmed, '<p') !== false) {
+                $clean_paragraphs[] = $trimmed . '</p>';
+            } else {
+                $clean_paragraphs[] = '<p>' . $trimmed . '</p>';
+            }
+        }
+
+        if (count($clean_paragraphs) < 2) {
+            foreach ($attachment_ids as $attachment_id) {
+                $image_html = wp_get_attachment_image($attachment_id, 'large', false, array('loading' => 'lazy'));
+                $content .= "\n\n" . $image_html;
+            }
+            return $content;
+        }
+
+        foreach ($attachment_ids as $attachment_id) {
+            $insert_index = wp_rand(1, max(1, count($clean_paragraphs) - 1));
+            $image_html = wp_get_attachment_image($attachment_id, 'large', false, array('loading' => 'lazy'));
+            array_splice($clean_paragraphs, $insert_index, 0, $image_html);
+        }
+
+        return implode("\n\n", $clean_paragraphs);
     }
 }
 

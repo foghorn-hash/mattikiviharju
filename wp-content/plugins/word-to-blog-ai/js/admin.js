@@ -62,8 +62,7 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'wtbai_process_with_ai',
                 nonce: wtbaiData.nonce,
-                content: contentWithTone,
-                images: JSON.stringify(extractedContent.images || [])
+                content: contentWithTone
             },
             success: function(response) {
                 if (response.success) {
@@ -103,8 +102,13 @@ jQuery(document).ready(function($) {
     
     function showResult(data) {
         const $result = $('#wtbai-result-content');
+        const imageInfo = typeof data.image_count !== 'undefined'
+            ? `<p><strong>AI-kuvia lisätty:</strong> ${data.image_count}</p>`
+            : '';
+
         $result.html(`
             <p><strong>Otsikko:</strong> ${data.title}</p>
+            ${imageInfo}
             <p>
                 <a href="${data.edit_url}" class="button button-primary" target="_blank">
                     <span class="dashicons dashicons-edit"></span> Muokkaa artikkelia
