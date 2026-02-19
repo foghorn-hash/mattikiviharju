@@ -265,6 +265,85 @@ function cv_one_pager_cookie_consent_flash_guard_script() {
 }
 add_action('wp_footer', 'cv_one_pager_cookie_consent_flash_guard_script', 1);
 
+function cv_one_pager_get_default_og_image_data() {
+    $image_path = get_template_directory() . '/assets/mattikiviharju5-600-600.png';
+    $image_url = get_template_directory_uri() . '/assets/mattikiviharju5-600-600.png';
+
+    $mime_type = 'image/png';
+    $width = 0;
+    $height = 0;
+
+    if (file_exists($image_path)) {
+        $size = @getimagesize($image_path);
+        if (is_array($size)) {
+            $width = !empty($size[0]) ? (int) $size[0] : 0;
+            $height = !empty($size[1]) ? (int) $size[1] : 0;
+            if (!empty($size['mime'])) {
+                $mime_type = $size['mime'];
+            }
+        }
+    }
+
+    return array(
+        'url' => $image_url,
+        'mime' => $mime_type,
+        'width' => $width,
+        'height' => $height,
+    );
+}
+
+function cv_one_pager_output_og_meta_tags() {
+    if (is_admin() || is_feed() || is_robots() || is_trackback()) {
+        return;
+    }
+
+    $title = wp_get_document_title();
+    $description = '';
+
+    if (is_singular()) {
+        $post = get_queried_object();
+        if ($post instanceof WP_Post) {
+            $excerpt = has_excerpt($post) ? get_the_excerpt($post) : '';
+            if ($excerpt) {
+                $description = wp_strip_all_tags($excerpt);
+            } else {
+                $description = wp_trim_words(wp_strip_all_tags((string) $post->post_content), 30, '…');
+            }
+        }
+    }
+
+    if ($description === '') {
+        $description = get_bloginfo('description', 'display');
+    }
+
+    $url = is_singular() ? get_permalink() : home_url(add_query_arg(array(), $GLOBALS['wp']->request ?? ''));
+    $og_type = is_singular() ? 'article' : 'website';
+    $site_name = get_bloginfo('name', 'display');
+    $image = cv_one_pager_get_default_og_image_data();
+
+    echo "\n";
+    echo '<meta property="og:locale" content="' . esc_attr(get_locale()) . '">' . "\n";
+    echo '<meta property="og:type" content="' . esc_attr($og_type) . '">' . "\n";
+    echo '<meta property="og:title" content="' . esc_attr($title) . '">' . "\n";
+    echo '<meta property="og:description" content="' . esc_attr($description) . '">' . "\n";
+    echo '<meta property="og:url" content="' . esc_url($url) . '">' . "\n";
+    echo '<meta property="og:site_name" content="' . esc_attr($site_name) . '">' . "\n";
+    echo '<meta property="og:image" content="' . esc_url($image['url']) . '">' . "\n";
+    echo '<meta property="og:image:secure_url" content="' . esc_url($image['url']) . '">' . "\n";
+    echo '<meta property="og:image:type" content="' . esc_attr($image['mime']) . '">' . "\n";
+
+    if (!empty($image['width']) && !empty($image['height'])) {
+        echo '<meta property="og:image:width" content="' . esc_attr((string) $image['width']) . '">' . "\n";
+        echo '<meta property="og:image:height" content="' . esc_attr((string) $image['height']) . '">' . "\n";
+    }
+
+    echo '<meta name="twitter:card" content="summary_large_image">' . "\n";
+    echo '<meta name="twitter:title" content="' . esc_attr($title) . '">' . "\n";
+    echo '<meta name="twitter:description" content="' . esc_attr($description) . '">' . "\n";
+    echo '<meta name="twitter:image" content="' . esc_url($image['url']) . '">' . "\n";
+}
+add_action('wp_head', 'cv_one_pager_output_og_meta_tags', 6);
+
 function cv_one_pager_add_meta_boxes() {
     add_meta_box(
         'cv_experience_meta',
