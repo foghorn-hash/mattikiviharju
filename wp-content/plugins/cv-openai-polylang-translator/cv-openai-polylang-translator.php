@@ -33,6 +33,25 @@ function cv_oai_pll_default_prompt() {
     return 'Translate the following content from Finnish to {LANG}. Preserve meaning, tone, and any HTML. Return JSON with keys: title, excerpt, content.';
 }
 
+function cv_oai_pll_default_post_types() {
+    return array('cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge');
+}
+
+function cv_oai_pll_get_selected_post_types() {
+    $post_types = get_option('cv_oai_pll_post_types', cv_oai_pll_default_post_types());
+    if (!is_array($post_types)) {
+        $post_types = cv_oai_pll_default_post_types();
+    }
+
+    $post_types = array_values(array_unique(array_filter(array_map('sanitize_key', $post_types))));
+
+    if (post_type_exists('cv_badge') && !in_array('cv_badge', $post_types, true)) {
+        $post_types[] = 'cv_badge';
+    }
+
+    return $post_types;
+}
+
 function cv_oai_pll_get_post_types() {
     $types = get_post_types(array('public' => true), 'objects');
     $options = array();
@@ -52,7 +71,7 @@ function cv_oai_pll_render_settings_page() {
 
     $api_key = get_option('cv_oai_pll_api_key', '');
     $model = get_option('cv_oai_pll_model', 'gpt-4o-mini');
-    $post_types = get_option('cv_oai_pll_post_types', array('cv_experience', 'cv_education', 'cv_course', 'cv_project'));
+    $post_types = cv_oai_pll_get_selected_post_types();
     $prompt = get_option('cv_oai_pll_prompt', cv_oai_pll_default_prompt());
     $available_types = cv_oai_pll_get_post_types();
 
@@ -211,7 +230,7 @@ function cv_oai_pll_run_translations() {
     }
 
     $model = get_option('cv_oai_pll_model', 'gpt-4o-mini');
-    $post_types = (array) get_option('cv_oai_pll_post_types', array());
+    $post_types = cv_oai_pll_get_selected_post_types();
     $prompt = get_option('cv_oai_pll_prompt', cv_oai_pll_default_prompt());
 
     if (empty($post_types)) {
@@ -248,10 +267,11 @@ function cv_oai_pll_run_translations() {
 
             $new_id = wp_insert_post(array(
                 'post_type' => $post->post_type,
-                'post_status' => 'draft',
+                'post_status' => $post->post_status,
                 'post_title' => wp_strip_all_tags($translated['title']),
                 'post_excerpt' => wp_kses_post($translated['excerpt']),
                 'post_content' => wp_kses_post($translated['content']),
+                'menu_order' => (int) $post->menu_order,
             ));
 
             if (is_wp_error($new_id) || !$new_id) {
