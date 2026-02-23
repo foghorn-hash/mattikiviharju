@@ -152,10 +152,30 @@ Extract CV data from PDF files and automatically populate ACF fields:
 - Model selection (gpt-4o, gpt-4o-mini, gpt-4-turbo)
 - Simple upload interface
 
+#### 📝 Word to Blog AI
+**Location:** `wp-content/plugins/word-to-blog-ai/`
+
+Generate Finnish draft blog posts from Word documents with OpenAI, including AI-generated images based on article text context.
+
+**Features:**
+- Upload `.docx` / `.doc` files from WordPress admin
+- Extract text from Word documents for AI processing
+- Generate blog title + HTML content with OpenAI (`gpt-4o`)
+- Automatically generate **1–4 AI images** from article title/content context (`gpt-image-1`)
+- Import generated images to WordPress media library
+- Auto-embed generated images inside article content
+- Save result as a WordPress draft for editorial review
+
+**Notes:**
+- Requires OpenAI API key configuration in plugin settings
+- Uses the generated article text snippet to guide image prompts
+- Images are generated without logos/watermarks/text overlays by prompt design
+
 ## Requirements
 
 - WordPress 5.0+
 - PHP 7.4+
+- Composer (for plugin dependencies)
 - **Required Plugins:**
   - Advanced Custom Fields (ACF) or ACF Pro
   - Polylang (for multilingual support)
@@ -169,7 +189,9 @@ Extract CV data from PDF files and automatically populate ACF fields:
 3. Install custom plugins:
    - Upload `cv-openai-polylang-translator` to `/wp-content/plugins/`
    - Upload `cv-pdf-to-acf-filler` to `/wp-content/plugins/`
-   - Activate both plugins
+   - Upload `word-to-blog-ai` to `/wp-content/plugins/`
+   - Activate the custom plugins
+   - Run `composer install` inside plugin folders that include `composer.json`
 4. Activate the CV One Pager theme
 5. Configure Polylang languages (Finnish, English, Swedish recommended)
 6. Set up your front page as a static page
@@ -196,6 +218,13 @@ Extract CV data from PDF files and automatically populate ACF fields:
    - Select model
    - Choose post types to translate
    - Customize translation prompt if needed
+
+3. **Word to Blog AI:**
+   - Word to Blog AI → plugin admin page
+   - Enter OpenAI API key
+   - Upload a `.docx` or `.doc` file
+   - Generate blog post draft with AI
+   - Plugin also generates and embeds 1–4 AI images based on article text context
 
 ### Theme Customization
 - Navigate to your front page in edit mode
@@ -230,7 +259,8 @@ Extract CV data from PDF files and automatically populate ACF fields:
 └── wp-content/
     └── plugins/
         ├── cv-openai-polylang-translator/
-        └── cv-pdf-to-acf-filler/
+      ├── cv-pdf-to-acf-filler/
+      └── word-to-blog-ai/
 ```
 
 ## Theme Support
