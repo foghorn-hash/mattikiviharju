@@ -259,8 +259,8 @@ Generate Finnish draft blog posts from Word documents with OpenAI, including AI-
 └── wp-content/
     └── plugins/
         ├── cv-openai-polylang-translator/
-      ├── cv-pdf-to-acf-filler/
-      └── word-to-blog-ai/
+        ├── cv-pdf-to-acf-filler/
+        └── word-to-blog-ai/
 ```
 
 ## Theme Support
