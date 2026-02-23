@@ -42,6 +42,14 @@ $contact_body = $contact_body ?: (function_exists('cv_one_pager_t') ? cv_one_pag
 $contact_email = $contact_email ?: 'hello@example.com';
 $contact_linkedin = $contact_linkedin ?: 'https://www.linkedin.com';
 $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('LinkedIn') : 'LinkedIn');
+$is_admin_editor = is_user_logged_in() && current_user_can('manage_options');
+$front_page_edit_url = '';
+if ($is_admin_editor) {
+	$front_page_id = function_exists('cv_one_pager_front_page_id') ? cv_one_pager_front_page_id() : (int) get_option('page_on_front');
+	if ($front_page_id > 0) {
+		$front_page_edit_url = get_edit_post_link($front_page_id);
+	}
+}
 ?>
 
 <main>
@@ -55,6 +63,9 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 					</div>
 				<?php endif; ?>
 				<p><?php echo esc_html($hero_intro); ?></p>
+				<?php if ($is_admin_editor && !empty($front_page_edit_url)) : ?>
+					<p><a href="<?php echo esc_url($front_page_edit_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Page') : 'Edit Page'); ?></a></p>
+				<?php endif; ?>
 				<div class="cta">
 					<a class="button" href="<?php echo esc_url($primary_cta_url); ?>">
 						<?php echo esc_html($primary_cta_label); ?>
@@ -146,6 +157,12 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 						<?php elseif (!empty($item->post_content)) : ?>
 							<p><?php echo esc_html(wp_trim_words($item->post_content, 24)); ?></p>
 						<?php endif; ?>
+						<?php if ($is_admin_editor) : ?>
+							<?php $edit_experience_url = get_edit_post_link($item->ID); ?>
+							<?php if (!empty($edit_experience_url)) : ?>
+								<p><a href="<?php echo esc_url($edit_experience_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Experience') : 'Edit Experience'); ?></a></p>
+							<?php endif; ?>
+						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
 			</div>
@@ -182,6 +199,12 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 						<?php elseif (!empty($item->post_content)) : ?>
 							<p><?php echo esc_html(wp_trim_words($item->post_content, 24)); ?></p>
 						<?php endif; ?>
+						<?php if ($is_admin_editor) : ?>
+							<?php $edit_education_url = get_edit_post_link($item->ID); ?>
+							<?php if (!empty($edit_education_url)) : ?>
+								<p><a href="<?php echo esc_url($edit_education_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Education') : 'Edit Education'); ?></a></p>
+							<?php endif; ?>
+						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
 			</div>
@@ -207,16 +230,26 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				$courses = get_posts($courses_query);
 				?>
 				<?php foreach ($courses as $course) : ?>
-					<?php $dates = get_post_meta($course->ID, '_cv_course_dates', true); ?>
+					<?php
+					$dates = get_post_meta($course->ID, '_cv_course_dates', true);
+					$provider = get_post_meta($course->ID, '_cv_course_provider', true);
+					?>
 					<article class="card">
 						<h3><?php echo esc_html(get_the_title($course)); ?></h3>
+						<?php if (!empty($provider)) : ?>
+							<p><?php echo esc_html($provider); ?></p>
+						<?php endif; ?>
 						<?php if (!empty($dates)) : ?>
 							<span><?php echo esc_html($dates); ?></span>
 						<?php endif; ?>
-						<?php if (!empty($course->post_excerpt)) : ?>
-							<p><?php echo esc_html($course->post_excerpt); ?></p>
-						<?php elseif (!empty($course->post_content)) : ?>
+						<?php if (!empty($course->post_content)) : ?>
 							<p><?php echo esc_html(wp_trim_words($course->post_content, 24)); ?></p>
+						<?php endif; ?>
+						<?php if ($is_admin_editor) : ?>
+							<?php $edit_course_url = get_edit_post_link($course->ID); ?>
+							<?php if (!empty($edit_course_url)) : ?>
+								<p><a href="<?php echo esc_url($edit_course_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Course') : 'Edit Course'); ?></a></p>
+							<?php endif; ?>
 						<?php endif; ?>
 					</article>
 				<?php endforeach; ?>
@@ -354,7 +387,7 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 							<?php $link_text = !empty($link_label) ? $link_label : 'View project'; ?>
 							<p><a href="<?php echo esc_url($link); ?>" target="_blank" rel="noopener"><?php echo esc_html($link_text); ?></a></p>
 						<?php endif; ?>
-						<?php if (is_user_logged_in() && current_user_can('manage_options')) : ?>
+						<?php if ($is_admin_editor) : ?>
 							<?php $edit_project_url = get_edit_post_link($project->ID); ?>
 							<?php if (!empty($edit_project_url)) : ?>
 								<p><a href="<?php echo esc_url($edit_project_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Project') : 'Edit Project'); ?></a></p>
@@ -399,7 +432,15 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 				$skills = get_posts($skills_query);
 				?>
 				<?php foreach ($skills as $skill) : ?>
-					<div class="skill"><?php echo esc_html(get_the_title($skill)); ?></div>
+					<div class="skill">
+						<?php echo esc_html(get_the_title($skill)); ?>
+						<?php if ($is_admin_editor) : ?>
+							<?php $edit_skill_url = get_edit_post_link($skill->ID); ?>
+							<?php if (!empty($edit_skill_url)) : ?>
+								 <a href="<?php echo esc_url($edit_skill_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Skill') : 'Edit Skill'); ?></a>
+							<?php endif; ?>
+						<?php endif; ?>
+					</div>
 				<?php endforeach; ?>
 			</div>
 		</div>
@@ -410,6 +451,9 @@ $contact_linkedin_label = $contact_linkedin_label ?: (function_exists('cv_one_pa
 			<h2 class="section-title"><?php echo esc_html($contact_title); ?></h2>
 			<div class="card">
 				<p><?php echo esc_html($contact_body); ?></p>
+				<?php if ($is_admin_editor && !empty($front_page_edit_url)) : ?>
+					<p><a href="<?php echo esc_url($front_page_edit_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Page') : 'Edit Page'); ?></a></p>
+				<?php endif; ?>
 				<?php if (!empty($contact_business_id) || !empty($contact_vat_id)) : ?>
 					<div class="contact-meta">
 						<?php if (!empty($contact_business_id)) : ?>

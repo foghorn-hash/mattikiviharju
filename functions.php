@@ -394,14 +394,45 @@ add_action('add_meta_boxes', 'cv_one_pager_add_meta_boxes', 10);
 
 function cv_one_pager_render_experience_meta_box($post) {
     wp_nonce_field('cv_experience_meta_save', 'cv_experience_meta_nonce');
+    $company = get_post_meta($post->ID, '_cv_experience_company', true);
     $dates = get_post_meta($post->ID, '_cv_experience_dates', true);
+    $summary = $post->post_excerpt;
+
+    echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
+    echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
+    echo 'Role: Use title field above<br>';
+    echo 'Employer / Company: Use field below<br>';
+    echo 'Dates: Use field below<br>';
+    echo 'Description (Summary): Use field below<br>';
+    echo 'Full details: Use main editor below</p>';
+    echo '</div>';
+
+    echo '<p><label for="cv_experience_company"><strong>Employer / Company</strong></label></p>';
+    echo '<input type="text" id="cv_experience_company" name="cv_experience_company" value="' . esc_attr($company) . '" class="widefat" />';
+
     echo '<p><label for="cv_experience_dates"><strong>Dates</strong></label></p>';
     echo '<input type="text" id="cv_experience_dates" name="cv_experience_dates" value="' . esc_attr($dates) . '" class="widefat" />';
+
+    echo '<p><label for="cv_experience_summary"><strong>Description (Summary)</strong></label></p>';
+    echo '<textarea id="cv_experience_summary" name="cv_experience_summary" rows="3" class="widefat" placeholder="Short description shown on CV page...">' . esc_textarea($summary) . '</textarea>';
 }
 
 function cv_one_pager_render_education_meta_box($post) {
     wp_nonce_field('cv_education_meta_save', 'cv_education_meta_nonce');
+    $school_name = $post->post_excerpt;
     $dates = get_post_meta($post->ID, '_cv_education_dates', true);
+
+    echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
+    echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
+    echo 'Degree / Qualification: Use title field above<br>';
+    echo 'School / Institution (stored in excerpt): Use field below<br>';
+    echo 'Dates: Use field below<br>';
+    echo '</p>';
+    echo '</div>';
+
+    echo '<p><label for="cv_education_school"><strong>School / Institution</strong></label></p>';
+    echo '<input type="text" id="cv_education_school" name="cv_education_school" value="' . esc_attr($school_name) . '" class="widefat" />';
+
     echo '<p><label for="cv_education_dates"><strong>Dates</strong></label></p>';
     echo '<input type="text" id="cv_education_dates" name="cv_education_dates" value="' . esc_attr($dates) . '" class="widefat" />';
 }
@@ -409,7 +440,10 @@ function cv_one_pager_render_education_meta_box($post) {
 function cv_one_pager_render_course_meta_box($post) {
     wp_nonce_field('cv_course_meta_save', 'cv_course_meta_nonce');
     $dates = get_post_meta($post->ID, '_cv_course_dates', true);
-    $provider = $post->post_excerpt;
+    $provider = get_post_meta($post->ID, '_cv_course_provider', true);
+    if ($provider === '') {
+        $provider = $post->post_excerpt;
+    }
     ?>
     <div style="padding: 10px 0;">
         <p><label for="cv_course_provider"><strong>Provider / Organizer (School/Institution)</strong></label></p>
@@ -428,7 +462,6 @@ function cv_one_pager_render_course_meta_box($post) {
             <strong>How to edit:</strong><br>
             • <strong>Course Title:</strong> Use the title field at the top of this page<br>
             • <strong>Provider/School:</strong> Use the field above<br>
-            • <strong>Description:</strong> Use the main content editor below<br>
             • <strong>Dates:</strong> Use the field above
         </p>
     </div>
@@ -570,28 +603,41 @@ function cv_one_pager_save_meta_boxes($post_id) {
         return;
     }
     if (isset($_POST['cv_experience_meta_nonce']) && wp_verify_nonce($_POST['cv_experience_meta_nonce'], 'cv_experience_meta_save')) {
+        if (isset($_POST['cv_experience_company'])) {
+            update_post_meta($post_id, '_cv_experience_company', sanitize_text_field($_POST['cv_experience_company']));
+        }
         if (isset($_POST['cv_experience_dates'])) {
             update_post_meta($post_id, '_cv_experience_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_experience_dates']));
         }
+        if (isset($_POST['cv_experience_summary'])) {
+            remove_action('save_post', 'cv_one_pager_save_meta_boxes');
+
+            wp_update_post(array(
+                'ID' => $post_id,
+                'post_excerpt' => sanitize_textarea_field($_POST['cv_experience_summary'])
+            ));
+
+            add_action('save_post', 'cv_one_pager_save_meta_boxes');
+        }
     }
     if (isset($_POST['cv_education_meta_nonce']) && wp_verify_nonce($_POST['cv_education_meta_nonce'], 'cv_education_meta_save')) {
+        if (isset($_POST['cv_education_school'])) {
+            remove_action('save_post', 'cv_one_pager_save_meta_boxes');
+
+            wp_update_post(array(
+                'ID' => $post_id,
+                'post_excerpt' => sanitize_text_field($_POST['cv_education_school'])
+            ));
+
+            add_action('save_post', 'cv_one_pager_save_meta_boxes');
+        }
         if (isset($_POST['cv_education_dates'])) {
             update_post_meta($post_id, '_cv_education_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_education_dates']));
         }
     }
     if (isset($_POST['cv_course_meta_nonce']) && wp_verify_nonce($_POST['cv_course_meta_nonce'], 'cv_course_meta_save')) {
         if (isset($_POST['cv_course_provider'])) {
-            // Unhook to prevent infinite loop
-            remove_action('save_post', 'cv_one_pager_save_meta_boxes');
-            
-            // Update provider in post_excerpt
-            wp_update_post(array(
-                'ID' => $post_id,
-                'post_excerpt' => sanitize_text_field($_POST['cv_course_provider'])
-            ));
-            
-            // Re-hook
-            add_action('save_post', 'cv_one_pager_save_meta_boxes');
+            update_post_meta($post_id, '_cv_course_provider', sanitize_text_field($_POST['cv_course_provider']));
         }
         if (isset($_POST['cv_course_dates'])) {
             update_post_meta($post_id, '_cv_course_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_course_dates']));
