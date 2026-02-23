@@ -1430,7 +1430,9 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang) {
         $pdf->AddPage();
         $pdf->SetFont('Arial', '', 10);
 
-        $page_width = $pdf->GetPageWidth();
+        $page_width = method_exists($pdf, 'GetPageWidth')
+            ? $pdf->GetPageWidth()
+            : (isset($pdf->w) ? (float) $pdf->w : 210.0);
         $left_margin = 10;
         $right_margin = 10;
 
