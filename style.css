@@ -192,26 +192,31 @@ img {
 
 .lang-switcher {
   display: inline-flex;
-  gap: 6px;
   padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 8px;
   background: rgba(15, 23, 42, 0.35);
 }
 
-.lang-switcher .lang-pill {
-  display: inline-flex;
-  align-items: center;
+.lang-dropdown {
+  background: transparent;
+  border: none;
+  color: var(--text);
   padding: 6px 12px;
   font-size: 0.85rem;
   font-weight: 600;
-  border-radius: 999px;
-  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
 }
 
-.lang-switcher .lang-pill.is-active {
-  background: var(--accent);
-  color: #0f172a;
+.lang-dropdown:focus {
+  outline: 2px solid var(--accent);
+}
+
+.lang-dropdown option {
+  background: var(--surface);
+  color: var(--text);
 }
 
 @media (max-width: 900px) {

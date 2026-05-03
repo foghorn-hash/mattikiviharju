@@ -52,15 +52,24 @@ $anchor_base = is_front_page() ? '' : $home_url;
                             'raw' => 1,
                         ));
                         if (!empty($languages) && is_array($languages)) :
-                            foreach ($languages as $lang) :
-                                $is_current = !empty($lang['current_lang']);
-                                $class = $is_current ? 'lang-pill is-active' : 'lang-pill';
-                                $name = !empty($lang['name']) ? $lang['name'] : $lang['slug'];
-                                ?>
-                                <a class="<?php echo esc_attr($class); ?>" href="<?php echo esc_url($lang['url']); ?>">
-                                    <?php echo esc_html($name); ?>
-                                </a>
-                            <?php endforeach; ?>
+                            $current_lang = '';
+                            foreach ($languages as $lang) {
+                                if (!empty($lang['current_lang'])) {
+                                    $current_lang = $lang['slug'];
+                                    break;
+                                }
+                            }
+                            ?>
+                            <select class="lang-dropdown" onchange="window.location.href = this.value;">
+                                <?php foreach ($languages as $lang) :
+                                    $is_current = !empty($lang['current_lang']);
+                                    $name = !empty($lang['name']) ? $lang['name'] : $lang['slug'];
+                                    ?>
+                                    <option value="<?php echo esc_url($lang['url']); ?>" <?php selected($is_current); ?>>
+                                        <?php echo esc_html($name); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         <?php endif; ?>
                     </div>
                 </div>
