@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CV OpenAI Polylang Translator
- * Description: Manually translate Finnish custom post types into English, Swedish, Spanish, Chinese, and Japanese using OpenAI and Polylang.
+ * Description: Manually translate Finnish custom post types into English and Swedish using OpenAI and Polylang.
  * Version: 1.0.0
  * Author: GitHub Copilot
  */
@@ -31,16 +31,6 @@ add_action('admin_menu', 'cv_oai_pll_add_settings_page');
 
 function cv_oai_pll_default_prompt() {
     return 'Translate the following content from Finnish to {LANG}. Preserve meaning, tone, and any HTML. Return JSON with keys: title, excerpt, content.';
-}
-
-function cv_oai_pll_get_language_names() {
-    return array(
-        'en' => 'English',
-        'sv' => 'Swedish',
-        'es' => 'Spanish',
-        'zh' => 'Chinese',
-        'ja' => 'Japanese',
-    );
 }
 
 function cv_oai_pll_default_post_types() {
@@ -128,7 +118,7 @@ function cv_oai_pll_render_settings_page() {
         <hr />
 
         <h2>Run translation</h2>
-        <p>Creates English (en), Swedish (sv), Spanish (es), Chinese (zh), and Japanese (ja) translations for Finnish (fi) posts of the selected post types. New translations are created as drafts.</p>
+        <p>Creates English (en) and Swedish (sv) translations for Finnish (fi) posts of the selected post types. New translations are created as drafts.</p>
         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
             <?php wp_nonce_field('cv_oai_pll_run'); ?>
             <input type="hidden" name="action" value="cv_oai_pll_run" />
@@ -143,7 +133,6 @@ function cv_oai_pll_call_openai($payload, $api_key) {
         'headers' => array(
             'Authorization' => 'Bearer ' . $api_key,
             'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
         ),
         'timeout' => 60,
         'body' => wp_json_encode($payload),
@@ -156,28 +145,12 @@ function cv_oai_pll_call_openai($payload, $api_key) {
     $code = (int) wp_remote_retrieve_response_code($response);
     $body = wp_remote_retrieve_body($response);
     if ($code < 200 || $code >= 300) {
-        $parsed = json_decode($body, true);
-        $error_message = '';
-        if (is_array($parsed) && !empty($parsed['error']['message'])) {
-            $error_message = $parsed['error']['message'];
-        } elseif (is_array($parsed) && !empty($parsed['error'])) {
-            $error_message = is_string($parsed['error']) ? $parsed['error'] : wp_json_encode($parsed['error']);
-        } else {
-            $error_message = $body;
-        }
-
-        if ($code === 429 || stripos($error_message, 'quota') !== false || stripos($error_message, 'billing') !== false) {
-            $error_message = 'OpenAI quota or billing error: ' . $error_message;
-        }
-
-        error_log('CV OAI PLL OpenAI API error (' . $code . '): ' . $error_message);
-        return new WP_Error('openai_error', 'OpenAI API error: ' . $error_message);
+        return new WP_Error('openai_error', 'OpenAI API error: ' . $body);
     }
 
     $json = json_decode($body, true);
     if (!is_array($json) || empty($json['choices'][0]['message']['content'])) {
-        error_log('CV OAI PLL OpenAI invalid response: ' . $body);
-        return new WP_Error('openai_invalid', 'Invalid OpenAI response: ' . substr($body, 0, 200));
+        return new WP_Error('openai_invalid', 'Invalid OpenAI response.');
     }
 
     return $json['choices'][0]['message']['content'];
@@ -196,28 +169,16 @@ function cv_oai_pll_parse_json($content) {
         return $decoded;
     }
 
-    $first_brace = strpos($content, '{');
-    $last_brace = strrpos($content, '}');
-    if ($first_brace !== false && $last_brace !== false && $last_brace > $first_brace) {
-        $json_part = substr($content, $first_brace, $last_brace - $first_brace + 1);
-        $decoded = json_decode($json_part, true);
-        if (is_array($decoded)) {
-            return $decoded;
-        }
-    }
-
     return null;
 }
 
 function cv_oai_pll_translate_post($post, $target_lang, $api_key, $model, $prompt) {
-    $lang_names = cv_oai_pll_get_language_names();
-    $lang_name = isset($lang_names[$target_lang]) ? $lang_names[$target_lang] : $target_lang;
-    $prompt = str_replace('{LANG}', $lang_name, $prompt);
+    $prompt = str_replace('{LANG}', $target_lang, $prompt);
 
     $payload = array(
         'model' => $model,
         'temperature' => 0.2,
-        'max_tokens' => 2048,
+        'response_format' => array('type' => 'json_object'),
         'messages' => array(
             array(
                 'role' => 'system',
@@ -277,11 +238,10 @@ function cv_oai_pll_run_translations() {
         exit;
     }
 
-    $languages = array('en', 'sv', 'es', 'zh', 'ja');
+    $languages = array('en', 'sv');
     $created = 0;
     $skipped = 0;
     $errors = 0;
-    $error_messages = array();
 
     $query = new WP_Query(array(
         'post_type' => $post_types,
@@ -290,13 +250,6 @@ function cv_oai_pll_run_translations() {
         'lang' => 'fi',
         'suppress_filters' => false,
     ));
-
-    error_log('CV OAI PLL: Found ' . count($query->posts) . ' Finnish posts to translate.');
-
-    if (empty($query->posts)) {
-        wp_safe_redirect(add_query_arg('cv_oai_pll_message', rawurlencode('No Finnish posts found to translate.'), wp_get_referer()));
-        exit;
-    }
 
     foreach ($query->posts as $post) {
         $translations = function_exists('pll_get_post_translations') ? pll_get_post_translations($post->ID) : array('fi' => $post->ID);
@@ -309,14 +262,12 @@ function cv_oai_pll_run_translations() {
             $translated = cv_oai_pll_translate_post($post, $lang, $api_key, $model, $prompt);
             if (is_wp_error($translated)) {
                 $errors++;
-                $error_messages[] = 'Translation failed for post ' . $post->ID . ' to ' . $lang . ': ' . $translated->get_error_message();
-                error_log('CV OAI PLL Error: ' . $translated->get_error_message());
                 continue;
             }
 
             $new_id = wp_insert_post(array(
                 'post_type' => $post->post_type,
-                'post_status' => 'draft', // Create as draft as per description
+                'post_status' => $post->post_status,
                 'post_title' => wp_strip_all_tags($translated['title']),
                 'post_excerpt' => wp_kses_post($translated['excerpt']),
                 'post_content' => wp_kses_post($translated['content']),
@@ -325,8 +276,6 @@ function cv_oai_pll_run_translations() {
 
             if (is_wp_error($new_id) || !$new_id) {
                 $errors++;
-                $error_messages[] = 'Failed to insert post for ' . $post->ID . ' to ' . $lang;
-                error_log('CV OAI PLL Error: Failed to insert post');
                 continue;
             }
 
@@ -344,9 +293,6 @@ function cv_oai_pll_run_translations() {
     }
 
     $message = sprintf('Created: %d, Skipped: %d, Errors: %d', $created, $skipped, $errors);
-    if (!empty($error_messages)) {
-        $message .= ' | Errors: ' . implode('; ', array_slice($error_messages, 0, 3)); // Show first 3 errors
-    }
     wp_safe_redirect(add_query_arg('cv_oai_pll_message', rawurlencode($message), wp_get_referer()));
     exit;
 }
