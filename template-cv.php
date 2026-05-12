@@ -153,9 +153,13 @@ if ($is_admin_editor) {
 							<span><?php echo esc_html($dates); ?></span>
 						<?php endif; ?>
 						<?php if (!empty($item->post_excerpt)) : ?>
-							<p><?php echo esc_html($item->post_excerpt); ?></p>
+							<div class="experience-description">
+								<?php echo wp_kses_post(wpautop($item->post_excerpt)); ?>
+							</div>
 						<?php elseif (!empty($item->post_content)) : ?>
-							<p><?php echo esc_html(wp_trim_words($item->post_content, 24)); ?></p>
+							<div class="experience-description">
+								<?php echo wp_kses_post(wpautop($item->post_content)); ?>
+							</div>
 						<?php endif; ?>
 						<?php if ($is_admin_editor) : ?>
 							<?php $edit_experience_url = get_edit_post_link($item->ID); ?>
