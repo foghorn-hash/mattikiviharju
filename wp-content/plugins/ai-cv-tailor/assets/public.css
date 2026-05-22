@@ -1,0 +1,127 @@
+:root {
+	--primary-color: #2c3e50;
+	--accent-color: #3498db;
+	--bg-color: #f8f9fa;
+	--text-color: #333;
+	--border-color: #e9ecef;
+}
+
+body.ai-cv-public-body {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+	line-height: 1.6;
+	margin: 0;
+	padding: 40px 20px;
+}
+
+.ai-cv-container {
+	max-width: 800px;
+	margin: 0 auto;
+	background: #fff;
+	padding: 40px;
+	border-radius: 8px;
+	box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.ai-cv-header {
+	text-align: center;
+	border-bottom: 2px solid var(--border-color);
+	padding-bottom: 20px;
+	margin-bottom: 40px;
+}
+
+.ai-cv-header h1 {
+	margin: 0 0 10px 0;
+	color: var(--primary-color);
+	font-size: 2.5em;
+}
+
+.contact-info, .business-id {
+	color: #666;
+	font-size: 0.95em;
+	margin-bottom: 5px;
+}
+
+.contact-info a {
+	color: var(--accent-color);
+	text-decoration: none;
+}
+
+.contact-info a:hover {
+	text-decoration: underline;
+}
+
+.ai-cv-section {
+	margin-bottom: 40px;
+}
+
+.ai-cv-section h2 {
+	color: var(--primary-color);
+	border-bottom: 1px solid var(--border-color);
+	padding-bottom: 10px;
+	margin-bottom: 20px;
+	font-size: 1.5em;
+}
+
+.content-box {
+	background: #fdfdfd;
+	padding: 20px;
+	border-left: 4px solid var(--accent-color);
+	border-radius: 0 4px 4px 0;
+}
+
+.skills-list {
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.skills-list li {
+	background: var(--bg-color);
+	padding: 8px 16px;
+	border-radius: 20px;
+	font-size: 0.9em;
+	border: 1px solid var(--border-color);
+}
+
+.experience-item, .project-item {
+	margin-bottom: 25px;
+}
+
+.experience-item h3, .project-item h3 {
+	margin: 0 0 5px 0;
+	color: #222;
+	font-size: 1.2em;
+}
+
+.period {
+	display: block;
+	color: #777;
+	font-size: 0.9em;
+	margin-bottom: 10px;
+}
+
+.ai-cv-footer {
+	text-align: center;
+	margin-top: 50px;
+	padding-top: 20px;
+	border-top: 1px solid var(--border-color);
+	color: #888;
+	font-size: 0.9em;
+}
+
+.ai-cv-footer a {
+	color: #888;
+}
+
+@media (max-width: 600px) {
+	.ai-cv-container {
+		padding: 20px;
+	}
+	body.ai-cv-public-body {
+		padding: 10px;
+	}
+}
