@@ -52,8 +52,26 @@ class AI_CV_Tailor_Settings {
 		if ( isset( $input['business_id'] ) ) {
 			$sanitized['business_id'] = sanitize_text_field( $input['business_id'] );
 		}
+		if ( isset( $input['vat_id'] ) ) {
+			$sanitized['vat_id'] = sanitize_text_field( $input['vat_id'] );
+		}
 		if ( isset( $input['website_url'] ) ) {
 			$sanitized['website_url'] = esc_url_raw( $input['website_url'] );
+		}
+		if ( isset( $input['delivery_terms_url'] ) ) {
+			$sanitized['delivery_terms_url'] = esc_url_raw( $input['delivery_terms_url'] );
+		}
+		if ( isset( $input['privacy_policy_url'] ) ) {
+			$sanitized['privacy_policy_url'] = esc_url_raw( $input['privacy_policy_url'] );
+		}
+		if ( isset( $input['terms_url'] ) ) {
+			$sanitized['terms_url'] = esc_url_raw( $input['terms_url'] );
+		}
+		if ( isset( $input['dpa_url'] ) ) {
+			$sanitized['dpa_url'] = esc_url_raw( $input['dpa_url'] );
+		}
+		if ( isset( $input['sla_url'] ) ) {
+			$sanitized['sla_url'] = esc_url_raw( $input['sla_url'] );
 		}
 		
 		return $sanitized;

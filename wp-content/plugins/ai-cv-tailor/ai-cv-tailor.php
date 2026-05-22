@@ -57,3 +57,8 @@ register_deactivation_hook( __FILE__, 'ai_cv_tailor_deactivate' );
 function ai_cv_tailor_deactivate() {
 	flush_rewrite_rules();
 }
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once AI_CV_TAILOR_DIR . 'includes/class-cli.php';
+	WP_CLI::add_command( 'ai-cv-tailor', 'AI_CV_Tailor_CLI_Command' );
+}

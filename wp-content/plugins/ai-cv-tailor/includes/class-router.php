@@ -10,50 +10,50 @@ class AI_CV_Tailor_Router {
 
 	public function add_rewrite_rules() {
 		// Rule: ^ai-cv/([^/]+)/([^/]+)/([^/]+)/?$
-		// $matches[1] = slug (application name)
+		// $matches[1] = application (post_id)
 		// $matches[2] = audience (hr, cto, etc.)
 		// $matches[3] = token
 		add_rewrite_rule(
 			'^ai-cv/([^/]+)/([^/]+)/([^/]+)/?$',
-			'index.php?ai_cv_slug=$matches[1]&ai_cv_audience=$matches[2]&ai_cv_token=$matches[3]',
+			'index.php?ai_cv_application=$matches[1]&ai_cv_audience=$matches[2]&ai_cv_token=$matches[3]',
 			'top'
 		);
 	}
 
 	public function add_query_vars( $vars ) {
-		$vars[] = 'ai_cv_slug';
+		$vars[] = 'ai_cv_application';
 		$vars[] = 'ai_cv_audience';
 		$vars[] = 'ai_cv_token';
 		return $vars;
 	}
 
 	public function intercept_request( $template ) {
-		$slug = get_query_var( 'ai_cv_slug' );
-		$audience = get_query_var( 'ai_cv_audience' );
-		$token = get_query_var( 'ai_cv_token' );
+		$application = get_query_var( 'ai_cv_application' );
+		$audience    = get_query_var( 'ai_cv_audience' );
+		$token       = get_query_var( 'ai_cv_token' );
 
-		if ( ! empty( $slug ) && ! empty( $audience ) && ! empty( $token ) ) {
-			// Find the application by slug
-			$args = array(
-				'name'        => $slug,
-				'post_type'   => 'ai_cv_application',
-				'post_status' => 'publish',
-				'numberposts' => 1
-			);
-			$posts = get_posts( $args );
+		if ( ! empty( $application ) && ! empty( $audience ) && ! empty( $token ) ) {
+			$post_id = absint( $application );
 
-			if ( empty( $posts ) ) {
+			if ( ! $post_id ) {
+				// Also support slug later if needed.
 				global $wp_query;
 				$wp_query->set_404();
 				status_header( 404 );
 				return get_404_template();
 			}
 
-			$post = $posts[0];
-			$tokens = get_post_meta( $post->ID, '_tokens', true );
-			
-			// Validate token
-			if ( ! is_array( $tokens ) || ! isset( $tokens[ $audience ] ) || $tokens[ $audience ] !== $token ) {
+			$expected_token = get_post_meta( $post_id, 'ai_cv_' . str_replace( '-', '_', $audience ) . '_token', true );
+
+			if ( ! $expected_token || ! hash_equals( $expected_token, $token ) ) {
+				global $wp_query;
+				$wp_query->set_404();
+				status_header( 404 );
+				return get_404_template();
+			}
+
+			$post = get_post( $post_id );
+			if ( ! $post || $post->post_status !== 'publish' || $post->post_type !== 'ai_cv_application' ) {
 				global $wp_query;
 				$wp_query->set_404();
 				status_header( 404 );

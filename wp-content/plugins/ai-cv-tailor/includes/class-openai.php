@@ -20,10 +20,15 @@ class AI_CV_Tailor_OpenAI {
 			return new WP_Error( 'no_api_key', 'OpenAI API avainta ei ole asetettu.' );
 		}
 
+		$settings = get_option( 'ai_cv_settings', array() );
+		if ( empty( $settings['delivery_terms_url'] ) || empty( $settings['privacy_policy_url'] ) ) {
+			return new WP_Error( 'missing_terms', 'Delivery Terms ja Privacy Policy pitää lisätä asetuksiin ennen julkaisua.' );
+		}
+
 		$cv_data = get_option( 'ai_cv_profile_data', array() );
 		$cv_json_string = wp_json_encode( $cv_data );
 
-		$system_prompt = $this->get_system_prompt( $language );
+		$system_prompt = $this->get_system_prompt( $language, $settings );
 
 		$messages = array(
 			array(
@@ -75,8 +80,17 @@ class AI_CV_Tailor_OpenAI {
 		return new WP_Error( 'unknown_error', 'Tuntematon virhe OpenAI-kutsussa.' );
 	}
 
-	private function get_system_prompt( $language ) {
+	private function get_system_prompt( $language, $settings = array() ) {
 		$lang_instruction = ( $language === 'en' ) ? 'Respond entirely in English.' : 'Vastaa kokonaan suomeksi.';
+		
+		$legal_text = '';
+		if ( ! empty( $settings['delivery_terms_url'] ) && ! empty( $settings['privacy_policy_url'] ) ) {
+			$legal_text = "Lisää sähköposti-, LinkedIn- ja freelance-platform-viesteihin/hakemuskirjeisiin aina automaattisesti tämä lyhyt sopimusmaininta:\n";
+			$legal_text .= "\"Työ tehdään i4ware Softwaren toimitusehtojen ja tietosuojaselosteen mukaisesti:\n";
+			$legal_text .= "Delivery Terms: " . esc_url_raw( $settings['delivery_terms_url'] ) . "\n";
+			$legal_text .= "Privacy Policy: " . esc_url_raw( $settings['privacy_policy_url'] ) . "\"\n";
+			$legal_text .= "Älä keksi omia sopimuslinkkejä.";
+		}
 
 		return <<<EOT
 Olet asiantunteva ura- ja rekrytointikonsultti. Tehtäväsi on analysoida annettu työpaikkailmoitus ja räätälöidä käyttäjän CV-data eri kohderyhmille (HR, CTO, CEO, Team Lead, Recruiter).
@@ -87,6 +101,7 @@ TÄRKEÄT SÄÄNNÖT:
 - Räätälöi sisältö työpaikkailmoituksen mukaan.
 - Luo jokaiselle vastaanottajalle oma painotettu versio.
 - $lang_instruction
+$legal_text
 - Sinun ON palautettava vastaus TISMALLEEN alla olevassa JSON-muodossa. Vain validi JSON sallitaan.
 
 HR-painotus: selkeä profiili, koulutus, työkokemus, sopivuus, saatavuus, laskutus Y-tunnuksella.

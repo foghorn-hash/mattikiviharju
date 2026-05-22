@@ -78,8 +78,39 @@
 					<td><input type="text" id="business_id" name="ai_cv_settings[business_id]" value="<?php echo esc_attr( $settings['business_id'] ?? '' ); ?>" class="regular-text" /></td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="vat_id">VAT ID (ALV-tunniste)</label></th>
+					<td><input type="text" id="vat_id" name="ai_cv_settings[vat_id]" value="<?php echo esc_attr( $settings['vat_id'] ?? '' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="website_url">Verkkosivun URL</label></th>
 					<td><input type="url" id="website_url" name="ai_cv_settings[website_url]" value="<?php echo esc_attr( $settings['website_url'] ?? '' ); ?>" class="regular-text" /></td>
+				</tr>
+			</table>
+		</div>
+		
+		<div class="ai-cv-card">
+			<h2>Sopimukset ja Ehdot</h2>
+			<p class="description">Näitä linkkejä käytetään luoduissa hakemuksissa ja sivujen alalaidassa. Delivery Terms ja Privacy Policy ovat pakollisia.</p>
+			<table class="form-table">
+				<tr>
+					<th scope="row"><label for="delivery_terms_url">Delivery Terms URL *</label></th>
+					<td><input type="url" id="delivery_terms_url" name="ai_cv_settings[delivery_terms_url]" value="<?php echo esc_attr( $settings['delivery_terms_url'] ?? '' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="privacy_policy_url">Privacy Policy URL *</label></th>
+					<td><input type="url" id="privacy_policy_url" name="ai_cv_settings[privacy_policy_url]" value="<?php echo esc_attr( $settings['privacy_policy_url'] ?? '' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="terms_url">Terms of Service URL</label></th>
+					<td><input type="url" id="terms_url" name="ai_cv_settings[terms_url]" value="<?php echo esc_attr( $settings['terms_url'] ?? '' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="dpa_url">Data Processing Agreement URL (Opt)</label></th>
+					<td><input type="url" id="dpa_url" name="ai_cv_settings[dpa_url]" value="<?php echo esc_attr( $settings['dpa_url'] ?? '' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="sla_url">Service Level Agreement URL (Opt)</label></th>
+					<td><input type="url" id="sla_url" name="ai_cv_settings[sla_url]" value="<?php echo esc_attr( $settings['sla_url'] ?? '' ); ?>" class="regular-text" /></td>
 				</tr>
 			</table>
 		</div>

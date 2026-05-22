@@ -19,6 +19,12 @@ class AI_CV_Tailor_Plugin {
 		require_once AI_CV_TAILOR_DIR . 'includes/class-router.php';
 		require_once AI_CV_TAILOR_DIR . 'includes/class-renderer.php';
 		require_once AI_CV_TAILOR_DIR . 'includes/class-statistics.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-cpt.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-settings.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-logger.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-admin.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-cron.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-application-metaboxes.php';
 	}
 
 	public function run() {
@@ -31,6 +37,9 @@ class AI_CV_Tailor_Plugin {
 		$cpt = new AI_CV_Tailor_CPT();
 		$cpt->init();
 
+		$metaboxes = new AI_CV_Tailor_Application_Metaboxes();
+		$metaboxes->init();
+
 		$router = new AI_CV_Tailor_Router();
 		$router->init();
 
@@ -39,5 +48,17 @@ class AI_CV_Tailor_Plugin {
 		
 		$statistics = new AI_CV_Tailor_Statistics();
 		$statistics->init();
+		
+		$autopilot_cpt = new AI_CV_Tailor_Autopilot_CPT();
+		$autopilot_cpt->init();
+
+		$autopilot_settings = new AI_CV_Tailor_Autopilot_Settings();
+		$autopilot_settings->init();
+
+		$autopilot_admin = new AI_CV_Tailor_Autopilot_Admin();
+		$autopilot_admin->init();
+
+		$autopilot_cron = new AI_CV_Tailor_Autopilot_Cron();
+		$autopilot_cron->init();
 	}
 }
