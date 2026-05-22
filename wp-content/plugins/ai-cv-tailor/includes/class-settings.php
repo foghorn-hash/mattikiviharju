@@ -10,7 +10,7 @@ class AI_CV_Tailor_Settings {
 		// Register a single option array for all settings
 		register_setting(
 			'ai_cv_tailor_settings_group',
-			'ai_cv_settings',
+			'ai_cv_tailor_settings',
 			array( $this, 'sanitize_settings' )
 		);
 		

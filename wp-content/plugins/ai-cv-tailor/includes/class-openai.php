@@ -6,7 +6,7 @@ class AI_CV_Tailor_OpenAI {
 	private $model;
 
 	public function __construct() {
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		$this->api_key = $settings['openai_api_key'] ?? '';
 		$this->model = $settings['model'] ?? 'gpt-4o';
 	}
@@ -20,7 +20,7 @@ class AI_CV_Tailor_OpenAI {
 			return new WP_Error( 'no_api_key', 'OpenAI API avainta ei ole asetettu.' );
 		}
 
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		if ( empty( $settings['delivery_terms_url'] ) || empty( $settings['privacy_policy_url'] ) ) {
 			return new WP_Error( 'missing_terms', 'Delivery Terms ja Privacy Policy pitää lisätä asetuksiin ennen julkaisua.' );
 		}

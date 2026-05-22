@@ -5,6 +5,16 @@
 		settings_fields( 'ai_cv_autopilot_settings_group' );
 		do_settings_sections( 'ai_cv_autopilot_settings_group' );
 		$options = get_option( 'ai_cv_autopilot_settings', array() );
+
+		$test_result = get_transient( 'ai_cv_openai_test_result' );
+		if ( $test_result ) {
+			if ( strpos( $test_result, 'error' ) !== false ) {
+				echo '<div class="notice notice-error is-dismissible"><p>Test Result: ' . esc_html( $test_result ) . '</p></div>';
+			} else {
+				echo '<div class="notice notice-success is-dismissible"><p>Test Result: ' . esc_html( $test_result ) . '</p></div>';
+			}
+			delete_transient( 'ai_cv_openai_test_result' );
+		}
 		?>
 		<table class="form-table">
 			<tr>
@@ -54,4 +64,10 @@
 		</table>
 		<?php submit_button(); ?>
 	</form>
+
+	<hr>
+	<h2>OpenAI Testaus</h2>
+	<p>Tarkista, että API avain on määritetty ja toimii oikein.</p>
+	<?php $test_url = wp_nonce_url( admin_url( 'admin-post.php?action=ai_cv_tailor_test_openai' ), 'test_openai' ); ?>
+	<a href="<?php echo esc_url( $test_url ); ?>" class="button button-secondary">Test OpenAI Connection</a>
 </div>

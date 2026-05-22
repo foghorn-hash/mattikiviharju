@@ -24,18 +24,14 @@ class AI_CV_Tailor_Autopilot_CPT {
 		);
 
 		$args = array(
-			'labels'             => $labels,
-			'public'             => false,
-			'publicly_queryable' => false,
-			'show_ui'            => false, // Handled completely by custom Admin UI
-			'show_in_menu'       => false, 
-			'query_var'          => true,
-			'rewrite'            => false,
-			'capability_type'    => 'post',
-			'has_archive'        => false,
-			'hierarchical'       => false,
-			'menu_position'      => null,
-			'supports'           => array( 'title' )
+			'labels'          => $labels,
+			'public'          => false,
+			'show_ui'         => true,
+			'show_in_menu'    => false,
+			'show_in_rest'    => true,
+			'supports'        => array( 'title', 'editor', 'custom-fields' ),
+			'capability_type' => 'post',
+			'map_meta_cap'    => true,
 		);
 
 		register_post_type( 'freelance_job', $args );

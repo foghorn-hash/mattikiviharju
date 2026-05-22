@@ -16,7 +16,7 @@ if ( isset( $_POST['submit_manual'] ) && check_admin_referer( 'add_manual_source
 	);
 	$post_id = $sources_handler->save_manual_source( $data );
 	if ( $post_id ) {
-		echo '<div class="notice notice-success is-dismissible"><p>Manuaalinen lähde lisätty.</p></div>';
+		echo '<div class="notice notice-success is-dismissible"><p>Manual opportunity added successfully.</p></div>';
 	} else {
 		echo '<div class="notice notice-error is-dismissible"><p>Virhe lisättäessä lähdettä.</p></div>';
 	}

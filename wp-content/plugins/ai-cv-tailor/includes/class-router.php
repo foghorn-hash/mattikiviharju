@@ -61,7 +61,7 @@ class AI_CV_Tailor_Router {
 			}
 
 			// Validate expiration
-			$settings = get_option( 'ai_cv_settings', array() );
+			$settings = get_option( 'ai_cv_tailor_settings', array() );
 			$expiration_days = intval( $settings['link_expiration'] ?? 30 );
 			$post_date = strtotime( $post->post_date );
 			$expiry_date = $post_date + ( $expiration_days * DAY_IN_SECONDS );

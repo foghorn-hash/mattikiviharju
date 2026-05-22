@@ -116,7 +116,7 @@ class AI_CV_Tailor_Admin {
 		$job_description = isset( $_POST['job_description'] ) ? sanitize_textarea_field( $_POST['job_description'] ) : '';
 		$language        = isset( $_POST['language'] ) ? sanitize_text_field( $_POST['language'] ) : 'fi';
 
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		if ( empty( $settings['delivery_terms_url'] ) || empty( $settings['privacy_policy_url'] ) ) {
 			wp_send_json_error( 'Delivery Terms ja Privacy Policy pitää lisätä asetuksiin ennen julkaisua.' );
 		}
@@ -148,7 +148,7 @@ class AI_CV_Tailor_Admin {
 		$language     = isset( $_POST['language'] ) ? sanitize_text_field( $_POST['language'] ) : 'fi';
 		$json_data    = isset( $_POST['json_data'] ) ? wp_unslash( $_POST['json_data'] ) : '';
 		
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		if ( empty( $settings['delivery_terms_url'] ) || empty( $settings['privacy_policy_url'] ) ) {
 			wp_send_json_error( 'Delivery Terms ja Privacy Policy pitää lisätä asetuksiin ennen julkaisua.' );
 		}

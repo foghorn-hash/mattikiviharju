@@ -81,7 +81,7 @@ class AI_CV_Tailor_Application_Metaboxes {
 		$cover_letter      = get_post_meta( $post->ID, 'ai_cv_cover_letter', true );
 		$motivation_letter = get_post_meta( $post->ID, 'ai_cv_motivation_letter', true );
 		
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		$delivery_terms_url = $settings['delivery_terms_url'] ?? '';
 		$privacy_policy_url = $settings['privacy_policy_url'] ?? '';
 		$terms_url          = $settings['terms_url'] ?? '';
@@ -219,6 +219,8 @@ class AI_CV_Tailor_Application_Metaboxes {
 			wp_die( 'Ei oikeuksia.' );
 		}
 
+		$this->generate_application_texts( $post_id );
+
 		$audiences = array(
 			'hr'        => 'hr',
 			'cto'       => 'cto',
@@ -235,7 +237,6 @@ class AI_CV_Tailor_Application_Metaboxes {
 			update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_url', $url );
 		}
 
-		$this->generate_application_texts( $post_id );
 		$this->rebuild_summary( $post_id );
 
 		wp_safe_redirect( add_query_arg( array(
@@ -270,31 +271,137 @@ class AI_CV_Tailor_Application_Metaboxes {
 		return html_entity_decode(wp_strip_all_tags((string) $value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	}
 
+	private function build_fallback_cover_letter( $post_id ) {
+		$company_name = $this->decode_plain_text( get_post_meta( $post_id, '_company_name', true ) );
+		$role_title   = $this->decode_plain_text( get_post_meta( $post_id, '_job_title', true ) );
+		return "Hei,\n\nOlen kiinnostunut roolista {$role_title} yrityksessänne {$company_name}. Työ voidaan toteuttaa B2B/freelance-toimitusmallilla (i4ware Software, Y-tunnus 2739594-6, VAT FI27395946).\n\nToteutus tehdään Delivery Terms ja Privacy Policy -ehtojen mukaisesti.\n\nYstävällisin terveisin,\nMatti Kiviharju";
+	}
+
+	private function build_fallback_motivation_letter( $post_id ) {
+		$role_title   = $this->decode_plain_text( get_post_meta( $post_id, '_job_title', true ) );
+		return "Hei,\n\nMotivaationi rooliin {$role_title} kumpuaa vahvasta halusta ratkaista teknisiä haasteita. Minulla on laaja full-stack-osaaminen ja kokemusta mm. OpenAI/AI-integraatioista, Reactista, Laravelista, PHP:stä, WordPressistä, Jirasta ja Atlassianista. Pystyn tuomaan nopeaa käytännön toteutuskykyä tiimiinne.\n\nYstävällisin terveisin,\nMatti Kiviharju";
+	}
+
+	private function apply_fallback_texts( $post_id, $company_name, $role_title ) {
+		$cover_letter = $this->build_fallback_cover_letter( $post_id );
+		$motivation_letter = $this->build_fallback_motivation_letter( $post_id );
+		
+		update_post_meta( $post_id, 'ai_cv_generated_by', 'fallback' );
+		
+		$should_overwrite = function($meta_key) use ($post_id) {
+			$existing = get_post_meta( $post_id, $meta_key, true );
+			if ( empty( $existing ) ) return true;
+			if ( strpos( $existing, 'Kirjoita suomeksi' ) !== false ) return true;
+			return false;
+		};
+
+		if ( $should_overwrite( 'ai_cv_cover_letter' ) ) {
+			update_post_meta( $post_id, 'ai_cv_cover_letter', wp_kses_post( $cover_letter ) );
+		}
+		if ( $should_overwrite( 'ai_cv_motivation_letter' ) ) {
+			update_post_meta( $post_id, 'ai_cv_motivation_letter', wp_kses_post( $motivation_letter ) );
+		}
+
+		$audiences = array( 'hr', 'cto', 'ceo', 'team_lead', 'recruiter' );
+		foreach ( $audiences as $aud ) {
+			if ( $should_overwrite( 'ai_cv_' . $aud . '_cover_letter' ) ) {
+				update_post_meta( $post_id, 'ai_cv_' . $aud . '_cover_letter', wp_kses_post( $cover_letter ) );
+			}
+			if ( $should_overwrite( 'ai_cv_' . $aud . '_motivation_letter' ) ) {
+				update_post_meta( $post_id, 'ai_cv_' . $aud . '_motivation_letter', wp_kses_post( $motivation_letter ) );
+			}
+		}
+	}
+
 	private function generate_application_texts( $post_id ) {
 		$company_name = $this->decode_plain_text( get_post_meta( $post_id, '_company_name', true ) );
 		$role_title   = $this->decode_plain_text( get_post_meta( $post_id, '_job_title', true ) );
+		$job_desc     = get_post_meta( $post_id, '_job_description', true );
+		$language     = get_post_meta( $post_id, '_language', true );
 		
-		// Fallback content
-		$cover_letter = "Kirjoita suomeksi hakemuskirje rooliin {$role_title} yritykselle {$company_name}. Mainitse i4ware Software, Y-tunnus 2739594-6, VAT FI27395946, B2B/freelance-toimitusmalli, ja että toteutus tehdään Delivery Terms ja Privacy Policy -ehtojen mukaisesti.";
-		
-		$motivation_letter = "Kirjoita suomeksi motivaatiokirje rooliin {$role_title}. Painota kiinnostusta ratkaista yrityksen teknisiä haasteita, full-stack-osaamista, OpenAI/AI-integraatioita, React/Laravel/PHP/WordPress/Jira/Atlassian-osaamista ja nopeaa käytännön toteutuskykyä.";
-
-		// Only overwrite general texts if they are empty
-		if ( ! get_post_meta( $post_id, 'ai_cv_cover_letter', true ) ) {
-			update_post_meta( $post_id, 'ai_cv_cover_letter', $cover_letter );
-		}
-		if ( ! get_post_meta( $post_id, 'ai_cv_motivation_letter', true ) ) {
-			update_post_meta( $post_id, 'ai_cv_motivation_letter', $motivation_letter );
+		if ( empty( $language ) ) {
+			$settings = get_option( 'ai_cv_tailor_settings', array() );
+			$language = $settings['default_language'] ?? 'fi';
 		}
 
-		// Also generate for audiences
+		if ( empty( $job_desc ) ) {
+			$job_desc = "Yritys: {$company_name}\nRooli: {$role_title}\nTee hakemus tähän rooliin annettujen tietojen perusteella.";
+		}
+		
+		require_once AI_CV_TAILOR_DIR . 'includes/class-openai.php';
+		$openai = new AI_CV_Tailor_OpenAI();
+
+		if ( ! $openai->is_configured() ) {
+			set_transient( 'ai_cv_openai_missing', true, 30 );
+			$this->apply_fallback_texts( $post_id, $company_name, $role_title );
+			return;
+		}
+
+		AI_CV_Tailor_Autopilot_Logger::info( "OpenAI request started for post {$post_id} using full analysis and content generation." );
+
+		$result = $openai->generate_analysis_and_content( $job_desc, $language );
+
+		if ( is_wp_error( $result ) ) {
+			AI_CV_Tailor_Autopilot_Logger::error( "OpenAI error message: " . $result->get_error_message() );
+			$this->apply_fallback_texts( $post_id, $company_name, $role_title );
+			return;
+		}
+
+		// Save the full JSON so public views can display skills, projects, and audiences properly
+		update_post_meta( $post_id, '_openai_analysis', wp_json_encode($result, JSON_UNESCAPED_UNICODE) );
+		update_post_meta( $post_id, 'ai_cv_generated_by', 'openai' );
+
+		// Helper to check if we should overwrite old/buggy texts
+		$should_overwrite = function($meta_key) use ($post_id) {
+			$existing = get_post_meta( $post_id, $meta_key, true );
+			if ( empty( $existing ) ) return true;
+			if ( strpos( $existing, 'Kirjoita suomeksi' ) !== false ) return true;
+			return false;
+		};
+
+		$default_cl = $result['audiences']['hr']['cover_letter'] ?? '';
+		$default_ml = $result['audiences']['hr']['motivation_letter'] ?? '';
+
+		$is_fallback = false;
+
+		if ( empty( trim( $default_cl ) ) ) {
+			$default_cl = $this->build_fallback_cover_letter( $post_id );
+			$is_fallback = true;
+		}
+		if ( empty( trim( $default_ml ) ) ) {
+			$default_ml = $this->build_fallback_motivation_letter( $post_id );
+			$is_fallback = true;
+		}
+
+		if ( $is_fallback ) {
+			update_post_meta( $post_id, 'ai_cv_generated_by', 'fallback' );
+		}
+
+		if ( $should_overwrite( 'ai_cv_cover_letter' ) ) {
+			update_post_meta( $post_id, 'ai_cv_cover_letter', wp_kses_post( $default_cl ) );
+		}
+		if ( $should_overwrite( 'ai_cv_motivation_letter' ) ) {
+			update_post_meta( $post_id, 'ai_cv_motivation_letter', wp_kses_post( $default_ml ) );
+		}
+
+		// Save each tailored audience version
 		$audiences = array( 'hr', 'cto', 'ceo', 'team_lead', 'recruiter' );
 		foreach ( $audiences as $aud ) {
-			if ( ! get_post_meta( $post_id, 'ai_cv_' . $aud . '_cover_letter', true ) ) {
-				update_post_meta( $post_id, 'ai_cv_' . $aud . '_cover_letter', $cover_letter );
+			$aud_cl = $result['audiences'][$aud]['cover_letter'] ?? '';
+			$aud_ml = $result['audiences'][$aud]['motivation_letter'] ?? '';
+
+			if ( empty( trim( $aud_cl ) ) ) {
+				$aud_cl = $default_cl;
 			}
-			if ( ! get_post_meta( $post_id, 'ai_cv_' . $aud . '_motivation_letter', true ) ) {
-				update_post_meta( $post_id, 'ai_cv_' . $aud . '_motivation_letter', $motivation_letter );
+			if ( empty( trim( $aud_ml ) ) ) {
+				$aud_ml = $default_ml;
+			}
+
+			if ( $should_overwrite( 'ai_cv_' . $aud . '_cover_letter' ) ) {
+				update_post_meta( $post_id, 'ai_cv_' . $aud . '_cover_letter', wp_kses_post( $aud_cl ) );
+			}
+			if ( $should_overwrite( 'ai_cv_' . $aud . '_motivation_letter' ) ) {
+				update_post_meta( $post_id, 'ai_cv_' . $aud . '_motivation_letter', wp_kses_post( $aud_ml ) );
 			}
 		}
 	}
@@ -313,7 +420,7 @@ class AI_CV_Tailor_Application_Metaboxes {
 		$cover_letter      = $this->decode_plain_text( get_post_meta( $post_id, 'ai_cv_cover_letter', true ) );
 		$motivation_letter = $this->decode_plain_text( get_post_meta( $post_id, 'ai_cv_motivation_letter', true ) );
 		
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		$delivery_terms_url = $settings['delivery_terms_url'] ?? '';
 		$privacy_policy_url = $settings['privacy_policy_url'] ?? '';
 		$terms_url          = $settings['terms_url'] ?? '';
@@ -337,6 +444,24 @@ class AI_CV_Tailor_Application_Metaboxes {
 		$summary_text .= "Delivery Terms: " . $delivery_terms_url . "\n";
 		$summary_text .= "Privacy Policy: " . $privacy_policy_url . "\n";
 		$summary_text .= "Terms of Service: " . $terms_url . "\n";
+		
+		$generated_by = get_post_meta( $post_id, 'ai_cv_generated_by', true );
+		if ( 'openai' === $generated_by ) {
+			$summary_text .= "\n---\n";
+			$summary_text .= "Powered by OpenAI API\n";
+			$summary_text .= "Generated with i4ware® Job Seeker Autopilot AI Life-cycle Management System™\n";
+			$summary_text .= "https://mattikiviharju.i4ware.fi\n";
+			$summary_text .= "i4ware Software\n";
+			$summary_text .= "Business ID / Y-tunnus: 2739594-6\n";
+			$summary_text .= "VAT ID: FI27395946\n\n";
+			$summary_text .= "Delivery Terms:\nhttps://www.i4ware.fi/en/delivery-terms-and-conditions/\n\n";
+			$summary_text .= "Privacy Policy:\nhttps://www.i4ware.fi/en/privacy-policy/\n";
+			$summary_text .= "---\n";
+		} else {
+			$summary_text .= "\n---\n";
+			$summary_text .= "AI-assisted draft generated by i4ware® Job Seeker Autopilot AI Life-cycle Management System™\n";
+			$summary_text .= "---\n";
+		}
 
 		update_post_meta( $post_id, 'ai_cv_copy_summary', $summary_text );
 	}
@@ -344,6 +469,18 @@ class AI_CV_Tailor_Application_Metaboxes {
 	public function admin_notices() {
 		if ( isset( $_GET['ai_cv_links_generated'] ) && $_GET['ai_cv_links_generated'] === '1' ) {
 			echo '<div class="notice notice-success is-dismissible"><p>Application links generated successfully.</p></div>';
+		}
+		
+		if ( isset( $_GET['ai_cv_error'] ) && $_GET['ai_cv_error'] === 'generation_failed' ) {
+			$err = get_transient( 'ai_cv_generation_error' );
+			$msg = $err ? esc_html( $err ) : 'Generation failed: OpenAI API key missing or invalid.';
+			echo '<div class="notice notice-error is-dismissible"><p>' . $msg . '</p></div>';
+			delete_transient( 'ai_cv_generation_error' );
+		}
+		
+		if ( get_transient( 'ai_cv_openai_missing' ) ) {
+			echo '<div class="notice notice-warning is-dismissible"><p>OpenAI API key missing. Cannot generate tailored text.</p></div>';
+			delete_transient( 'ai_cv_openai_missing' );
 		}
 	}
 }

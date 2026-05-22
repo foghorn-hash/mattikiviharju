@@ -169,6 +169,7 @@ class AI_CV_Tailor_CLI_Command {
             $items[] = array(
                 'ID' => $job->ID,
                 'Title' => $job->post_title,
+                'Company' => get_post_meta($job->ID, 'company_name', true),
                 'Status' => get_post_meta($job->ID, 'status', true),
                 'Match Score' => get_post_meta($job->ID, 'match_score', true),
                 'Processed' => get_post_meta($job->ID, 'autopilot_processed', true),
@@ -176,7 +177,7 @@ class AI_CV_Tailor_CLI_Command {
             );
         }
         
-        WP_CLI\Utils\format_items('table', $items, array('ID', 'Title', 'Status', 'Match Score', 'Processed', 'Source URL'));
+        WP_CLI\Utils\format_items('table', $items, array('ID', 'Title', 'Company', 'Status', 'Match Score', 'Processed', 'Source URL'));
     }
 
     public function list_applications() {

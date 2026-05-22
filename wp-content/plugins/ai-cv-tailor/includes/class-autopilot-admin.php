@@ -6,10 +6,16 @@ class AI_CV_Tailor_Autopilot_Admin {
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 		add_action( 'wp_dashboard_setup', array( $this, 'add_dashboard_widgets' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
-		
 		add_action( 'wp_ajax_ai_cv_tailor_autopilot_analyze', array( $this, 'ajax_analyze' ) );
 		add_action( 'wp_ajax_ai_cv_tailor_autopilot_reject', array( $this, 'ajax_reject' ) );
 		add_action( 'wp_ajax_ai_cv_tailor_autopilot_generate', array( $this, 'ajax_generate_application' ) );
+
+		// Admin post actions for Found Jobs page
+		add_action( 'admin_post_ai_cv_tailor_analyze_job', array( $this, 'handle_analyze_job' ) );
+		add_action( 'admin_post_ai_cv_tailor_generate_application_from_job', array( $this, 'handle_generate_application_from_job' ) );
+		add_action( 'admin_post_ai_cv_tailor_reset_job', array( $this, 'handle_reset_job' ) );
+		add_action( 'admin_post_ai_cv_tailor_reject_job', array( $this, 'handle_reject_job' ) );
+		add_action( 'admin_post_ai_cv_tailor_test_openai', array( $this, 'handle_test_openai' ) );
 	}
 
 	public function add_admin_menu() {
@@ -93,11 +99,11 @@ class AI_CV_Tailor_Autopilot_Admin {
 	}
 
 	public function display_opportunities_page() {
-		require_once AI_CV_TAILOR_DIR . 'templates/autopilot-opportunities.php';
+		require_once AI_CV_TAILOR_DIR . 'templates/autopilot-found-jobs.php';
 	}
 
 	public function display_queues_page() {
-		require_once AI_CV_TAILOR_DIR . 'templates/autopilot-queues.php';
+		require_once AI_CV_TAILOR_DIR . 'templates/autopilot-queue.php';
 	}
 
 	public function display_settings_page() {
@@ -223,5 +229,127 @@ class AI_CV_Tailor_Autopilot_Admin {
 		}
 		
 		wp_send_json_success( $result );
+	}
+
+	public function handle_analyze_job() {
+		$job_id = intval( $_GET['job_id'] ?? ($_GET['post_id'] ?? 0) );
+
+		if ( ! isset( $_GET['_wpnonce'] ) || ( ! wp_verify_nonce( $_GET['_wpnonce'], 'ai_cv_tailor_analyze_job_' . $job_id ) && ! wp_verify_nonce( $_GET['_wpnonce'], 'analyze_job' ) ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'edit_post', $job_id ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		if ( ! $job_id ) {
+			wp_die( 'Virheellinen ID.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-openai.php';
+		$openai = new AI_CV_Tailor_Autopilot_OpenAI();
+		$result = $openai->analyze_opportunity( $job_id );
+
+		$redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=ai-cv-tailor-autopilot-queues' );
+		wp_safe_redirect( add_query_arg( 'analyzed', $job_id, remove_query_arg( array( 'analyzed', 'generated', 'rejected', 'reset' ), $redirect_url ) ) );
+		exit;
+	}
+
+	public function handle_generate_application_from_job() {
+		$job_id = intval( $_GET['job_id'] ?? ($_GET['post_id'] ?? 0) );
+
+		if ( ! isset( $_GET['_wpnonce'] ) || ( ! wp_verify_nonce( $_GET['_wpnonce'], 'ai_cv_tailor_generate_application_' . $job_id ) && ! wp_verify_nonce( $_GET['_wpnonce'], 'generate_job' ) ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'edit_post', $job_id ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		if ( ! $job_id ) {
+			wp_die( 'Virheellinen ID.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-openai.php';
+		$openai = new AI_CV_Tailor_Autopilot_OpenAI();
+		$result = $openai->generate_application_from_opportunity( $job_id );
+
+		$redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=ai-cv-tailor-autopilot-queues' );
+		wp_safe_redirect( add_query_arg( 'generated', $job_id, remove_query_arg( array( 'analyzed', 'generated', 'rejected', 'reset' ), $redirect_url ) ) );
+		exit;
+	}
+
+	public function handle_reset_job() {
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], 'reset_job' ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		$post_id = intval( $_GET['post_id'] ?? 0 );
+		if ( ! $post_id ) {
+			wp_die( 'Virheellinen ID.' );
+		}
+
+		update_post_meta( $post_id, 'autopilot_processed', '0' );
+		update_post_meta( $post_id, 'status', 'New' );
+		
+		if ( isset( $_GET['reset_score'] ) && $_GET['reset_score'] === '1' ) {
+			delete_post_meta( $post_id, 'match_score' );
+		}
+
+		wp_safe_redirect( add_query_arg( array(
+			'page' => 'ai-cv-tailor-autopilot-opportunities',
+			'reset' => $post_id
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public function handle_reject_job() {
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], 'reject_job' ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		$post_id = intval( $_GET['post_id'] ?? 0 );
+		if ( ! $post_id ) {
+			wp_die( 'Virheellinen ID.' );
+		}
+
+		update_post_meta( $post_id, 'status', 'Rejected' );
+		update_post_meta( $post_id, 'autopilot_processed', 'rejected' );
+
+		wp_safe_redirect( add_query_arg( array(
+			'page' => 'ai-cv-tailor-autopilot-opportunities',
+			'rejected' => $post_id
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public function handle_test_openai() {
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], 'test_openai' ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-openai.php';
+		$openai = new AI_CV_Tailor_Autopilot_OpenAI();
+		
+		if ( ! $openai->is_configured() ) {
+			set_transient( 'ai_cv_openai_test_result', 'error: API key missing', 30 );
+		} else {
+			$result = $openai->generate_text( 'Say exactly "Connection OK"' );
+			if ( is_wp_error( $result ) ) {
+				set_transient( 'ai_cv_openai_test_result', 'error: ' . $result->get_error_message(), 30 );
+			} else {
+				set_transient( 'ai_cv_openai_test_result', 'success: ' . $result, 30 );
+			}
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=ai-cv-tailor-autopilot-settings' ) );
+		exit;
 	}
 }

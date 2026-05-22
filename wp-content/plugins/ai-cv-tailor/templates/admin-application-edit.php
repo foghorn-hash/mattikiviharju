@@ -22,7 +22,7 @@
 				<tr>
 					<th scope="row"><label for="app_language">Kieli</label></th>
 					<td>
-						<?php $settings = get_option('ai_cv_settings', array()); $def_lang = $settings['default_language'] ?? 'fi'; ?>
+						<?php $settings = get_option('ai_cv_tailor_settings', array()); $def_lang = $settings['default_language'] ?? 'fi'; ?>
 						<select id="app_language">
 							<option value="fi" <?php selected($def_lang, 'fi'); ?>>Suomi</option>
 							<option value="en" <?php selected($def_lang, 'en'); ?>>Englanti</option>

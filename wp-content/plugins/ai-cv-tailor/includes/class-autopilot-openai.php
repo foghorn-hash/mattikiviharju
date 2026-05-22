@@ -6,7 +6,7 @@ class AI_CV_Tailor_Autopilot_OpenAI {
 	private $model;
 
 	public function __construct() {
-		$settings = get_option( 'ai_cv_settings', array() );
+		$settings = get_option( 'ai_cv_tailor_settings', array() );
 		$this->api_key = $settings['openai_api_key'] ?? '';
 		$this->model = $settings['model'] ?? 'gpt-4o';
 	}
@@ -31,7 +31,7 @@ class AI_CV_Tailor_Autopilot_OpenAI {
 		$autopilot_settings = get_option( 'ai_cv_autopilot_settings', array() );
 		$settings_json_string = wp_json_encode( $autopilot_settings );
 		
-		$base_settings = get_option( 'ai_cv_settings', array() );
+		$base_settings = get_option( 'ai_cv_tailor_settings', array() );
 
 		$system_prompt = $this->get_analysis_system_prompt( $base_settings );
 
@@ -129,26 +129,46 @@ class AI_CV_Tailor_Autopilot_OpenAI {
 			return new WP_Error( 'insert_failed', 'Hakemuksen luonti epäonnistui' );
 		}
 
-		// Save standard metas
+		// Save standard metas for application (underscore prefixed and new format)
 		update_post_meta( $app_post_id, '_company_name', $company_name );
+		update_post_meta( $app_post_id, 'ai_cv_company_name', $company_name );
+		
 		update_post_meta( $app_post_id, '_job_title', $role_title );
+		update_post_meta( $app_post_id, 'ai_cv_role_title', $role_title );
+		
 		update_post_meta( $app_post_id, '_job_url', $job_url );
+		update_post_meta( $app_post_id, 'ai_cv_source_url', $job_url );
+		
+		$match_score = get_post_meta( $post_id, 'match_score', true );
+		update_post_meta( $app_post_id, 'ai_cv_match_score', $match_score );
+		
+		$cover_letter = isset( $result['audiences']['hr']['cover_letter'] ) ? $result['audiences']['hr']['cover_letter'] : '';
+		$motivation_letter = isset( $result['audiences']['hr']['motivation_letter'] ) ? $result['audiences']['hr']['motivation_letter'] : '';
+		
+		update_post_meta( $app_post_id, 'ai_cv_cover_letter', $cover_letter );
+		update_post_meta( $app_post_id, 'ai_cv_motivation_letter', $motivation_letter );
+		update_post_meta( $app_post_id, 'status', 'Generated' );
+		
 		update_post_meta( $app_post_id, '_job_description', $job_desc );
 		update_post_meta( $app_post_id, '_language', 'fi' );
 		update_post_meta( $app_post_id, '_openai_analysis', wp_json_encode($result, JSON_UNESCAPED_UNICODE) );
 		update_post_meta( $app_post_id, 'source_freelance_job_id', $post_id );
+		update_post_meta( $app_post_id, 'ai_cv_generated_by', 'openai' );
 
 		// Generate tokens
 		$audiences = array( 'hr', 'cto', 'ceo', 'team_lead', 'recruiter' );
 		$tokens = array();
 		foreach ( $audiences as $audience ) {
-			$tokens[ $audience ] = wp_generate_password( 32, false );
+			$tokens[ $audience ] = wp_generate_password( 32, false, false ); // no special chars
+			update_post_meta( $app_post_id, 'ai_cv_' . str_replace('-', '_', $audience) . '_token', $tokens[ $audience ] );
+			update_post_meta( $app_post_id, 'ai_cv_' . str_replace('-', '_', $audience) . '_url', home_url( '/ai-cv/' . $app_post_id . '/' . $audience . '/' . $tokens[ $audience ] ) );
 		}
 		update_post_meta( $app_post_id, '_tokens', $tokens );
 
 		// Link back to opportunity
 		update_post_meta( $post_id, 'generated_application_id', $app_post_id );
 		update_post_meta( $post_id, 'status', 'Applied' ); // or 'Awaiting Application'
+		update_post_meta( $post_id, 'autopilot_processed', '1' );
 		
 		// Follow up date (e.g. +7 days)
 		update_post_meta( $post_id, 'follow_up_date', date('Y-m-d', strtotime('+7 days')) );
@@ -198,5 +218,48 @@ JSON-rakenne:
   "recommended_cv_audiences": ["cto", "ceo"]
 }
 EOT;
+	}
+
+	public function generate_text( $prompt ) {
+		if ( ! $this->is_configured() ) {
+			return new WP_Error( 'no_api_key', 'OpenAI API avainta ei ole asetettu.' );
+		}
+
+		$messages = array(
+			array(
+				'role'    => 'user',
+				'content' => $prompt
+			)
+		);
+
+		$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
+			'headers' => array(
+				'Content-Type'  => 'application/json',
+				'Authorization' => 'Bearer ' . $this->api_key
+			),
+			'body'    => wp_json_encode( array(
+				'model'       => $this->model,
+				'messages'    => $messages,
+				'temperature' => 0.7,
+			) ),
+			'timeout' => 60
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		if ( isset( $data['error'] ) ) {
+			return new WP_Error( 'openai_error', $data['error']['message'] );
+		}
+
+		if ( isset( $data['choices'][0]['message']['content'] ) ) {
+			return trim( $data['choices'][0]['message']['content'] );
+		}
+
+		return new WP_Error( 'unknown_error', 'Tuntematon virhe OpenAI-kutsussa.' );
 	}
 }
