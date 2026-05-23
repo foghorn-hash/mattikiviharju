@@ -106,6 +106,25 @@ Complete ACF field groups for customizing every aspect of the CV:
 
 ### Custom Plugins
 
+#### 🤖 i4ware® Job Seeker Autopilot AI Life-cycle Management System™
+**Location:** `wp-content/plugins/ai-cv-tailor/`
+
+An advanced AI-powered system that automates the entire job seeking lifecycle, from fetching job postings to generating tailored applications.
+
+**Features:**
+- Fetches new job postings automatically from external sources (e.g., RSS feeds) using background cron jobs or WP-CLI
+- AI-driven job analysis: Analyzes job descriptions to calculate a 0-100% Match Score against your CV data
+- Automatically generates role-specific application letters (Cover Letter & Motivation Letter) tailored for HR, CTO, CEO, Team Lead, and Recruiter audiences
+- AI-tailored dynamic selection of projects and work experiences that match the job's Tech Stack and requirements
+- Generates secure, unique, and private application URLs for each specific audience
+- "Force Regenerate" feature to iteratively improve AI output without breaking previously shared application links
+- Comprehensive WP-CLI support (`wp ai-cv-tailor autopilot ...`) for cron integration and server automation
+
+**Settings:**
+- Configurable minimum Match Score threshold for automatic application generation
+- Delivery terms and privacy policy URLs configuration for legal compliance
+- OpenAI API key and AI model configuration
+
 #### 🤖 CV OpenAI Polylang Translator
 **Location:** `wp-content/plugins/cv-openai-polylang-translator/`
 
@@ -187,6 +206,7 @@ Generate Finnish draft blog posts from Word documents with OpenAI, including AI-
    - Advanced Custom Fields
    - Polylang
 3. Install custom plugins:
+   - Upload `ai-cv-tailor` to `/wp-content/plugins/`
    - Upload `cv-openai-polylang-translator` to `/wp-content/plugins/`
    - Upload `cv-pdf-to-acf-filler` to `/wp-content/plugins/`
    - Upload `word-to-blog-ai` to `/wp-content/plugins/`
@@ -258,6 +278,7 @@ Generate Finnish draft blog posts from Word documents with OpenAI, including AI-
 │   └── nav.js
 └── wp-content/
     └── plugins/
+        ├── ai-cv-tailor/
         ├── cv-openai-polylang-translator/
         ├── cv-pdf-to-acf-filler/
         └── word-to-blog-ai/
