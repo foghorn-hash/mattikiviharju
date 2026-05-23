@@ -84,8 +84,16 @@ const aiActionForm = Devvit.createForm(
         await context.reddit.approve(targetId);
       } else if (action === 'remove') {
         await context.reddit.remove(targetId, false);
+        await context.reddit.submitComment({
+          id: targetId,
+          text: 'ModPilot AI on poistanut tämän julkaisun, koska se rikkoo yhteisön sääntöä X.',
+        });
       } else if (action === 'spam') {
         await context.reddit.remove(targetId, true);
+        await context.reddit.submitComment({
+          id: targetId,
+          text: 'ModPilot AI on poistanut tämän julkaisun, koska se on tunnistettu roskapostiksi.',
+        });
       } else if (action === 'lock') {
         const thing = await context.reddit.getPostById(targetId).catch(() => null);
         if (thing) {
