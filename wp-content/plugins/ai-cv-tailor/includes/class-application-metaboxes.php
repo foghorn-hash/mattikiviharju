@@ -6,6 +6,7 @@ class AI_CV_Tailor_Application_Metaboxes {
 		add_action( 'add_meta_boxes', array( $this, 'add_meta_boxes' ) );
 		add_action( 'save_post_ai_cv_application', array( $this, 'save_meta_boxes' ) );
 		add_action( 'admin_post_ai_cv_generate_links', array( $this, 'handle_generate_links' ) );
+		add_action( 'admin_post_ai_cv_force_regenerate', array( $this, 'handle_force_regenerate' ) );
 		add_action( 'admin_post_ai_cv_rebuild_summary', array( $this, 'handle_rebuild_summary' ) );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 	}
@@ -89,13 +90,13 @@ class AI_CV_Tailor_Application_Metaboxes {
 		$summary_text = "i4ware® Job Seeker Autopilot AI Life-cycle Management System™\n\n";
 		$summary_text .= "Company:\n" . $this->decode_plain_text( $company_name ) . "\n\n";
 		$summary_text .= "Role:\n" . $this->decode_plain_text( $role_title ) . "\n\n";
-		$summary_text .= "Match Score:\n" . $this->decode_plain_text( $match_score ) . "\n\n";
-		$summary_text .= "Application Links:\n";
-		$summary_text .= "HR: " . esc_url( $hr_url ) . "\n";
-		$summary_text .= "CTO: " . esc_url( $cto_url ) . "\n";
-		$summary_text .= "CEO: " . esc_url( $ceo_url ) . "\n";
-		$summary_text .= "Team Lead: " . esc_url( $team_lead_url ) . "\n";
-		$summary_text .= "Recruiter: " . esc_url( $recruiter_url ) . "\n\n";
+		$summary_text .= "Match Score:\n" . ( $match_score !== '' ? $this->decode_plain_text( $match_score ) . " %" : "" ) . "\n\n";
+		$summary_text .= "Application Links / Hakemuslinkit rooleittain:\n";
+		$summary_text .= "HR (Henkilöstöhallinto / Rekrytoijat): " . esc_url( $hr_url ) . "\n";
+		$summary_text .= "CTO (Teknologiajohto / Tekniset asiantuntijat): " . esc_url( $cto_url ) . "\n";
+		$summary_text .= "CEO (Toimitusjohtaja / Liiketoimintajohto / Ekonomit): " . esc_url( $ceo_url ) . "\n";
+		$summary_text .= "Team Lead (Tiiminvetäjä / Lähiesihenkilö): " . esc_url( $team_lead_url ) . "\n";
+		$summary_text .= "Recruiter (Ulkoiset rekrytointikonsultit / Headhunterit): " . esc_url( $recruiter_url ) . "\n\n";
 		$summary_text .= "Cover Letter:\n" . $this->decode_plain_text( $cover_letter ) . "\n\n";
 		$summary_text .= "Motivation Letter:\n" . $this->decode_plain_text( $motivation_letter ) . "\n\n";
 		$summary_text .= "Commercial & Legal:\n";
@@ -142,11 +143,12 @@ class AI_CV_Tailor_Application_Metaboxes {
 
 	public function render_actions_metabox( $post ) {
 		$generate_url = wp_nonce_url( admin_url( 'admin-post.php?action=ai_cv_generate_links&post_id=' . $post->ID ), 'ai_cv_generate_links' );
+		$force_url    = wp_nonce_url( admin_url( 'admin-post.php?action=ai_cv_force_regenerate&post_id=' . $post->ID ), 'ai_cv_force_regenerate' );
 		$rebuild_url  = wp_nonce_url( admin_url( 'admin-post.php?action=ai_cv_rebuild_summary&post_id=' . $post->ID ), 'ai_cv_rebuild_summary' );
 
-		echo '<p><em>Huom: Regenerointi vaatii API-kutsun laajennuksen. "Generate All Links" luo uudet tokenit ja päivitykset olemassa oleviin.</em></p>';
-		echo '<p><a href="' . esc_url( $generate_url ) . '" class="button button-primary" style="width:100%; margin-bottom:5px; text-align:center;">Generate All Links</a></p>';
-		echo '<p><button type="button" class="button button-secondary" style="width:100%; margin-bottom:5px;" disabled>Regenerate HR</button></p>';
+		echo '<p><em>Huom: Regenerointi luo uuden AI-analyysin (korjaa esim. keksityt kokemukset). "Päivitä (Säilytä omat tekstit)" pitää mahdollisesti käsin muokatut hakemuskirjeet, mutta "Pakota päivitys" yliajaa myös ne. Molemmat säilyttävät aina jo luodut linkit.</em></p>';
+		echo '<p><a href="' . esc_url( $generate_url ) . '" class="button button-primary" style="width:100%; margin-bottom:5px; text-align:center;">1. Päivitä (Säilytä omat tekstit, Keep Links)</a></p>';
+		echo '<p><a href="' . esc_url( $force_url ) . '" class="button button-secondary" style="width:100%; margin-bottom:5px; text-align:center;">2. Pakota päivitys (Yliaja kaikki, Keep Links)</a></p>';
 		echo '<p><button type="button" class="button button-secondary" style="width:100%; margin-bottom:5px;" disabled>Regenerate CTO</button></p>';
 		echo '<p><button type="button" class="button button-secondary" style="width:100%; margin-bottom:5px;" disabled>Regenerate CEO</button></p>';
 		echo '<p><button type="button" class="button button-secondary" style="width:100%; margin-bottom:5px;" disabled>Regenerate Team Lead</button></p>';
@@ -230,11 +232,55 @@ class AI_CV_Tailor_Application_Metaboxes {
 		);
 
 		foreach ( $audiences as $meta_key => $url_slug ) {
-			$token = wp_generate_password( 32, false, false );
-			update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_token', $token );
-			
-			$url = home_url( '/ai-cv/' . $post_id . '/' . $url_slug . '/' . $token );
-			update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_url', $url );
+			$existing_url = get_post_meta( $post_id, 'ai_cv_' . $meta_key . '_url', true );
+			if ( empty( $existing_url ) ) {
+				$token = wp_generate_password( 32, false, false );
+				update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_token', $token );
+				
+				$url = home_url( '/ai-cv/' . $post_id . '/' . $url_slug . '/' . $token );
+				update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_url', $url );
+			}
+		}
+
+		$this->rebuild_summary( $post_id );
+
+		wp_safe_redirect( add_query_arg( array(
+			'post'   => $post_id,
+			'action' => 'edit',
+			'ai_cv_links_generated' => '1'
+		), admin_url( 'post.php' ) ) );
+		exit;
+	}
+
+	public function handle_force_regenerate() {
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], 'ai_cv_force_regenerate' ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+
+		$post_id = isset( $_GET['post_id'] ) ? intval( $_GET['post_id'] ) : 0;
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		$this->generate_application_texts( $post_id, true );
+
+		$audiences = array(
+			'hr'        => 'hr',
+			'cto'       => 'cto',
+			'ceo'       => 'ceo',
+			'team_lead' => 'team-lead',
+			'recruiter' => 'recruiter'
+		);
+
+		foreach ( $audiences as $meta_key => $url_slug ) {
+			$existing_url = get_post_meta( $post_id, 'ai_cv_' . $meta_key . '_url', true );
+			if ( empty( $existing_url ) ) {
+				$token = wp_generate_password( 32, false, false );
+				update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_token', $token );
+				
+				$url = home_url( '/ai-cv/' . $post_id . '/' . $url_slug . '/' . $token );
+				update_post_meta( $post_id, 'ai_cv_' . $meta_key . '_url', $url );
+			}
 		}
 
 		$this->rebuild_summary( $post_id );
@@ -313,7 +359,7 @@ class AI_CV_Tailor_Application_Metaboxes {
 		}
 	}
 
-	private function generate_application_texts( $post_id ) {
+	private function generate_application_texts( $post_id, $force = false ) {
 		$company_name = $this->decode_plain_text( get_post_meta( $post_id, '_company_name', true ) );
 		$role_title   = $this->decode_plain_text( get_post_meta( $post_id, '_job_title', true ) );
 		$job_desc     = get_post_meta( $post_id, '_job_description', true );
@@ -351,8 +397,13 @@ class AI_CV_Tailor_Application_Metaboxes {
 		update_post_meta( $post_id, '_openai_analysis', wp_json_encode($result, JSON_UNESCAPED_UNICODE) );
 		update_post_meta( $post_id, 'ai_cv_generated_by', 'openai' );
 
+		if ( isset( $result['job_analysis']['match_score'] ) ) {
+			update_post_meta( $post_id, 'ai_cv_match_score', intval( $result['job_analysis']['match_score'] ) );
+		}
+
 		// Helper to check if we should overwrite old/buggy texts
-		$should_overwrite = function($meta_key) use ($post_id) {
+		$should_overwrite = function($meta_key) use ($post_id, $force) {
+			if ( $force ) return true;
 			$existing = get_post_meta( $post_id, $meta_key, true );
 			if ( empty( $existing ) ) return true;
 			if ( strpos( $existing, 'Kirjoita suomeksi' ) !== false ) return true;
@@ -428,13 +479,13 @@ class AI_CV_Tailor_Application_Metaboxes {
 		$summary_text = "i4ware® Job Seeker Autopilot AI Life-cycle Management System™\n\n";
 		$summary_text .= "Company:\n" . $company_name . "\n\n";
 		$summary_text .= "Role:\n" . $role_title . "\n\n";
-		$summary_text .= "Match Score:\n" . $match_score . "\n\n";
-		$summary_text .= "Application Links:\n";
-		$summary_text .= "HR: " . $hr_url . "\n";
-		$summary_text .= "CTO: " . $cto_url . "\n";
-		$summary_text .= "CEO: " . $ceo_url . "\n";
-		$summary_text .= "Team Lead: " . $team_lead_url . "\n";
-		$summary_text .= "Recruiter: " . $recruiter_url . "\n\n";
+		$summary_text .= "Match Score:\n" . ( $match_score !== '' ? $match_score . " %" : "" ) . "\n\n";
+		$summary_text .= "Application Links / Hakemuslinkit rooleittain:\n";
+		$summary_text .= "HR (Henkilöstöhallinto / Rekrytoijat): " . $hr_url . "\n";
+		$summary_text .= "CTO (Teknologiajohto / Tekniset asiantuntijat): " . $cto_url . "\n";
+		$summary_text .= "CEO (Toimitusjohtaja / Liiketoimintajohto / Ekonomit): " . $ceo_url . "\n";
+		$summary_text .= "Team Lead (Tiiminvetäjä / Lähiesihenkilö): " . $team_lead_url . "\n";
+		$summary_text .= "Recruiter (Ulkoiset rekrytointikonsultit / Headhunterit): " . $recruiter_url . "\n\n";
 		$summary_text .= "Cover Letter:\n" . $cover_letter . "\n\n";
 		$summary_text .= "Motivation Letter:\n" . $motivation_letter . "\n\n";
 		$summary_text .= "Commercial & Legal:\n";

@@ -12,11 +12,13 @@ $settings = $ai_cv_tailor_data['settings'];
 $json_data = get_post_meta( $post->ID, '_openai_analysis', true );
 $analysis  = json_decode( $json_data, true );
 
-if ( ! isset( $analysis['audiences'][ $audience ] ) ) {
+$json_audience = str_replace('-', '_', $audience);
+
+if ( ! isset( $analysis['audiences'][ $json_audience ] ) ) {
 	wp_die( 'Tätä versiota ei löydy.' );
 }
 
-$content = $analysis['audiences'][ $audience ];
+$content = $analysis['audiences'][ $json_audience ];
 
 // Clean up variables
 $cv_title        = esc_html( $content['cv_title'] ?? get_post_meta( $post->ID, '_job_title', true ) );
@@ -132,7 +134,14 @@ $sla_url = esc_url( $settings['sla_url'] ?? '' );
 				<h2>Valittu työkokemus</h2>
 				<?php foreach ( $experience as $exp ) : ?>
 					<div class="experience-item">
-						<h3><?php echo esc_html( $exp['title'] ?? '' ); ?> @ <?php echo esc_html( $exp['company'] ?? '' ); ?></h3>
+						<h3>
+							<?php echo esc_html( $exp['title'] ?? '' ); ?> @ 
+							<?php if ( ! empty( $exp['url'] ) ) : ?>
+								<a href="<?php echo esc_url( $exp['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $exp['company'] ?? '' ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( $exp['company'] ?? '' ); ?>
+							<?php endif; ?>
+						</h3>
 						<span class="period"><?php echo esc_html( $exp['period'] ?? '' ); ?></span>
 						<p><?php echo wp_kses_post( $exp['description'] ?? '' ); ?></p>
 					</div>
@@ -145,7 +154,13 @@ $sla_url = esc_url( $settings['sla_url'] ?? '' );
 				<h2>Valitut projektit</h2>
 				<?php foreach ( $projects as $proj ) : ?>
 					<div class="project-item">
-						<h3><?php echo esc_html( $proj['name'] ?? '' ); ?></h3>
+						<h3>
+							<?php if ( ! empty( $proj['url'] ) ) : ?>
+								<a href="<?php echo esc_url( $proj['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $proj['name'] ?? '' ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( $proj['name'] ?? '' ); ?>
+							<?php endif; ?>
+						</h3>
 						<p><?php echo wp_kses_post( $proj['description'] ?? '' ); ?></p>
 					</div>
 				<?php endforeach; ?>

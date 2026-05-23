@@ -26,7 +26,47 @@ class AI_CV_Tailor_OpenAI {
 		}
 
 		$cv_data = get_option( 'ai_cv_profile_data', array() );
-		$cv_json_string = wp_json_encode( $cv_data );
+		if ( ! is_array( $cv_data ) ) {
+			$cv_data = array();
+		}
+
+		$experiences = get_posts( array(
+			'post_type'      => 'cv_experience',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+		) );
+		
+		if ( ! empty( $experiences ) ) {
+			$cv_data['dynamic_experiences'] = array();
+			foreach ( $experiences as $exp ) {
+				$cv_data['dynamic_experiences'][] = array(
+					'role'    => $exp->post_title,
+					'company' => get_post_meta( $exp->ID, '_cv_experience_company', true ),
+					'dates'   => get_post_meta( $exp->ID, '_cv_experience_dates', true ),
+					'summary' => $exp->post_excerpt,
+				);
+			}
+		}
+
+		$projects = get_posts( array(
+			'post_type'      => 'cv_project',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+		) );
+
+		if ( ! empty( $projects ) ) {
+			$cv_data['dynamic_projects'] = array();
+			foreach ( $projects as $proj ) {
+				$cv_data['dynamic_projects'][] = array(
+					'title'       => $proj->post_title,
+					'description' => get_post_meta( $proj->ID, '_cv_project_description', true ),
+					'tech_stack'  => get_post_meta( $proj->ID, '_cv_project_meta', true ),
+					'url'         => get_post_meta( $proj->ID, '_cv_project_link', true ),
+				);
+			}
+		}
+
+		$cv_json_string = wp_json_encode( $cv_data, JSON_UNESCAPED_UNICODE );
 
 		$system_prompt = $this->get_system_prompt( $language, $settings );
 
@@ -114,6 +154,7 @@ JSON-rakenne:
 {
   "job_analysis": {
     "summary": "Lyhyt yhteenveto roolista",
+    "match_score": 85,
     "required_skills": ["Taito 1", "Taito 2"],
     "nice_to_have_skills": ["Taito 3"],
     "keywords": ["avainsana1"],
@@ -124,8 +165,8 @@ JSON-rakenne:
       "cv_title": "Otsikko CV:lle",
       "profile_summary": "Räätälöity profiiliteksti",
       "selected_skills": ["Valitut taidot"],
-      "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus"}],
-      "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus"}],
+      "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus", "url": "Linkki tai URL jos CV-datassa on"}],
+      "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus", "url": "Linkki yritykseen tai työhön jos CV-datassa on"}],
       "cover_letter": "Hakemuskirje teksti",
       "motivation_letter": "Motivaatiokirje teksti"
     },
