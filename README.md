@@ -334,8 +334,8 @@ GNU General Public License v2 or later
 
 ## Credits
 
-- **Author:** GitHub Copilot
-- **Theme URI:** https://example.com/
+- **Author:** GitHub Copilot/i4ware Software
+- **Theme URI:** https://www.i4ware.fi/
 - **Version:** 1.0.0
 
 ## Support
