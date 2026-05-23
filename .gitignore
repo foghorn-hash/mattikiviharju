@@ -1,0 +1,12 @@
+# Kansion ohittaminen (laita tähän ne kansiot joita et halua Githubiin)
+i4ware-modpilot-code/
+i4ware-modpilot/
+modpilot-app/
+
+# Node.js
+node_modules/
+npm-debug.log
+
+# Mac/Windows system files
+.DS_Store
+Thumbs.db
