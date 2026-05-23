@@ -140,6 +140,7 @@ TÄRKEÄT SÄÄNNÖT:
 - Jos jokin vaatimus ei täyty, mainitse se rehellisesti mutta positiivisesti, tai jätä huomiotta.
 - Räätälöi sisältö työpaikkailmoituksen mukaan.
 - Luo jokaiselle vastaanottajalle oma painotettu versio.
+- Poimi CV-datasta aina VÄHINTÄÄN 2-4 oleellisinta projektia ja työkokemusta (jos niitä löytyy datasta). Älä tyydy vain yhteen.
 - $lang_instruction
 $legal_text
 - Sinun ON palautettava vastaus TISMALLEEN alla olevassa JSON-muodossa. Vain validi JSON sallitaan.
