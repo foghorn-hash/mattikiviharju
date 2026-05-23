@@ -1,6 +1,6 @@
 # Kansion ohittaminen (laita tähän ne kansiot joita et halua Githubiin)
 i4ware-modpilot-code/
-i4ware-modpilot/
+i4ware-modpilot/node_modules/
 modpilot-app/
 
 # Node.js
