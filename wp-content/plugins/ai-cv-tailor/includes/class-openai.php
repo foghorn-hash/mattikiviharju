@@ -140,7 +140,9 @@ TÄRKEÄT SÄÄNNÖT:
 - Jos jokin vaatimus ei täyty, mainitse se rehellisesti mutta positiivisesti, tai jätä huomiotta.
 - Räätälöi sisältö työpaikkailmoituksen mukaan.
 - Luo jokaiselle vastaanottajalle oma painotettu versio.
-- Poimi CV-datasta aina VÄHINTÄÄN 2-4 oleellisinta projektia ja työkokemusta (jos niitä löytyy datasta). Älä tyydy vain yhteen.
+- Poimi CV-datasta aina 5 oleellisinta projektia ja työkokemusta, mitkä liittyvät työpaikan/toimeksiannon vaatimuksiin (jos niitä löytyy riittävästi datasta). Ota aina 5.
+- Poimi CV-datasta MYÖS kaikki koulutukset, sertifikaatit, suositukset, kielitaito ja linkit, ja sisällytä ne tulokseen.
+- TÄRKEÄÄ: Sisällytä KAIKKIIN kohderyhmiin (hr, cto, ceo, team_lead, recruiter) täsmälleen samat uudet kentät (education, additional_education, testimonials, jne.) kuin HR-esimerkissä. Älä jätä niitä pois mistään versiosta!
 - $lang_instruction
 $legal_text
 - Sinun ON palautettava vastaus TISMALLEEN alla olevassa JSON-muodossa. Vain validi JSON sallitaan.
@@ -168,13 +170,80 @@ JSON-rakenne:
       "selected_skills": ["Valitut taidot"],
       "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus", "url": "Linkki tai URL jos CV-datassa on"}],
       "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus", "url": "Linkki yritykseen tai työhön jos CV-datassa on"}],
+      "education": [{"degree": "Tutkinto", "school": "Koulu", "period": "Aika"}],
+      "additional_education": [{"course": "Kurssi", "provider": "Järjestäjä", "period": "Aika"}],
+      "testimonials": [{"author": "Nimi", "text": "Suositus"}],
+      "languages": [{"language": "Kieli", "proficiency": "Taso"}],
+      "links": [{"title": "Otsikko", "url": "Linkki"}],
+      "availability": "Saatavuus",
+      "billing": "95 € / tunti",
       "cover_letter": "Hakemuskirje teksti",
       "motivation_letter": "Motivaatiokirje teksti"
     },
-    "cto": { ...samat kentät kuin yllä... },
-    "ceo": { ...samat kentät... },
-    "team_lead": { ...samat kentät... },
-    "recruiter": { ...samat kentät... }
+    "cto": {
+      "cv_title": "Otsikko CV:lle",
+      "profile_summary": "Räätälöity profiiliteksti",
+      "selected_skills": ["Valitut taidot"],
+      "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus", "url": "Linkki tai URL"}],
+      "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus", "url": "Linkki"}],
+      "education": [{"degree": "Tutkinto", "school": "Koulu", "period": "Aika"}],
+      "additional_education": [{"course": "Kurssi", "provider": "Järjestäjä", "period": "Aika"}],
+      "testimonials": [{"author": "Nimi", "text": "Suositus"}],
+      "languages": [{"language": "Kieli", "proficiency": "Taso"}],
+      "links": [{"title": "Otsikko", "url": "Linkki"}],
+      "availability": "Saatavuus",
+      "billing": "95 € / tunti",
+      "cover_letter": "Hakemuskirje teksti",
+      "motivation_letter": "Motivaatiokirje teksti"
+    },
+    "ceo": {
+      "cv_title": "Otsikko CV:lle",
+      "profile_summary": "Räätälöity profiiliteksti",
+      "selected_skills": ["Valitut taidot"],
+      "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus", "url": "Linkki tai URL"}],
+      "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus", "url": "Linkki"}],
+      "education": [{"degree": "Tutkinto", "school": "Koulu", "period": "Aika"}],
+      "additional_education": [{"course": "Kurssi", "provider": "Järjestäjä", "period": "Aika"}],
+      "testimonials": [{"author": "Nimi", "text": "Suositus"}],
+      "languages": [{"language": "Kieli", "proficiency": "Taso"}],
+      "links": [{"title": "Otsikko", "url": "Linkki"}],
+      "availability": "Saatavuus",
+      "billing": "95 € / tunti",
+      "cover_letter": "Hakemuskirje teksti",
+      "motivation_letter": "Motivaatiokirje teksti"
+    },
+    "team_lead": {
+      "cv_title": "Otsikko CV:lle",
+      "profile_summary": "Räätälöity profiiliteksti",
+      "selected_skills": ["Valitut taidot"],
+      "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus", "url": "Linkki tai URL"}],
+      "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus", "url": "Linkki"}],
+      "education": [{"degree": "Tutkinto", "school": "Koulu", "period": "Aika"}],
+      "additional_education": [{"course": "Kurssi", "provider": "Järjestäjä", "period": "Aika"}],
+      "testimonials": [{"author": "Nimi", "text": "Suositus"}],
+      "languages": [{"language": "Kieli", "proficiency": "Taso"}],
+      "links": [{"title": "Otsikko", "url": "Linkki"}],
+      "availability": "Saatavuus",
+      "billing": "95 € / tunti",
+      "cover_letter": "Hakemuskirje teksti",
+      "motivation_letter": "Motivaatiokirje teksti"
+    },
+    "recruiter": {
+      "cv_title": "Otsikko CV:lle",
+      "profile_summary": "Räätälöity profiiliteksti",
+      "selected_skills": ["Valitut taidot"],
+      "selected_projects": [{"name": "Projekti 1", "description": "Kuvaus", "url": "Linkki tai URL"}],
+      "selected_experience": [{"title": "Titteli", "company": "Yritys", "period": "Aika", "description": "Kuvaus", "url": "Linkki"}],
+      "education": [{"degree": "Tutkinto", "school": "Koulu", "period": "Aika"}],
+      "additional_education": [{"course": "Kurssi", "provider": "Järjestäjä", "period": "Aika"}],
+      "testimonials": [{"author": "Nimi", "text": "Suositus"}],
+      "languages": [{"language": "Kieli", "proficiency": "Taso"}],
+      "links": [{"title": "Otsikko", "url": "Linkki"}],
+      "availability": "Saatavuus",
+      "billing": "95 € / tunti",
+      "cover_letter": "Hakemuskirje teksti",
+      "motivation_letter": "Motivaatiokirje teksti"
+    }
   },
   "call_script": "Puheluskripti soittamista varten (esim. Hei, tässä Matti...)"
 }

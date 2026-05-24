@@ -26,6 +26,13 @@ $profile_summary = wp_kses_post( $content['profile_summary'] ?? '' );
 $skills          = isset( $content['selected_skills'] ) && is_array( $content['selected_skills'] ) ? array_map( 'esc_html', $content['selected_skills'] ) : array();
 $projects        = isset( $content['selected_projects'] ) && is_array( $content['selected_projects'] ) ? $content['selected_projects'] : array();
 $experience      = isset( $content['selected_experience'] ) && is_array( $content['selected_experience'] ) ? $content['selected_experience'] : array();
+$education       = isset( $content['education'] ) && is_array( $content['education'] ) ? $content['education'] : array();
+$additional_education = isset( $content['additional_education'] ) && is_array( $content['additional_education'] ) ? $content['additional_education'] : array();
+$testimonials    = isset( $content['testimonials'] ) && is_array( $content['testimonials'] ) ? $content['testimonials'] : array();
+$languages       = isset( $content['languages'] ) && is_array( $content['languages'] ) ? $content['languages'] : array();
+$links           = isset( $content['links'] ) && is_array( $content['links'] ) ? $content['links'] : array();
+$availability    = isset( $content['availability'] ) ? esc_html( $content['availability'] ) : '';
+$billing         = isset( $content['billing'] ) ? esc_html( $content['billing'] ) : '';
 
 $prefix = 'ai_cv_' . str_replace('-', '_', $audience);
 
@@ -129,6 +136,17 @@ $sla_url = esc_url( $settings['sla_url'] ?? '' );
 			</section>
 			<?php endif; ?>
 
+			<?php if ( ! empty( $languages ) ) : ?>
+			<section class="ai-cv-section cv-languages">
+				<h2>Kielitaito</h2>
+				<ul class="skills-list">
+					<?php foreach ( $languages as $lang ) : ?>
+						<li><strong><?php echo esc_html( $lang['language'] ?? '' ); ?>:</strong> <?php echo esc_html( $lang['proficiency'] ?? '' ); ?></li>
+					<?php endforeach; ?>
+				</ul>
+			</section>
+			<?php endif; ?>
+
 			<?php if ( ! empty( $experience ) ) : ?>
 			<section class="ai-cv-section cv-experience">
 				<h2>Valittu työkokemus</h2>
@@ -149,6 +167,30 @@ $sla_url = esc_url( $settings['sla_url'] ?? '' );
 			</section>
 			<?php endif; ?>
 
+			<?php if ( ! empty( $education ) ) : ?>
+			<section class="ai-cv-section cv-education">
+				<h2>Koulutus</h2>
+				<?php foreach ( $education as $edu ) : ?>
+					<div class="experience-item">
+						<h3><?php echo esc_html( $edu['degree'] ?? '' ); ?> @ <?php echo esc_html( $edu['school'] ?? '' ); ?></h3>
+						<span class="period"><?php echo esc_html( $edu['period'] ?? '' ); ?></span>
+					</div>
+				<?php endforeach; ?>
+			</section>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $additional_education ) ) : ?>
+			<section class="ai-cv-section cv-additional-education">
+				<h2>Lisäkoulutus ja sertifikaatit</h2>
+				<?php foreach ( $additional_education as $add_edu ) : ?>
+					<div class="experience-item">
+						<h3><?php echo esc_html( $add_edu['course'] ?? '' ); ?> @ <?php echo esc_html( $add_edu['provider'] ?? '' ); ?></h3>
+						<span class="period"><?php echo esc_html( $add_edu['period'] ?? '' ); ?></span>
+					</div>
+				<?php endforeach; ?>
+			</section>
+			<?php endif; ?>
+
 			<?php if ( ! empty( $projects ) ) : ?>
 			<section class="ai-cv-section cv-projects">
 				<h2>Valitut projektit</h2>
@@ -164,6 +206,36 @@ $sla_url = esc_url( $settings['sla_url'] ?? '' );
 						<p><?php echo wp_kses_post( $proj['description'] ?? '' ); ?></p>
 					</div>
 				<?php endforeach; ?>
+			</section>
+			<?php endif; ?>
+			
+			<?php if ( ! empty( $testimonials ) ) : ?>
+			<section class="ai-cv-section cv-testimonials">
+				<h2>Suositukset</h2>
+				<?php foreach ( $testimonials as $testi ) : ?>
+					<div class="content-box" style="margin-bottom: 15px;">
+						<p><em>"<?php echo wp_kses_post( $testi['text'] ?? '' ); ?>"</em></p>
+						<p style="text-align: right;"><strong>- <?php echo esc_html( $testi['author'] ?? '' ); ?></strong></p>
+					</div>
+				<?php endforeach; ?>
+			</section>
+			<?php endif; ?>
+			
+			<?php if ( ! empty( $availability ) || ! empty( $billing ) || ! empty( $links ) ) : ?>
+			<section class="ai-cv-section cv-additional-info">
+				<h2>Lisätiedot</h2>
+				<div class="content-box">
+					<?php if ( ! empty( $availability ) ) : ?><p><strong>Saatavuus:</strong> <?php echo $availability; ?></p><?php endif; ?>
+					<?php if ( ! empty( $billing ) ) : ?><p><strong>Laskutus:</strong> <?php echo $billing; ?></p><?php endif; ?>
+					<?php if ( ! empty( $links ) ) : ?>
+						<p><strong>Linkit:</strong></p>
+						<ul>
+						<?php foreach ( $links as $link ) : ?>
+							<li><a href="<?php echo esc_url( $link['url'] ?? '' ); ?>" target="_blank"><?php echo esc_html( $link['title'] ?? '' ); ?></a></li>
+						<?php endforeach; ?>
+						</ul>
+					<?php endif; ?>
+				</div>
 			</section>
 			<?php endif; ?>
 			

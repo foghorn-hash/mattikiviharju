@@ -35,13 +35,40 @@
 							'technologies' => array()
 						)
 					),
-					'education' => array(),
-					'certificates' => array(),
-					'testimonials' => array(),
-					'languages' => array(),
-					'links' => array(),
+					'education' => array(
+						array(
+							'degree' => '',
+							'school' => '',
+							'period' => ''
+						)
+					),
+					'certificates' => array(
+						array(
+							'course' => '',
+							'provider' => '',
+							'period' => ''
+						)
+					),
+					'testimonials' => array(
+						array(
+							'author' => '',
+							'text' => ''
+						)
+					),
+					'languages' => array(
+						array(
+							'language' => '',
+							'proficiency' => ''
+						)
+					),
+					'links' => array(
+						array(
+							'title' => '',
+							'url' => ''
+						)
+					),
 					'availability' => '',
-					'billing' => ''
+					'billing' => '95 € / tunti'
 				);
 				$cv_data_json = wp_json_encode( $default_skeleton, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
 			}
