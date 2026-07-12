@@ -1,0 +1,8 @@
+{
+  "name": "ai-cv-tailor-autopilot",
+  "version": "1.0.0",
+  "description": "Autopilot Node helpers",
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}

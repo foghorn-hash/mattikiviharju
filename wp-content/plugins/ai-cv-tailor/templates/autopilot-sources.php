@@ -26,10 +26,19 @@ if ( isset( $_POST['submit_manual'] ) && check_admin_referer( 'add_manual_source
 if ( isset( $_POST['add_auto_source'] ) && check_admin_referer( 'add_auto_source' ) ) {
 	$sources = get_option( 'ai_cv_autopilot_sources_list', array() );
 	
+	$source_type = sanitize_text_field( $_POST['source_type'] );
+	$source_url  = $_POST['source_url'];
+	if ( $source_type === 'tyomarkkinatori' && ! filter_var( $source_url, FILTER_VALIDATE_URL ) ) {
+		$sanitized_url = sanitize_text_field( $source_url );
+	} else {
+		$sanitized_url = esc_url_raw( $source_url );
+	}
+
 	$new_source = array(
-		'name' => sanitize_text_field( $_POST['source_name'] ),
-		'type' => sanitize_text_field( $_POST['source_type'] ),
-		'url'  => esc_url_raw( $_POST['source_url'] )
+		'name'    => sanitize_text_field( $_POST['source_name'] ),
+		'type'    => $source_type,
+		'url'     => $sanitized_url,
+		'enabled' => 1
 	);
 	
 	if ( ! empty( $new_source['name'] ) && ! empty( $new_source['url'] ) ) {
@@ -37,7 +46,7 @@ if ( isset( $_POST['add_auto_source'] ) && check_admin_referer( 'add_auto_source
 		update_option( 'ai_cv_autopilot_sources_list', $sources );
 		echo '<div class="notice notice-success is-dismissible"><p>Automaattinen lähde lisätty.</p></div>';
 	} else {
-		echo '<div class="notice notice-error is-dismissible"><p>Nimi ja URL ovat pakollisia.</p></div>';
+		echo '<div class="notice notice-error is-dismissible"><p>Nimi ja URL/Hakusana ovat pakollisia.</p></div>';
 	}
 }
 
@@ -100,7 +109,8 @@ $automated_sources = get_option( 'ai_cv_autopilot_sources_list', array() );
 				<td>
 					<select name="source_type">
 						<option value="rss">RSS</option>
-						<!-- LinkedIn, Upwork jne. tulevaisuudessa -->
+						<option value="tyomarkkinatori">Työmarkkinatori</option>
+						<option value="finitec">Finitec Oy</option>
 					</select>
 				</td>
 			</tr>
@@ -109,8 +119,8 @@ $automated_sources = get_option( 'ai_cv_autopilot_sources_list', array() );
 				<td><input type="text" name="source_name" class="regular-text" required></td>
 			</tr>
 			<tr>
-				<th>Lähde URL</th>
-				<td><input type="url" name="source_url" class="regular-text" required></td>
+				<th>Lähde URL / Hakusana</th>
+				<td><input type="text" name="source_url" class="regular-text" required></td>
 			</tr>
 		</table>
 		<p class="submit"><input type="submit" name="add_auto_source" class="button button-primary" value="Lisää Automaattinen Lähde"></p>

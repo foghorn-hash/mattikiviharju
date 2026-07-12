@@ -28,7 +28,7 @@ class AI_CV_Tailor_Autopilot_CPT {
 			'public'          => false,
 			'show_ui'         => true,
 			'show_in_menu'    => false,
-			'show_in_rest'    => true,
+			'show_in_rest'    => false,
 			'supports'        => array( 'title', 'editor', 'custom-fields' ),
 			'capability_type' => 'post',
 			'map_meta_cap'    => true,

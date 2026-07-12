@@ -167,7 +167,7 @@ class AI_CV_Tailor_Autopilot_OpenAI {
 
 		// Link back to opportunity
 		update_post_meta( $post_id, 'generated_application_id', $app_post_id );
-		update_post_meta( $post_id, 'status', 'Applied' ); // or 'Awaiting Application'
+		update_post_meta( $post_id, 'status', 'Awaiting Send' );
 		update_post_meta( $post_id, 'autopilot_processed', '1' );
 		
 		// Follow up date (e.g. +7 days)

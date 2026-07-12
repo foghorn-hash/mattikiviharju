@@ -249,6 +249,10 @@ class AI_CV_Tailor_Autopilot_Admin {
 		$openai = new AI_CV_Tailor_Autopilot_OpenAI();
 		$result = $openai->analyze_opportunity( $job_id );
 
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
 		$redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=ai-cv-tailor-autopilot-queues' );
 		wp_safe_redirect( add_query_arg( 'analyzed', $job_id, remove_query_arg( array( 'analyzed', 'generated', 'rejected', 'reset' ), $redirect_url ) ) );
 		exit;
@@ -271,6 +275,10 @@ class AI_CV_Tailor_Autopilot_Admin {
 		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-openai.php';
 		$openai = new AI_CV_Tailor_Autopilot_OpenAI();
 		$result = $openai->generate_application_from_opportunity( $job_id );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
 
 		$redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=ai-cv-tailor-autopilot-queues' );
 		wp_safe_redirect( add_query_arg( 'generated', $job_id, remove_query_arg( array( 'analyzed', 'generated', 'rejected', 'reset' ), $redirect_url ) ) );

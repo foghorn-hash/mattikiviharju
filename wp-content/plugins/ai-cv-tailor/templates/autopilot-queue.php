@@ -4,14 +4,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $statuses = array(
-	'New'        => 'New',
-	'Analyzed'   => 'Analyzed',
-	'Good Match' => 'Good Match',
-	'Applied'    => 'Applied',
-	'Interview'  => 'Interview',
-	'Won'        => 'Won',
-	'Lost'       => 'Lost',
-	'Rejected'   => 'Rejected'
+	'New'           => 'New',
+	'Analyzed'      => 'Analyzed',
+	'Good Match'    => 'Good Match',
+	'Awaiting Send' => 'Awaiting Send',
+	'Applied'       => 'Applied',
+	'Interview'     => 'Interview',
+	'Won'           => 'Won',
+	'Lost'          => 'Lost',
+	'Rejected'      => 'Rejected'
 );
 
 $args = array(
