@@ -20,6 +20,15 @@ class AI_CV_Tailor_CLI_Command {
                 WP_CLI::success('Application generation completed.');
                 break;
 
+            case 'run-all':
+            case 'cron':
+                WP_CLI::log('Starting full Autopilot cycle (fetch -> analyze -> generate)...');
+                do_action('ai_cv_tailor_autopilot_fetch', $assoc_args);
+                do_action('ai_cv_tailor_autopilot_analyze', $assoc_args);
+                do_action('ai_cv_tailor_generate_applications', $assoc_args);
+                WP_CLI::success('Autopilot full cycle completed.');
+                break;
+
             case 'digest':
                 do_action('ai_cv_tailor_autopilot_digest', $assoc_args);
                 WP_CLI::success('Digest completed.');
@@ -42,7 +51,7 @@ class AI_CV_Tailor_CLI_Command {
                 break;
 
             default:
-                WP_CLI::error('Unknown autopilot command. Use fetch, analyze, generate-applications, digest, run-debug, reset-test, list-jobs, list-applications.');
+                WP_CLI::error('Unknown autopilot command. Use fetch, analyze, generate-applications, run-all, cron, digest, run-debug, reset-test, list-jobs, list-applications.');
         }
     }
 
