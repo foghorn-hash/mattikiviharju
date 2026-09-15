@@ -1,22 +1,24 @@
-# CV PDF to ACF Filler
+# CV PDF & Word (.docx) to ACF Filler
 
-WordPress plugin that extracts CV data from PDF files using OpenAI, translates to all languages (Fi, En, Sv), and automatically populates Advanced Custom Fields (ACF) on home pages. **Existing content will be overwritten.**
+WordPress plugin that extracts CV data from PDF or Word (.docx) files using OpenAI, extracts embedded project PNG/JPEG images into the WordPress Media Library, detects YouTube video links, translates to all languages (Fi, En, Sv), and automatically populates Custom Post Types and Advanced Custom Fields (ACF). **Existing content will be overwritten.**
 
-> ⚠️ **IMPORTANT**: This plugin automatically targets Home pages in all three languages (Fi, En, Sv) and **overwrites all existing CV content**. There is no option to select pages or skip existing data. Use with caution!
+> ⚠️ **IMPORTANT**: This plugin automatically targets Home pages and CPTs in all three languages (Fi, En, Sv) and **overwrites existing CV content**. Use with caution!
 
 ## Features
 
-- Upload PDF CV files through WordPress admin (Finnish or English)
-- Automatically extract structured CV data using OpenAI
-- **Translate to all three languages** (Fi, En, Sv) using OpenAI
-- Populate ACF fields on Home pages in all languages
-- **Export CV as Word document** (.docx) from the frontend
-- **Overwrites existing content** - truncates and replaces all CV data
+- **Upload PDF or Word (.docx) CV files** through WordPress admin (Finnish, English, or Swedish)
+- **Automatic Embedded Image Extraction**: Extracts embedded PNG/JPEG screenshots from Word documents and adds them to WordPress Media Library and project galleries
+- **Multiple YouTube Videos**: Extracts YouTube links and displays interactive play buttons with popup overlay/lightbox
+- **Automatic AI Translation**: Translates structured CV content into Finnish, English, and Swedish using OpenAI GPT-4o
+- **Polylang Integration**: Automatically creates and links custom posts (`cv_badge`, `cv_experience`, `cv_education`, `cv_course`, `cv_project`, `cv_skill`)
+- **Export CV as Word (.docx) / PDF** from the frontend
+- **Overwrites existing content** - truncates and replaces CV data
 - Support for:
   - Profile badges
-  - Experience items (role, dates, summary)
-  - Projects (title, meta, description)
-  - Skills
+  - Experience items (employer, role, dates, summary)
+  - Education and courses
+  - Projects (title, meta/tech stack, description, URL, multiple YouTube videos, screenshots)
+  - Categorized skills
 
 ## Requirements
 

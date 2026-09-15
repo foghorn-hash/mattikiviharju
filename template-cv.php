@@ -286,6 +286,26 @@ if ($is_admin_editor) {
 					$link = get_post_meta($project->ID, '_cv_project_link', true);
 					$link_label = get_post_meta($project->ID, '_cv_project_link_label', true);
 					$youtube_url = get_post_meta($project->ID, '_cv_project_youtube', true);
+					$youtube_videos = get_post_meta($project->ID, '_cv_project_youtube_videos', true);
+					
+					$all_youtube_urls = array();
+					if (!empty($youtube_videos) && is_array($youtube_videos)) {
+						$all_youtube_urls = $youtube_videos;
+					} elseif (!empty($youtube_videos) && is_string($youtube_videos)) {
+						$all_youtube_urls = array_filter(array_map('trim', explode("\n", $youtube_videos)));
+					} elseif (!empty($youtube_url)) {
+						$all_youtube_urls = array($youtube_url);
+					}
+
+					// Extract unique YouTube video IDs
+					$youtube_ids = array();
+					foreach ($all_youtube_urls as $v_url) {
+						if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/', $v_url, $matches)) {
+							$youtube_ids[] = $matches[1];
+						}
+					}
+					$youtube_ids = array_unique($youtube_ids);
+
 					$screenshot_alts = get_post_meta($project->ID, '_cv_project_screenshot_alts', true);
 					$screenshot_alts = is_array($screenshot_alts) ? $screenshot_alts : array();
 					$screenshots = array();
@@ -300,15 +320,6 @@ if ($is_admin_editor) {
 							$screenshots = array_filter(array_map('absint', explode(',', $stored)));
 						}
 					}
-					
-					// Extract YouTube video ID
-					$youtube_id = '';
-					if (!empty($youtube_url)) {
-						preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/', $youtube_url, $matches);
-						if (!empty($matches[1])) {
-							$youtube_id = $matches[1];
-						}
-					}
 					?>
 					<article class="card">
 						<h3><?php echo esc_html(get_the_title($project)); ?></h3>
@@ -320,22 +331,24 @@ if ($is_admin_editor) {
 						<?php elseif (!empty($project->post_content)) : ?>
 							<p><?php echo esc_html(wp_trim_words($project->post_content, 24)); ?></p>
 						<?php endif; ?>
-						<?php if (!empty($screenshots) && is_array($screenshots) || !empty($youtube_id)) : ?>
-							<div class="project-gallery js-project-gallery" aria-label="Project screenshots">
+						<?php if (!empty($screenshots) && is_array($screenshots) || !empty($youtube_ids)) : ?>
+							<div class="project-gallery js-project-gallery" aria-label="Project gallery">
 								<?php 
 								$i = 0;
 								
-								// Show YouTube video first if available
-								if (!empty($youtube_id)) :
-									$i++;
-									$youtube_thumb = 'https://img.youtube.com/vi/' . esc_attr($youtube_id) . '/mqdefault.jpg';
-									$youtube_alt = $i . ' - ' . (get_the_title($project) ?: 'Project video');
+								// Show all YouTube videos if available
+								if (!empty($youtube_ids)) :
+									foreach ($youtube_ids as $yt_id) :
+										$i++;
+										$youtube_thumb = 'https://img.youtube.com/vi/' . esc_attr($yt_id) . '/mqdefault.jpg';
+										$youtube_alt = $i . ' - ' . (get_the_title($project) ?: 'Project video');
 								?>
-									<button type="button" class="project-shot project-shot-video" data-youtube="<?php echo esc_attr($youtube_id); ?>" aria-label="Play video">
+									<button type="button" class="project-shot project-shot-video" data-youtube="<?php echo esc_attr($yt_id); ?>" aria-label="Play video <?php echo $i; ?>">
 										<img src="<?php echo esc_url($youtube_thumb); ?>" alt="<?php echo esc_attr($youtube_alt); ?>" loading="lazy" />
 										<i class="bi bi-play-circle project-shot-play-icon" aria-hidden="true"></i>
 									</button>
 								<?php 
+									endforeach;
 								endif;
 								
 								// Show screenshots

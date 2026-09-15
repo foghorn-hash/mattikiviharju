@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CV PDF to ACF Filler
- * Description: Extract CV data from PDF files using OpenAI, auto-translate to Fi/En/Sv, populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill) with language-specific content, and export CV as Word document
- * Version: 2.3.0
+ * Description: Extract CV data from PDF or Word (.docx) files using OpenAI, auto-translate to Fi/En/Sv, populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill) with language-specific content, extract embedded project PNG images and YouTube video links, and export CV as Word document
+ * Version: 2.5.0
  * Author: GitHub Copilot
  * Requires Plugins: advanced-custom-fields, polylang
  */
@@ -26,7 +26,7 @@ add_action('admin_init', 'cv_pdf_acf_register_settings');
 // Add settings page to admin menu
 function cv_pdf_acf_add_settings_page() {
     add_options_page(
-        'CV PDF to ACF Filler',
+        'CV PDF & DOCX to ACF Filler',
         'CV PDF to ACF',
         'manage_options',
         'cv-pdf-to-acf-filler',
@@ -72,16 +72,25 @@ function cv_pdf_acf_render_settings_page() {
     // Check PDF parsing capability
     $pdf_method = cv_pdf_acf_check_pdf_capability();
     if (!$pdf_method) {
-        echo '<div class="notice notice-error"><p><strong>Error:</strong> No PDF parsing library found. Please install one of the following:<br>';
-        echo '<strong>Option 1 (Recommended):</strong> Run <code>composer require smalot/pdfparser</code> in the plugin directory<br>';
-        echo '<strong>Option 2:</strong> Install <code>pdftotext</code> command-line tool (poppler-utils)</p></div>';
-        $dependencies_ok = false;
+        echo '<div class="notice notice-warning"><p><strong>Warning:</strong> No PDF parsing library found (PDF uploads won\'t work). You can still upload Word (.docx) files.<br>';
+        echo 'To enable PDF: Run <code>composer require smalot/pdfparser</code> in the plugin directory or install <code>pdftotext</code>.</p></div>';
     } else {
         echo '<div class="notice notice-success"><p><strong>PDF Parser:</strong> ' . esc_html($pdf_method) . ' is available ✓</p></div>';
     }
+
+    // Check DOCX parsing capability
+    $docx_method = cv_pdf_acf_check_docx_capability();
+    if (!$docx_method) {
+        echo '<div class="notice notice-error"><p><strong>Error:</strong> PHP ZipArchive extension is not available. Please enable php-zip to process Word (.docx) files.</p></div>';
+        if (!$pdf_method) {
+            $dependencies_ok = false;
+        }
+    } else {
+        echo '<div class="notice notice-success"><p><strong>Word DOCX Parser:</strong> ' . esc_html($docx_method) . ' is available ✓ (Extracts text, links, and embedded PNG images)</p></div>';
+    }
     ?>
     <div class="wrap">
-        <h1>CV PDF to ACF Filler</h1>
+        <h1>CV PDF & Word (.docx) to ACF Filler</h1>
         
         <h2>Status</h2>
         <table class="form-table" role="presentation">
@@ -96,6 +105,10 @@ function cv_pdf_acf_render_settings_page() {
             <tr>
                 <th scope="row">PDF Parser</th>
                 <td><?php echo $pdf_method ? '✓ ' . esc_html($pdf_method) : '✗ Not available'; ?></td>
+            </tr>
+            <tr>
+                <th scope="row">Word (.docx) Parser</th>
+                <td><?php echo $docx_method ? '✓ ' . esc_html($docx_method) : '✗ Not available'; ?></td>
             </tr>
             <tr>
                 <th scope="row">OpenAI API Key</th>
@@ -126,11 +139,11 @@ function cv_pdf_acf_render_settings_page() {
 
         <hr />
 
-        <h2>Upload CV PDF</h2>
+        <h2>Upload CV (PDF or Word .docx)</h2>
         <?php if (!$dependencies_ok) : ?>
-            <div class="notice notice-warning"><p><strong>Warning:</strong> Please resolve the errors above before uploading a PDF.</p></div>
+            <div class="notice notice-warning"><p><strong>Warning:</strong> Please resolve the errors above before uploading a CV file.</p></div>
         <?php else : ?>
-        <p>Upload a PDF CV file to extract data and create language-specific custom posts (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill). <strong>Existing posts will be deleted and replaced.</strong></p>
+        <p>Upload a PDF or Word (.docx) CV file to extract structured CV data, images, YouTube video links, and create language-specific custom posts (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill). <strong>Existing posts will be deleted and replaced.</strong></p>
         <?php
         // Check for Polylang and get home page translations
         $front_page_id = get_option('page_on_front');
@@ -164,10 +177,10 @@ function cv_pdf_acf_render_settings_page() {
             <input type="hidden" name="action" value="cv_pdf_acf_upload" />
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><label for="cv_pdf_file">CV PDF File</label></th>
+                    <th scope="row"><label for="cv_pdf_file">CV File (.pdf or .docx)</label></th>
                     <td>
-                        <input type="file" id="cv_pdf_file" name="cv_pdf_file" accept=".pdf" required />
-                        <p class="description">Select a PDF file containing CV information (English or Finnish)</p>
+                        <input type="file" id="cv_pdf_file" name="cv_pdf_file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
+                        <p class="description">Select a PDF or Word (.docx) file containing CV information. If you upload a .docx file with embedded PNG/JPEG screenshots and YouTube links, they will be automatically processed into project media!</p>
                     </td>
                 </tr>
                 <tr>
@@ -177,15 +190,19 @@ function cv_pdf_acf_render_settings_page() {
                             <input type="radio" name="cv_source_language" value="fi" checked />
                             Finnish (populate Fi, translate to En & Sv)
                         </label>
-                        <label style="display: block;">
+                        <label style="display: block; margin-bottom: 8px;">
                             <input type="radio" name="cv_source_language" value="en" />
                             English (populate En, translate to Fi & Sv)
                         </label>
-                        <p class="description">Select the language of your PDF CV</p>
+                        <label style="display: block;">
+                            <input type="radio" name="cv_source_language" value="sv" />
+                            Swedish (populate Sv, translate to Fi & En)
+                        </label>
+                        <p class="description">Select the original language of your uploaded CV file</p>
                     </td>
                 </tr>
             </table>
-            <?php submit_button('Upload and Process PDF'); ?>
+            <?php submit_button('Upload and Process CV'); ?>
         </form>
         <?php endif; ?>
     </div>
@@ -207,6 +224,14 @@ function cv_pdf_acf_check_pdf_capability() {
         }
     }
     
+    return false;
+}
+
+// Check Word docx parsing capability
+function cv_pdf_acf_check_docx_capability() {
+    if (class_exists('ZipArchive') && class_exists('DOMDocument')) {
+        return 'PHP ZipArchive & DOMDocument (Native)';
+    }
     return false;
 }
 
@@ -327,12 +352,149 @@ function cv_pdf_acf_extract_pdf_text($file_path) {
     return new WP_Error('pdf_parse_error', $error_message);
 }
 
-// Extract CV data from PDF using OpenAI
-function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
-    // Extract text from PDF
-    $pdf_text = cv_pdf_acf_extract_pdf_text($file_path);
-    if (is_wp_error($pdf_text)) {
-        return $pdf_text;
+// Extract text, hyperlinks (YouTube URLs), and embedded images from Word DOCX
+function cv_pdf_acf_extract_docx_data($file_path) {
+    if (!class_exists('ZipArchive')) {
+        return new WP_Error('docx_zip_missing', 'PHP ZipArchive extension is not enabled on this server.');
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($file_path) !== true) {
+        return new WP_Error('docx_open_failed', 'Failed to open the Word DOCX file.');
+    }
+
+    // 1. Read relationships to get hyperlinks (including YouTube links) and media references
+    $rels_xml = $zip->getFromName('word/_rels/document.xml.rels');
+    $hyperlinks = array();
+    $media_rels = array();
+    if ($rels_xml) {
+        $dom_rels = new DOMDocument();
+        @$dom_rels->loadXML($rels_xml);
+        $rels = $dom_rels->getElementsByTagName('Relationship');
+        foreach ($rels as $rel) {
+            $r_id = $rel->getAttribute('Id');
+            $type = $rel->getAttribute('Type');
+            $target = $rel->getAttribute('Target');
+            if (strpos($type, 'relationships/hyperlink') !== false) {
+                $hyperlinks[$r_id] = $target;
+            } elseif (strpos($type, 'relationships/image') !== false) {
+                $media_rels[$r_id] = $target;
+            }
+        }
+    }
+
+    // 2. Read document XML for text content
+    $doc_xml = $zip->getFromName('word/document.xml');
+    if (!$doc_xml) {
+        $zip->close();
+        return new WP_Error('docx_no_content', 'Could not find word/document.xml inside the Word file.');
+    }
+
+    $dom = new DOMDocument();
+    @$dom->loadXML($doc_xml);
+    $xpath = new DOMXPath($dom);
+    $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+    $xpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+    $xpath->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+
+    $paragraphs = $xpath->query('//w:p');
+    $extracted_lines = array();
+
+    foreach ($paragraphs as $p) {
+        $p_text = '';
+        $nodes = $xpath->query('.//w:t | .//w:hyperlink | .//a:blip', $p);
+        foreach ($nodes as $node) {
+            if ($node->nodeName === 'w:hyperlink') {
+                $r_id = $node->getAttribute('r:id') ?: $node->getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+                $target_url = isset($hyperlinks[$r_id]) ? $hyperlinks[$r_id] : '';
+                $link_text = $node->textContent;
+                $p_text .= ' ' . $link_text . ($target_url ? ' (' . $target_url . ') ' : '');
+            } elseif ($node->nodeName === 'a:blip') {
+                $r_embed = $node->getAttribute('r:embed') ?: $node->getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'embed');
+                $target_media = isset($media_rels[$r_embed]) ? basename($media_rels[$r_embed]) : '';
+                if (!empty($target_media)) {
+                    $p_text .= ' [Embedded Image: ' . $target_media . '] ';
+                }
+            } else {
+                $p_text .= $node->textContent;
+            }
+        }
+        $p_text = trim($p_text);
+        if ($p_text !== '') {
+            $extracted_lines[] = $p_text;
+        }
+    }
+
+    $full_text = implode("\n", $extracted_lines);
+
+    // 3. Extract embedded images (PNG, JPEG, WebP, GIF) from word/media/
+    $uploaded_image_ids = array();
+    $image_map = array();
+
+    require_once(ABSPATH . 'wp-admin/includes/image.php');
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+    require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $stat = $zip->statIndex($i);
+        $filename = $stat['name'];
+
+        if (preg_match('#^word/media/(.+\.(png|jpe?g|webp|gif))$#i', $filename, $matches)) {
+            $image_basename = basename($matches[1]);
+            $image_content = $zip->getFromIndex($i);
+
+            if ($image_content) {
+                $upload = wp_upload_bits($image_basename, null, $image_content);
+                if (empty($upload['error'])) {
+                    $attachment = array(
+                        'post_mime_type' => $upload['type'],
+                        'post_title'     => preg_replace('/\.[^.]+$/', '', $image_basename),
+                        'post_content'   => '',
+                        'post_status'    => 'inherit'
+                    );
+                    $attach_id = wp_insert_attachment($attachment, $upload['file']);
+                    if ($attach_id && !is_wp_error($attach_id)) {
+                        $attach_data = wp_generate_attachment_metadata($attach_id, $upload['file']);
+                        wp_update_attachment_metadata($attach_id, $attach_data);
+                        $uploaded_image_ids[] = $attach_id;
+                        $image_map[$image_basename] = $attach_id;
+                    }
+                }
+            }
+        }
+    }
+
+    $zip->close();
+
+    return array(
+        'text'               => $full_text,
+        'uploaded_image_ids' => $uploaded_image_ids,
+        'image_map'          => $image_map,
+    );
+}
+
+// Extract CV data from PDF or Word DOCX using OpenAI
+function cv_pdf_acf_extract_cv_from_file($file_path, $file_extension, $api_key, $model) {
+    $uploaded_image_ids = array();
+    $extracted_text = '';
+
+    if (strtolower($file_extension) === 'docx') {
+        $docx_res = cv_pdf_acf_extract_docx_data($file_path);
+        if (is_wp_error($docx_res)) {
+            return $docx_res;
+        }
+        $extracted_text = $docx_res['text'];
+        $uploaded_image_ids = $docx_res['uploaded_image_ids'];
+    } else {
+        $pdf_text = cv_pdf_acf_extract_pdf_text($file_path);
+        if (is_wp_error($pdf_text)) {
+            return $pdf_text;
+        }
+        $extracted_text = $pdf_text;
+    }
+
+    if (empty(trim($extracted_text))) {
+        return new WP_Error('empty_content', 'Uploaded document contains no readable text.');
     }
 
     // Create prompt for OpenAI
@@ -353,13 +515,20 @@ function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
   ],
   "projects_title": "Projects" or appropriate section title,
   "projects": [
-    {"title": "Project Name", "meta": "Technology/Role", "description": "Project description"}
+    {
+      "title": "Project Name",
+      "meta": "Technology/Tech Stack / Role",
+      "description": "Project description",
+      "url": "https://...",
+      "url_title": "Project link label/title",
+      "youtube_urls": ["https://www.youtube.com/watch?v=...", "https://youtu.be/..."]
+    }
   ],
   "skills_title": "Skills" or appropriate section title,
   "skills": ["Category 1: skill1, skill2, skill3, ...", "Category 2: skill4, skill5, skill6, ..."]
 }
 
-Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title. For education, extract the institution separately from the degree/program name. For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas. Each category should be a separate array item.';
+Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title. For education, extract the institution separately from the degree/program name. For projects, find all project URLs (e.g. GitHub or live websites) and extract all YouTube video URLs associated with each project into the "youtube_urls" array (projects can have multiple YouTube video links). For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas.';
 
     $payload = array(
         'model' => $model,
@@ -372,7 +541,7 @@ Extract all relevant information from the CV. If a section is not present, use a
             ),
             array(
                 'role' => 'user',
-                'content' => 'Please extract all CV information from this text and return it as structured JSON:\n\n' . $pdf_text
+                'content' => "Please extract all CV information from this text and return it as structured JSON:\n\n" . $extracted_text
             ),
         ),
     );
@@ -387,7 +556,19 @@ Extract all relevant information from the CV. If a section is not present, use a
         return new WP_Error('openai_parse', 'Failed to parse CV extraction response.');
     }
 
-    return $data;
+    return array(
+        'cv_data'            => $data,
+        'uploaded_image_ids' => $uploaded_image_ids,
+    );
+}
+
+// Backward compatibility wrapper
+function cv_pdf_acf_extract_cv_from_pdf($file_path, $api_key, $model) {
+    $result = cv_pdf_acf_extract_cv_from_file($file_path, 'pdf', $api_key, $model);
+    if (is_wp_error($result)) {
+        return $result;
+    }
+    return $result['cv_data'];
 }
 
 // Translate CV data between languages
@@ -401,7 +582,7 @@ function cv_pdf_acf_translate_cv($cv_data, $target_lang, $api_key, $model) {
     $target_name = $lang_names[$target_lang] ?? $target_lang;
     
     // Create prompt for translation
-    $system_prompt = "You are a professional translator specializing in CV/resume translation. Translate all the provided CV content to {$target_name}. Maintain professional tone and accuracy. Return the same JSON structure with all text translated to {$target_name}.";
+    $system_prompt = "You are a professional translator specializing in CV/resume translation. Translate all the provided CV content to {$target_name}. Maintain professional tone and accuracy. Keep all URLs, youtube_urls arrays, link URLs, tech stack names, and JSON structure exactly intact. Translate section titles, job titles, summaries, degrees, descriptions, and skill category headings to {$target_name}. Return the same JSON structure with all text translated to {$target_name}.";
 
     $payload = array(
         'model' => $model,
@@ -433,7 +614,7 @@ function cv_pdf_acf_translate_cv($cv_data, $target_lang, $api_key, $model) {
 }
 
 // Populate ACF fields with extracted CV data (OVERWRITE mode)
-function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
+function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_image_ids = array()) {
     $updated = array();
     $created_ids = array(
         'badges' => array(),
@@ -652,6 +833,42 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
                 if (!empty($project['meta'])) {
                     update_post_meta($post_id, '_cv_project_meta', sanitize_text_field($project['meta']));
                 }
+                if (!empty($project['url'])) {
+                    update_post_meta($post_id, '_cv_project_link', esc_url_raw($project['url']));
+                }
+                if (!empty($project['url_title'])) {
+                    update_post_meta($post_id, '_cv_project_link_label', sanitize_text_field($project['url_title']));
+                }
+
+                // YouTube URLs (support multiple)
+                $youtube_urls = array();
+                if (!empty($project['youtube_urls']) && is_array($project['youtube_urls'])) {
+                    foreach ($project['youtube_urls'] as $yt) {
+                        $cleaned_yt = esc_url_raw(trim($yt));
+                        if (!empty($cleaned_yt)) {
+                            $youtube_urls[] = $cleaned_yt;
+                        }
+                    }
+                } elseif (!empty($project['youtube_url'])) {
+                    $cleaned_yt = esc_url_raw(trim($project['youtube_url']));
+                    if (!empty($cleaned_yt)) {
+                        $youtube_urls[] = $cleaned_yt;
+                    }
+                }
+
+                if (!empty($youtube_urls)) {
+                    update_post_meta($post_id, '_cv_project_youtube', $youtube_urls[0]);
+                    update_post_meta($post_id, '_cv_project_youtube_videos', $youtube_urls);
+                }
+
+                // Attach extracted PNG/JPG images if available
+                if (!empty($uploaded_image_ids)) {
+                    update_post_meta($post_id, '_cv_project_screenshots', $uploaded_image_ids);
+                    if (function_exists('update_field')) {
+                        update_field('cv_project_screenshots', $uploaded_image_ids, $post_id);
+                    }
+                }
+
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
                     $created_ids['projects'][$index] = $post_id;
@@ -714,7 +931,7 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi') {
     );
 }
 
-// Handle PDF upload and processing
+// Handle PDF or Word DOCX upload and processing
 function cv_pdf_acf_handle_upload() {
     if (!current_user_can('manage_options')) {
         wp_die('Insufficient permissions.');
@@ -763,49 +980,55 @@ function cv_pdf_acf_handle_upload() {
     }
 
     // Handle file upload
-    if (empty($_FILES['cv_pdf_file']) || $_FILES['cv_pdf_file']['error'] !== UPLOAD_ERR_OK) {
+    $file_field = !empty($_FILES['cv_pdf_file']) ? 'cv_pdf_file' : (!empty($_FILES['cv_file']) ? 'cv_file' : '');
+    if (empty($file_field) || $_FILES[$file_field]['error'] !== UPLOAD_ERR_OK) {
         cv_pdf_acf_redirect_with_message('File upload failed. Please try again.', 'error');
         return;
     }
 
-    $file = $_FILES['cv_pdf_file'];
+    $file = $_FILES[$file_field];
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     
-    // Validate file type
-    if ($file['type'] !== 'application/pdf' && !str_ends_with($file['name'], '.pdf')) {
-        cv_pdf_acf_redirect_with_message('Invalid file type. Please upload a PDF file.', 'error');
+    // Validate file type (PDF or DOCX)
+    $valid_extensions = array('pdf', 'docx');
+    if (!in_array($file_ext, $valid_extensions, true)) {
+        cv_pdf_acf_redirect_with_message('Invalid file type. Please upload a PDF (.pdf) or Word (.docx) file.', 'error');
         return;
     }
 
     // Move uploaded file to temp location
     $upload_dir = wp_upload_dir();
-    $temp_file = $upload_dir['basedir'] . '/cv_temp_' . time() . '.pdf';
+    $temp_file = $upload_dir['basedir'] . '/cv_temp_' . time() . '.' . $file_ext;
     
     if (!move_uploaded_file($file['tmp_name'], $temp_file)) {
         cv_pdf_acf_redirect_with_message('Failed to process uploaded file.', 'error');
         return;
     }
 
-    // Extract CV data from PDF
-    $cv_data = cv_pdf_acf_extract_cv_from_pdf($temp_file, $api_key, $model);
+    // Extract CV data and images from uploaded file
+    $extract_result = cv_pdf_acf_extract_cv_from_file($temp_file, $file_ext, $api_key, $model);
     
     // Clean up temp file
     if (file_exists($temp_file)) {
         @unlink($temp_file);
     }
 
-    if (is_wp_error($cv_data)) {
-        cv_pdf_acf_redirect_with_message('PDF Processing failed: ' . $cv_data->get_error_message(), 'error');
+    if (is_wp_error($extract_result)) {
+        cv_pdf_acf_redirect_with_message('CV Processing failed: ' . $extract_result->get_error_message(), 'error');
         return;
     }
     
+    $cv_data = $extract_result['cv_data'] ?? null;
+    $uploaded_image_ids = $extract_result['uploaded_image_ids'] ?? array();
+
     if (empty($cv_data) || !is_array($cv_data)) {
-        cv_pdf_acf_redirect_with_message('Extracted data is empty or invalid. Please check if your PDF contains readable text.', 'error');
+        cv_pdf_acf_redirect_with_message('Extracted data is empty or invalid. Please check if your file contains readable text.', 'error');
         return;
     }
 
     // Populate source language first
     $source_page_id = $translations[$source_lang];
-    $result_source = cv_pdf_acf_populate_fields($source_page_id, $cv_data, $source_lang);
+    $result_source = cv_pdf_acf_populate_fields($source_page_id, $cv_data, $source_lang, $uploaded_image_ids);
     
     $results = array();
     $results[strtoupper($source_lang)] = $result_source['updated'];
@@ -820,7 +1043,8 @@ function cv_pdf_acf_handle_upload() {
         'source_lang' => strtoupper($source_lang),
         'cv_data' => $cv_data,
         'translations' => array(),
-        'results' => $results
+        'results' => $results,
+        'image_count' => count($uploaded_image_ids),
     );
     
     // Translate and populate other languages
@@ -838,7 +1062,7 @@ function cv_pdf_acf_handle_upload() {
         $import_data['translations'][strtoupper($target_lang)] = $translated_data;
         
         $target_page_id = $translations[$target_lang];
-        $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data, $target_lang);
+        $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data, $target_lang, $uploaded_image_ids);
         $results[strtoupper($target_lang)] = $result_target['updated'];
         
         $all_created_ids[$target_lang] = $result_target['created_ids'];
@@ -929,7 +1153,7 @@ function cv_pdf_acf_handle_upload() {
     set_transient('cv_pdf_acf_last_import', $import_data, 300); // Store for 5 minutes
     
     // Build success message
-    $message = 'PDF processed successfully! See imported items below.';
+    $message = strtoupper($file_ext) . ' processed successfully! ' . (!empty($uploaded_image_ids) ? count($uploaded_image_ids) . ' image(s) extracted. ' : '') . 'See imported items below.';
     cv_pdf_acf_redirect_with_message($message, 'success');
 }
 add_action('admin_post_cv_pdf_acf_upload', 'cv_pdf_acf_handle_upload');
@@ -939,6 +1163,9 @@ function cv_pdf_acf_display_import_results($import_data) {
     ?>
     <div class="notice notice-success" style="padding: 15px; margin-top: 20px;">
         <h2 style="margin-top: 0;">✓ Imported CV Data (Source: <?php echo esc_html($import_data['source_lang']); ?>)</h2>
+        <?php if (!empty($import_data['image_count'])) : ?>
+            <p><strong>Embedded images imported to Media Library:</strong> <?php echo (int) $import_data['image_count']; ?> image(s)</p>
+        <?php endif; ?>
         
         <?php
         $cv_data = $import_data['cv_data'];
@@ -1049,6 +1276,12 @@ function cv_pdf_acf_display_cv_content($cv_data) {
                 echo '<li><strong>' . esc_html($project['title'] ?? '') . '</strong>';
                 if (!empty($project['meta'])) {
                     echo ' <em>(' . esc_html($project['meta']) . ')</em>';
+                }
+                if (!empty($project['url'])) {
+                    echo ' | <a href="' . esc_url($project['url']) . '" target="_blank">' . esc_html($project['url_title'] ?? 'Project link') . '</a>';
+                }
+                if (!empty($project['youtube_urls']) && is_array($project['youtube_urls'])) {
+                    echo '<br><strong>YouTube Videos (' . count($project['youtube_urls']) . '):</strong> ' . esc_html(implode(', ', $project['youtube_urls']));
                 }
                 if (!empty($project['description'])) {
                     echo '<br>' . esc_html($project['description']);
