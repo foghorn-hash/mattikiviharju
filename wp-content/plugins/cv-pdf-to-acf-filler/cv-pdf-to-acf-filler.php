@@ -357,6 +357,9 @@ function cv_pdf_acf_extract_docx_data($file_path) {
     if (!class_exists('ZipArchive')) {
         return new WP_Error('docx_zip_missing', 'PHP ZipArchive extension is not enabled on this server.');
     }
+    if (!class_exists('DOMDocument')) {
+        return new WP_Error('docx_dom_missing', 'PHP DOM extension (DOMDocument) is not enabled on this server.');
+    }
 
     $zip = new ZipArchive();
     if ($zip->open($file_path) !== true) {
@@ -708,12 +711,20 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
                 'menu_order' => $menu_order--
             );
             $post_id = wp_insert_post($post_data);
-            if ($post_id) {
+            if ($post_id && !is_wp_error($post_id)) {
                 if (!empty($item['company'])) {
-                    update_post_meta($post_id, '_cv_experience_company', sanitize_text_field($item['company']));
+                    if (function_exists('update_field')) {
+                        update_field('cv_experience_company', sanitize_text_field($item['company']), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_experience_company', sanitize_text_field($item['company']));
+                    }
                 }
                 if (!empty($item['dates'])) {
-                    update_post_meta($post_id, '_cv_experience_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
+                    if (function_exists('update_field')) {
+                        update_field('cv_experience_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_experience_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
+                    }
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
@@ -749,9 +760,13 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
                 'menu_order' => $menu_order--
             );
             $post_id = wp_insert_post($post_data);
-            if ($post_id) {
+            if ($post_id && !is_wp_error($post_id)) {
                 if (!empty($item['dates'])) {
-                    update_post_meta($post_id, '_cv_education_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
+                    if (function_exists('update_field')) {
+                        update_field('cv_education_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_education_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
+                    }
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
@@ -792,9 +807,13 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
                 'menu_order' => $menu_order--
             );
             $post_id = wp_insert_post($post_data);
-            if ($post_id) {
+            if ($post_id && !is_wp_error($post_id)) {
                 if (!empty($dates)) {
-                    update_post_meta($post_id, '_cv_course_dates', sanitize_text_field($dates));
+                    if (function_exists('update_field')) {
+                        update_field('cv_course_dates', sanitize_text_field($dates), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_course_dates', sanitize_text_field($dates));
+                    }
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
@@ -829,15 +848,27 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
                 'menu_order' => $menu_order--
             );
             $post_id = wp_insert_post($post_data);
-            if ($post_id) {
+            if ($post_id && !is_wp_error($post_id)) {
                 if (!empty($project['meta'])) {
-                    update_post_meta($post_id, '_cv_project_meta', sanitize_text_field($project['meta']));
+                    if (function_exists('update_field')) {
+                        update_field('cv_project_meta', sanitize_text_field($project['meta']), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_project_meta', sanitize_text_field($project['meta']));
+                    }
                 }
                 if (!empty($project['url'])) {
-                    update_post_meta($post_id, '_cv_project_link', esc_url_raw($project['url']));
+                    if (function_exists('update_field')) {
+                        update_field('cv_project_link', esc_url_raw($project['url']), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_project_link', esc_url_raw($project['url']));
+                    }
                 }
                 if (!empty($project['url_title'])) {
-                    update_post_meta($post_id, '_cv_project_link_label', sanitize_text_field($project['url_title']));
+                    if (function_exists('update_field')) {
+                        update_field('cv_project_link_label', sanitize_text_field($project['url_title']), $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_project_link_label', sanitize_text_field($project['url_title']));
+                    }
                 }
 
                 // YouTube URLs (support multiple)
@@ -857,15 +888,21 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
                 }
 
                 if (!empty($youtube_urls)) {
-                    update_post_meta($post_id, '_cv_project_youtube', $youtube_urls[0]);
-                    update_post_meta($post_id, '_cv_project_youtube_videos', $youtube_urls);
+                    if (function_exists('update_field')) {
+                        update_field('cv_project_youtube', $youtube_urls[0], $post_id);
+                        update_field('cv_project_youtube_videos', $youtube_urls, $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_project_youtube', $youtube_urls[0]);
+                        update_post_meta($post_id, 'cv_project_youtube_videos', $youtube_urls);
+                    }
                 }
 
                 // Attach extracted PNG/JPG images if available
                 if (!empty($uploaded_image_ids)) {
-                    update_post_meta($post_id, '_cv_project_screenshots', $uploaded_image_ids);
                     if (function_exists('update_field')) {
                         update_field('cv_project_screenshots', $uploaded_image_ids, $post_id);
+                    } else {
+                        update_post_meta($post_id, 'cv_project_screenshots', $uploaded_image_ids);
                     }
                 }
 
@@ -933,12 +970,17 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
 
 // Handle PDF or Word DOCX upload and processing
 function cv_pdf_acf_handle_upload() {
-    if (!current_user_can('manage_options')) {
-        wp_die('Insufficient permissions.');
-    }
-    check_admin_referer('cv_pdf_acf_upload');
+    try {
+        // Increase limits for processing large files and API calls
+        set_time_limit(300);
+        @ini_set('memory_limit', '256M');
 
-    if (!function_exists('update_field')) {
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions.');
+        }
+        check_admin_referer('cv_pdf_acf_upload');
+
+        if (!function_exists('update_field')) {
         cv_pdf_acf_redirect_with_message('ACF is not active.', 'error');
         return;
     }
@@ -1155,6 +1197,18 @@ function cv_pdf_acf_handle_upload() {
     // Build success message
     $message = strtoupper($file_ext) . ' processed successfully! ' . (!empty($uploaded_image_ids) ? count($uploaded_image_ids) . ' image(s) extracted. ' : '') . 'See imported items below.';
     cv_pdf_acf_redirect_with_message($message, 'success');
+    
+    } catch (Throwable $e) {
+        wp_die(
+            '<strong>A critical error occurred during CV processing:</strong><br><br>' . 
+            esc_html($e->getMessage()) . '<br><br>' . 
+            '<strong>File:</strong> ' . esc_html($e->getFile()) . '<br>' . 
+            '<strong>Line:</strong> ' . esc_html($e->getLine()) . '<br><br>' .
+            '<a href="' . esc_url(admin_url('options-general.php?page=cv-pdf-to-acf-filler')) . '">&laquo; Back to Settings</a>',
+            'CV Processing Error',
+            array('response' => 500, 'back_link' => true)
+        );
+    }
 }
 add_action('admin_post_cv_pdf_acf_upload', 'cv_pdf_acf_handle_upload');
 
@@ -1318,10 +1372,17 @@ function cv_pdf_acf_redirect_with_message($message, $type = 'success') {
         $referer = admin_url('options-general.php?page=cv-pdf-to-acf-filler');
     }
     
-    wp_safe_redirect(add_query_arg(array(
+    $url = add_query_arg(array(
         'cv_pdf_acf_message' => rawurlencode($message),
         'cv_pdf_acf_type' => $type
-    ), $referer));
+    ), $referer);
+
+    if (headers_sent()) {
+        echo '<meta http-equiv="refresh" content="0;url=' . esc_url($url) . '" />';
+        echo '<script>window.location.href="' . esc_url_raw($url) . '";</script>';
+    } else {
+        wp_redirect($url); // Use wp_redirect instead of wp_safe_redirect to avoid host mismatch silent failures
+    }
     exit;
 }
 
