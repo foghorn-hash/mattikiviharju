@@ -1,0 +1,93 @@
+/**
+ * Stylesheet for the i4ware AI SEO Agent plugin.
+ */
+
+.i4ware-ai-seo-wrap table.form-table {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 15px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.i4ware-ai-seo-wrap table.form-table th {
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.i4ware-ai-seo-wrap table.form-table td {
+    padding-bottom: 20px;
+}
+
+/* Bulk Table */
+#i4ware-ai-seo-bulk-panel table.wp-list-table {
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    margin-top: 15px;
+}
+
+#i4ware-ai-seo-bulk-panel table.wp-list-table td, 
+#i4ware-ai-seo-bulk-panel table.wp-list-table th {
+    vertical-align: middle;
+}
+
+/* Live Logs Console styling */
+#i4ware-seo-live-log {
+    display: none;
+    max-height: 120px;
+    overflow-y: auto;
+    background: #222;
+    color: #00ff00;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 11px;
+    border-radius: 3px;
+    margin-bottom: 20px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+#i4ware-seo-live-log::-webkit-scrollbar {
+    width: 6px;
+}
+
+#i4ware-seo-live-log::-webkit-scrollbar-track {
+    background: #111;
+}
+
+#i4ware-seo-live-log::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}
+
+#i4ware-seo-live-log::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Sidebar Metabox Styles */
+#i4ware-seo-recommendations-wrap {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.i4ware-seo-field-wrap label {
+    font-size: 12px;
+    color: #1d2327;
+}
+
+.i4ware-seo-counter {
+    font-weight: 600;
+    font-size: 10px;
+}
+
+#i4ware-ai-seo-status-msg {
+    padding: 6px;
+    border-radius: 3px;
+}
+
+#i4ware-ai-seo-spinner.spinner {
+    display: none;
+    float: none;
+    margin: 10px auto;
+    width: 20px;
+    height: 20px;
+    background-size: 20px 20px;
+}

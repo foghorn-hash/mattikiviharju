@@ -1,0 +1,141 @@
+/**
+ * Admin stylesheet for the CV OpenAI Polylang Translator plugin.
+ */
+
+/* Settings page styling */
+.cv-oai-pll-settings-wrap table.form-table {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 15px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.cv-oai-pll-settings-wrap table.form-table th {
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.cv-oai-pll-settings-wrap table.form-table td {
+    padding-bottom: 20px;
+}
+
+/* Scrollable ACF selection container */
+.cv-oai-pll-settings-wrap select, 
+.cv-oai-pll-settings-wrap input[type="text"], 
+.cv-oai-pll-settings-wrap input[type="password"] {
+    max-width: 100%;
+}
+
+.cv-oai-pll-settings-wrap label input[type="checkbox"] {
+    margin-top: -3px;
+    margin-right: 6px;
+}
+
+/* History logs table styling */
+.cv-oai-pll-settings-wrap .wp-list-table {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Warning Alerts */
+#cv-oai-pll-overwrite-container,
+#cv-oai-pll-published-warning,
+.cv-oai-pll-review-box-inner p {
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Spinners & progress loader */
+#cv-oai-pll-spinner.spinner {
+    display: none;
+    float: none;
+    margin: 10px auto;
+    width: 20px;
+    height: 20px;
+    background-size: 20px 20px;
+}
+
+/* Side Meta Boxes styling */
+#cv_oai_pll_submit_btn {
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#cv_oai_pll_submit_btn:not(:disabled):hover {
+    background: #135e96;
+    border-color: #135e96;
+}
+
+#cv-oai-pll-status-message {
+    padding: 8px 10px;
+    border-radius: 3px;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* Scrollbar styling for lists */
+#cv-oai-pll-history-list::-webkit-scrollbar,
+.cv-oai-pll-settings-wrap div::-webkit-scrollbar {
+    width: 6px;
+}
+
+#cv-oai-pll-history-list::-webkit-scrollbar-track,
+.cv-oai-pll-settings-wrap div::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#cv-oai-pll-history-list::-webkit-scrollbar-thumb,
+.cv-oai-pll-settings-wrap div::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+#cv-oai-pll-history-list::-webkit-scrollbar-thumb:hover,
+.cv-oai-pll-settings-wrap div::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Media AI Analyzer styles */
+.cv-oai-media-status-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cv-oai-media-status-container .spinner {
+    float: none;
+    margin: 0;
+    vertical-align: middle;
+}
+
+#cv-oai-pll-media-panel table.wp-list-table {
+    margin-top: 15px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+#cv-oai-pll-media-panel table.wp-list-table th,
+#cv-oai-pll-media-panel table.wp-list-table td {
+    vertical-align: middle;
+}
+
+#cv-oai-media-live-log::-webkit-scrollbar {
+    width: 6px;
+}
+
+#cv-oai-media-live-log::-webkit-scrollbar-track {
+    background: #111;
+}
+
+#cv-oai-media-live-log::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}
+
+#cv-oai-media-live-log::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
