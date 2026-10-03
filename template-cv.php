@@ -142,7 +142,13 @@ if ($is_admin_editor) {
 				<?php foreach ($experience_items as $item) : ?>
 					<?php 
 					$company = get_post_meta($item->ID, '_cv_experience_company', true);
+					if (empty($company)) {
+						$company = get_post_meta($item->ID, 'cv_experience_company', true);
+					}
 					$dates = get_post_meta($item->ID, '_cv_experience_dates', true); 
+					if (empty($dates)) {
+						$dates = get_post_meta($item->ID, 'cv_experience_dates', true);
+					}
 					?>
 					<div class="card timeline-item">
 						<?php if (!empty($company)) : ?>
@@ -192,7 +198,12 @@ if ($is_admin_editor) {
 				$education_items = get_posts($education_query);
 				?>
 				<?php foreach ($education_items as $item) : ?>
-					<?php $dates = get_post_meta($item->ID, '_cv_education_dates', true); ?>
+					<?php 
+					$dates = get_post_meta($item->ID, '_cv_education_dates', true);
+					if (empty($dates)) {
+						$dates = get_post_meta($item->ID, 'cv_education_dates', true);
+					}
+					?>
 					<div class="card timeline-item">
 						<h3><?php echo esc_html(get_the_title($item)); ?></h3>
 						<?php if (!empty($item->post_excerpt)) : ?>
@@ -236,7 +247,16 @@ if ($is_admin_editor) {
 				<?php foreach ($courses as $course) : ?>
 					<?php
 					$dates = get_post_meta($course->ID, '_cv_course_dates', true);
+					if (empty($dates)) {
+						$dates = get_post_meta($course->ID, 'cv_course_dates', true);
+					}
 					$provider = get_post_meta($course->ID, '_cv_course_provider', true);
+					if (empty($provider)) {
+						$provider = get_post_meta($course->ID, 'cv_course_provider', true);
+					}
+					if (empty($provider)) {
+						$provider = $course->post_excerpt;
+					}
 					?>
 					<article class="card">
 						<h3><?php echo esc_html(get_the_title($course)); ?></h3>
@@ -282,11 +302,26 @@ if ($is_admin_editor) {
 				<?php foreach ($projects as $project) : ?>
 					<?php
 					$meta = get_post_meta($project->ID, '_cv_project_meta', true);
+					if (empty($meta)) {
+						$meta = get_post_meta($project->ID, 'cv_project_meta', true);
+					}
 					$tech_stack_label = function_exists('cv_one_pager_t') ? cv_one_pager_t('Tech Stack:') : 'Tech Stack:';
 					$link = get_post_meta($project->ID, '_cv_project_link', true);
+					if (empty($link)) {
+						$link = get_post_meta($project->ID, 'cv_project_link', true);
+					}
 					$link_label = get_post_meta($project->ID, '_cv_project_link_label', true);
+					if (empty($link_label)) {
+						$link_label = get_post_meta($project->ID, 'cv_project_link_label', true);
+					}
 					$youtube_url = get_post_meta($project->ID, '_cv_project_youtube', true);
+					if (empty($youtube_url)) {
+						$youtube_url = get_post_meta($project->ID, 'cv_project_youtube', true);
+					}
 					$youtube_videos = get_post_meta($project->ID, '_cv_project_youtube_videos', true);
+					if (empty($youtube_videos)) {
+						$youtube_videos = get_post_meta($project->ID, 'cv_project_youtube_videos', true);
+					}
 					
 					$all_youtube_urls = array();
 					if (!empty($youtube_videos) && is_array($youtube_videos)) {
@@ -300,13 +335,17 @@ if ($is_admin_editor) {
 					// Extract unique YouTube video IDs
 					$youtube_ids = array();
 					foreach ($all_youtube_urls as $v_url) {
-						if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/', $v_url, $matches)) {
+						$v_url = trim($v_url, " \t\n\r\0\x0B),\"'");
+						if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/', $v_url, $matches)) {
 							$youtube_ids[] = $matches[1];
 						}
 					}
 					$youtube_ids = array_unique($youtube_ids);
 
 					$screenshot_alts = get_post_meta($project->ID, '_cv_project_screenshot_alts', true);
+					if (empty($screenshot_alts)) {
+						$screenshot_alts = get_post_meta($project->ID, 'cv_project_screenshot_alts', true);
+					}
 					$screenshot_alts = is_array($screenshot_alts) ? $screenshot_alts : array();
 					$screenshots = array();
 					if (function_exists('get_field') && function_exists('acf_get_field_type') && acf_get_field_type('gallery')) {
@@ -314,10 +353,19 @@ if ($is_admin_editor) {
 					}
 					if (empty($screenshots)) {
 						$stored = get_post_meta($project->ID, '_cv_project_screenshots', true);
+						if (empty($stored)) {
+							$stored = get_post_meta($project->ID, 'cv_project_screenshots', true);
+						}
 						if (is_array($stored)) {
 							$screenshots = $stored;
 						} elseif (is_string($stored) && $stored !== '') {
 							$screenshots = array_filter(array_map('absint', explode(',', $stored)));
+						}
+					}
+					if (empty($screenshots) && has_post_thumbnail($project->ID)) {
+						$thumb_id = get_post_thumbnail_id($project->ID);
+						if ($thumb_id) {
+							$screenshots = array($thumb_id);
 						}
 					}
 					?>

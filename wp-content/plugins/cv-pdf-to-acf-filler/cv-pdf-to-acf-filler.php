@@ -419,7 +419,19 @@ function cv_pdf_acf_extract_docx_data($file_path) {
                     $p_text .= ' [Embedded Image: ' . $target_media . '] ';
                 }
             } else {
-                $p_text .= $node->textContent;
+                // If w:t is inside a w:hyperlink, skip it to avoid duplicate link text
+                $parent = $node->parentNode;
+                $inside_link = false;
+                while ($parent && $parent !== $p) {
+                    if ($parent->nodeName === 'w:hyperlink') {
+                        $inside_link = true;
+                        break;
+                    }
+                    $parent = $parent->parentNode;
+                }
+                if (!$inside_link) {
+                    $p_text .= $node->textContent;
+                }
             }
         }
         $p_text = trim($p_text);
@@ -479,6 +491,7 @@ function cv_pdf_acf_extract_docx_data($file_path) {
 // Extract CV data from PDF or Word DOCX using OpenAI
 function cv_pdf_acf_extract_cv_from_file($file_path, $file_extension, $api_key, $model) {
     $uploaded_image_ids = array();
+    $image_map = array();
     $extracted_text = '';
 
     if (strtolower($file_extension) === 'docx') {
@@ -488,6 +501,7 @@ function cv_pdf_acf_extract_cv_from_file($file_path, $file_extension, $api_key, 
         }
         $extracted_text = $docx_res['text'];
         $uploaded_image_ids = $docx_res['uploaded_image_ids'];
+        $image_map = $docx_res['image_map'] ?? array();
     } else {
         $pdf_text = cv_pdf_acf_extract_pdf_text($file_path);
         if (is_wp_error($pdf_text)) {
@@ -514,7 +528,7 @@ function cv_pdf_acf_extract_cv_from_file($file_path, $file_extension, $api_key, 
   ],
   "courses_title": "Additional training" or "Courses" or appropriate section title,
   "courses": [
-    {"title": "Course Name", "provider": "Course Provider", "dates": "Year - Year", "description": "Course details"}
+    {"title": "Course Name", "provider": "Course Provider / School / Organization", "dates": "Year - Year", "description": "Course details"}
   ],
   "projects_title": "Projects" or appropriate section title,
   "projects": [
@@ -524,14 +538,15 @@ function cv_pdf_acf_extract_cv_from_file($file_path, $file_extension, $api_key, 
       "description": "Project description",
       "url": "https://...",
       "url_title": "Project link label/title",
-      "youtube_urls": ["https://www.youtube.com/watch?v=...", "https://youtu.be/..."]
+      "youtube_urls": ["https://www.youtube.com/watch?v=...", "https://youtu.be/..."],
+      "image_filenames": ["image1.png"]
     }
   ],
   "skills_title": "Skills" or appropriate section title,
   "skills": ["Category 1: skill1, skill2, skill3, ...", "Category 2: skill4, skill5, skill6, ..."]
 }
 
-Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately from the role/job title. For education, extract the institution separately from the degree/program name. For projects, find all project URLs (e.g. GitHub or live websites) and extract all YouTube video URLs associated with each project into the "youtube_urls" array (projects can have multiple YouTube video links). For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas.';
+Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately into "company" and the role/job title into "role". For education, extract the institution separately into "institution" and the degree/program name into "degree". For courses/additional training, extract the course name into "title", the provider or organizing school/institution into "provider", and the completion year/dates into "dates". For projects, extract project URLs (e.g. GitHub or live websites) into "url", link label into "url_title", all YouTube video URLs associated with each project into the "youtube_urls" array (projects can have multiple YouTube video links; also check if a video URL is in the project description or notes), and if there are tags like [Embedded Image: filename.png] in or near the project, include those filenames in "image_filenames". For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas.';
 
     $payload = array(
         'model' => $model,
@@ -562,6 +577,7 @@ Extract all relevant information from the CV. If a section is not present, use a
     return array(
         'cv_data'            => $data,
         'uploaded_image_ids' => $uploaded_image_ids,
+        'image_map'          => $image_map,
     );
 }
 
@@ -585,7 +601,7 @@ function cv_pdf_acf_translate_cv($cv_data, $target_lang, $api_key, $model) {
     $target_name = $lang_names[$target_lang] ?? $target_lang;
     
     // Create prompt for translation
-    $system_prompt = "You are a professional translator specializing in CV/resume translation. Translate all the provided CV content to {$target_name}. Maintain professional tone and accuracy. Keep all URLs, youtube_urls arrays, link URLs, tech stack names, and JSON structure exactly intact. Translate section titles, job titles, summaries, degrees, descriptions, and skill category headings to {$target_name}. Return the same JSON structure with all text translated to {$target_name}.";
+    $system_prompt = "You are a professional translator specializing in CV/resume translation. Translate all the provided CV content to {$target_name}. Maintain professional tone and accuracy. Keep all URLs, youtube_urls arrays, image_filenames arrays, link URLs, tech stack names, and JSON structure exactly intact. Translate section titles, job titles, summaries, degrees, descriptions, and skill category headings to {$target_name}. Return the same JSON structure with all text translated to {$target_name}.";
 
     $payload = array(
         'model' => $model,
@@ -613,11 +629,28 @@ function cv_pdf_acf_translate_cv($cv_data, $target_lang, $api_key, $model) {
         return new WP_Error('openai_translate_parse', 'Failed to parse translation response.');
     }
 
+    // Ensure image_filenames, youtube_urls, and project url are preserved even if AI omitted them
+    if (!empty($cv_data['projects']) && is_array($cv_data['projects']) && !empty($translated_data['projects']) && is_array($translated_data['projects'])) {
+        foreach ($cv_data['projects'] as $p_idx => $orig_proj) {
+            if (isset($translated_data['projects'][$p_idx])) {
+                if (!empty($orig_proj['image_filenames']) && empty($translated_data['projects'][$p_idx]['image_filenames'])) {
+                    $translated_data['projects'][$p_idx]['image_filenames'] = $orig_proj['image_filenames'];
+                }
+                if (!empty($orig_proj['youtube_urls']) && empty($translated_data['projects'][$p_idx]['youtube_urls'])) {
+                    $translated_data['projects'][$p_idx]['youtube_urls'] = $orig_proj['youtube_urls'];
+                }
+                if (!empty($orig_proj['url']) && empty($translated_data['projects'][$p_idx]['url'])) {
+                    $translated_data['projects'][$p_idx]['url'] = $orig_proj['url'];
+                }
+            }
+        }
+    }
+
     return $translated_data;
 }
 
 // Populate ACF fields with extracted CV data (OVERWRITE mode)
-function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_image_ids = array()) {
+function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_image_ids = array(), $image_map = array()) {
     $updated = array();
     $created_ids = array(
         'badges' => array(),
@@ -712,19 +745,15 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
             );
             $post_id = wp_insert_post($post_data);
             if ($post_id && !is_wp_error($post_id)) {
-                if (!empty($item['company'])) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_experience_company', sanitize_text_field($item['company']), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_experience_company', sanitize_text_field($item['company']));
-                    }
+                $company = sanitize_text_field($item['company'] ?? '');
+                if (!empty($company)) {
+                    update_post_meta($post_id, '_cv_experience_company', $company);
+                    update_post_meta($post_id, 'cv_experience_company', $company);
                 }
-                if (!empty($item['dates'])) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_experience_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_experience_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
-                    }
+                $dates = cv_pdf_acf_sanitize_preserve_dashes($item['dates'] ?? '');
+                if (!empty($dates)) {
+                    update_post_meta($post_id, '_cv_experience_dates', $dates);
+                    update_post_meta($post_id, 'cv_experience_dates', $dates);
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
@@ -761,12 +790,10 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
             );
             $post_id = wp_insert_post($post_data);
             if ($post_id && !is_wp_error($post_id)) {
-                if (!empty($item['dates'])) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_education_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_education_dates', cv_pdf_acf_sanitize_preserve_dashes($item['dates']));
-                    }
+                $dates = cv_pdf_acf_sanitize_preserve_dashes($item['dates'] ?? '');
+                if (!empty($dates)) {
+                    update_post_meta($post_id, '_cv_education_dates', $dates);
+                    update_post_meta($post_id, 'cv_education_dates', $dates);
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
@@ -808,12 +835,14 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
             );
             $post_id = wp_insert_post($post_data);
             if ($post_id && !is_wp_error($post_id)) {
+                if (!empty($provider)) {
+                    update_post_meta($post_id, '_cv_course_provider', sanitize_text_field($provider));
+                    update_post_meta($post_id, 'cv_course_provider', sanitize_text_field($provider));
+                }
                 if (!empty($dates)) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_course_dates', sanitize_text_field($dates), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_course_dates', sanitize_text_field($dates));
-                    }
+                    $clean_dates = cv_pdf_acf_sanitize_preserve_dashes($dates);
+                    update_post_meta($post_id, '_cv_course_dates', $clean_dates);
+                    update_post_meta($post_id, 'cv_course_dates', $clean_dates);
                 }
                 if (function_exists('pll_set_post_language')) {
                     pll_set_post_language($post_id, $lang);
@@ -849,61 +878,130 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
             );
             $post_id = wp_insert_post($post_data);
             if ($post_id && !is_wp_error($post_id)) {
-                if (!empty($project['meta'])) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_project_meta', sanitize_text_field($project['meta']), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_project_meta', sanitize_text_field($project['meta']));
-                    }
-                }
-                if (!empty($project['url'])) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_project_link', esc_url_raw($project['url']), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_project_link', esc_url_raw($project['url']));
-                    }
-                }
-                if (!empty($project['url_title'])) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_project_link_label', sanitize_text_field($project['url_title']), $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_project_link_label', sanitize_text_field($project['url_title']));
-                    }
+                $proj_meta = sanitize_text_field($project['meta'] ?? '');
+                if (!empty($proj_meta)) {
+                    update_post_meta($post_id, '_cv_project_meta', $proj_meta);
+                    update_post_meta($post_id, 'cv_project_meta', $proj_meta);
                 }
 
-                // YouTube URLs (support multiple)
-                $youtube_urls = array();
-                if (!empty($project['youtube_urls']) && is_array($project['youtube_urls'])) {
-                    foreach ($project['youtube_urls'] as $yt) {
-                        $cleaned_yt = esc_url_raw(trim($yt));
-                        if (!empty($cleaned_yt)) {
-                            $youtube_urls[] = $cleaned_yt;
-                        }
+                $raw_url = trim($project['url'] ?? '');
+                $proj_url = esc_url_raw($raw_url);
+                $proj_url_title = sanitize_text_field($project['url_title'] ?? '');
+                $is_yt_project_url = (bool) preg_match('/(?:youtube\.com|youtu\.be)/i', $raw_url);
+
+                if (!empty($proj_url) && !$is_yt_project_url) {
+                    update_post_meta($post_id, '_cv_project_link', $proj_url);
+                    update_post_meta($post_id, 'cv_project_link', $proj_url);
+                }
+                if (!empty($proj_url_title) && !$is_yt_project_url) {
+                    update_post_meta($post_id, '_cv_project_link_label', $proj_url_title);
+                    update_post_meta($post_id, 'cv_project_link_label', $proj_url_title);
+                }
+
+                // YouTube URLs (collect from explicit field, project URL if YouTube, and description)
+                $candidate_yt = array();
+                if (!empty($project['youtube_urls'])) {
+                    if (is_array($project['youtube_urls'])) {
+                        $candidate_yt = array_merge($candidate_yt, $project['youtube_urls']);
+                    } elseif (is_string($project['youtube_urls'])) {
+                        $candidate_yt = array_merge($candidate_yt, preg_split('/[\r\n,]+/', $project['youtube_urls']));
                     }
-                } elseif (!empty($project['youtube_url'])) {
-                    $cleaned_yt = esc_url_raw(trim($project['youtube_url']));
-                    if (!empty($cleaned_yt)) {
-                        $youtube_urls[] = $cleaned_yt;
+                }
+                if (!empty($project['youtube_url'])) {
+                    $candidate_yt[] = $project['youtube_url'];
+                }
+                if (!empty($project['youtube'])) {
+                    $candidate_yt[] = $project['youtube'];
+                }
+                if ($is_yt_project_url && !empty($raw_url)) {
+                    $candidate_yt[] = $raw_url;
+                }
+                if (!empty($project['description']) && preg_match_all('/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s\)\"\'>]+/i', $project['description'], $desc_yt)) {
+                    $candidate_yt = array_merge($candidate_yt, $desc_yt[0]);
+                }
+
+                $youtube_urls = array();
+                foreach ($candidate_yt as $yt) {
+                    $cleaned_yt = trim((string) $yt, " \t\n\r\0\x0B),\"'");
+                    if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i', $cleaned_yt, $m)) {
+                        $canonical_yt = 'https://www.youtube.com/watch?v=' . $m[1];
+                        if (!in_array($canonical_yt, $youtube_urls, true)) {
+                            $youtube_urls[] = $canonical_yt;
+                        }
                     }
                 }
 
                 if (!empty($youtube_urls)) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_project_youtube', $youtube_urls[0], $post_id);
-                        update_field('cv_project_youtube_videos', $youtube_urls, $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_project_youtube', $youtube_urls[0]);
-                        update_post_meta($post_id, 'cv_project_youtube_videos', $youtube_urls);
+                    update_post_meta($post_id, '_cv_project_youtube', $youtube_urls[0]);
+                    update_post_meta($post_id, 'cv_project_youtube', $youtube_urls[0]);
+                    update_post_meta($post_id, '_cv_project_youtube_videos', $youtube_urls);
+                    update_post_meta($post_id, 'cv_project_youtube_videos', $youtube_urls);
+                }
+
+                // Project Screenshots / Images
+                $project_image_ids = array();
+                $candidate_filenames = array();
+                if (!empty($project['image_filenames']) && is_array($project['image_filenames'])) {
+                    $candidate_filenames = $project['image_filenames'];
+                } elseif (!empty($project['image_filenames']) && is_string($project['image_filenames'])) {
+                    $candidate_filenames = preg_split('/[\r\n,]+/', $project['image_filenames']);
+                } elseif (!empty($project['images']) && is_array($project['images'])) {
+                    $candidate_filenames = $project['images'];
+                } elseif (!empty($project['images']) && is_string($project['images'])) {
+                    $candidate_filenames = preg_split('/[\r\n,]+/', $project['images']);
+                }
+
+                if (!empty($candidate_filenames) && !empty($image_map)) {
+                    foreach ($candidate_filenames as $fn) {
+                        $clean_fn = basename(trim((string) $fn));
+                        if (isset($image_map[$clean_fn])) {
+                            $project_image_ids[] = absint($image_map[$clean_fn]);
+                        } else {
+                            foreach ($image_map as $map_fn => $map_id) {
+                                if (strcasecmp($map_fn, $clean_fn) === 0) {
+                                    $project_image_ids[] = absint($map_id);
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
 
-                // Attach extracted PNG/JPG images if available
-                if (!empty($uploaded_image_ids)) {
-                    if (function_exists('update_field')) {
-                        update_field('cv_project_screenshots', $uploaded_image_ids, $post_id);
-                    } else {
-                        update_post_meta($post_id, 'cv_project_screenshots', $uploaded_image_ids);
+                // Intelligent fallback distribution if images were not explicitly mapped by filename
+                if (empty($project_image_ids) && !empty($uploaded_image_ids)) {
+                    $total_projects = count($cv_data['projects']);
+                    $total_images = count($uploaded_image_ids);
+                    if ($total_projects === $total_images && isset($uploaded_image_ids[$index])) {
+                        // 1-to-1 match by index
+                        $project_image_ids = array($uploaded_image_ids[$index]);
+                    } elseif ($total_projects === 1) {
+                        // Only one project, attach all images
+                        $project_image_ids = $uploaded_image_ids;
+                    } elseif (isset($uploaded_image_ids[$index])) {
+                        // Assign the i-th image to the i-th project
+                        $project_image_ids = array($uploaded_image_ids[$index]);
                     }
+                }
+
+                $project_image_ids = array_unique(array_filter(array_map('absint', $project_image_ids)));
+
+                if (!empty($project_image_ids)) {
+                    update_post_meta($post_id, '_cv_project_screenshots', $project_image_ids);
+                    update_post_meta($post_id, 'cv_project_screenshots', $project_image_ids);
+                    set_post_thumbnail($post_id, $project_image_ids[0]);
+
+                    $screenshot_alts = array();
+                    $proj_title = get_the_title($post_id);
+                    foreach ($project_image_ids as $p_img_id) {
+                        $existing_alt = get_post_meta($p_img_id, '_wp_attachment_image_alt', true);
+                        $alt_text = !empty($existing_alt) ? $existing_alt : $proj_title;
+                        $screenshot_alts[$p_img_id] = $alt_text;
+                        if (empty($existing_alt)) {
+                            update_post_meta($p_img_id, '_wp_attachment_image_alt', $proj_title);
+                        }
+                    }
+                    update_post_meta($post_id, '_cv_project_screenshot_alts', $screenshot_alts);
+                    update_post_meta($post_id, 'cv_project_screenshot_alts', $screenshot_alts);
                 }
 
                 if (function_exists('pll_set_post_language')) {
@@ -1062,6 +1160,7 @@ function cv_pdf_acf_handle_upload() {
     
     $cv_data = $extract_result['cv_data'] ?? null;
     $uploaded_image_ids = $extract_result['uploaded_image_ids'] ?? array();
+    $image_map = $extract_result['image_map'] ?? array();
 
     if (empty($cv_data) || !is_array($cv_data)) {
         cv_pdf_acf_redirect_with_message('Extracted data is empty or invalid. Please check if your file contains readable text.', 'error');
@@ -1070,7 +1169,7 @@ function cv_pdf_acf_handle_upload() {
 
     // Populate source language first
     $source_page_id = $translations[$source_lang];
-    $result_source = cv_pdf_acf_populate_fields($source_page_id, $cv_data, $source_lang, $uploaded_image_ids);
+    $result_source = cv_pdf_acf_populate_fields($source_page_id, $cv_data, $source_lang, $uploaded_image_ids, $image_map);
     
     $results = array();
     $results[strtoupper($source_lang)] = $result_source['updated'];
@@ -1104,7 +1203,7 @@ function cv_pdf_acf_handle_upload() {
         $import_data['translations'][strtoupper($target_lang)] = $translated_data;
         
         $target_page_id = $translations[$target_lang];
-        $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data, $target_lang, $uploaded_image_ids);
+        $result_target = cv_pdf_acf_populate_fields($target_page_id, $translated_data, $target_lang, $uploaded_image_ids, $image_map);
         $results[strtoupper($target_lang)] = $result_target['updated'];
         
         $all_created_ids[$target_lang] = $result_target['created_ids'];

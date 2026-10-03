@@ -395,7 +395,13 @@ add_action('add_meta_boxes', 'cv_one_pager_add_meta_boxes', 10);
 function cv_one_pager_render_experience_meta_box($post) {
     wp_nonce_field('cv_experience_meta_save', 'cv_experience_meta_nonce');
     $company = get_post_meta($post->ID, '_cv_experience_company', true);
+    if (empty($company)) {
+        $company = get_post_meta($post->ID, 'cv_experience_company', true);
+    }
     $dates = get_post_meta($post->ID, '_cv_experience_dates', true);
+    if (empty($dates)) {
+        $dates = get_post_meta($post->ID, 'cv_experience_dates', true);
+    }
     $summary = $post->post_excerpt;
 
     echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
@@ -421,6 +427,9 @@ function cv_one_pager_render_education_meta_box($post) {
     wp_nonce_field('cv_education_meta_save', 'cv_education_meta_nonce');
     $school_name = $post->post_excerpt;
     $dates = get_post_meta($post->ID, '_cv_education_dates', true);
+    if (empty($dates)) {
+        $dates = get_post_meta($post->ID, 'cv_education_dates', true);
+    }
 
     echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
     echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
@@ -440,7 +449,13 @@ function cv_one_pager_render_education_meta_box($post) {
 function cv_one_pager_render_course_meta_box($post) {
     wp_nonce_field('cv_course_meta_save', 'cv_course_meta_nonce');
     $dates = get_post_meta($post->ID, '_cv_course_dates', true);
+    if (empty($dates)) {
+        $dates = get_post_meta($post->ID, 'cv_course_dates', true);
+    }
     $provider = get_post_meta($post->ID, '_cv_course_provider', true);
+    if (empty($provider)) {
+        $provider = get_post_meta($post->ID, 'cv_course_provider', true);
+    }
     if ($provider === '') {
         $provider = $post->post_excerpt;
     }
@@ -472,8 +487,17 @@ function cv_one_pager_render_project_meta_box($post) {
     wp_nonce_field('cv_project_meta_save', 'cv_project_meta_nonce');
     $description = $post->post_excerpt;
     $meta = get_post_meta($post->ID, '_cv_project_meta', true);
+    if (empty($meta)) {
+        $meta = get_post_meta($post->ID, 'cv_project_meta', true);
+    }
     $link = get_post_meta($post->ID, '_cv_project_link', true);
+    if (empty($link)) {
+        $link = get_post_meta($post->ID, 'cv_project_link', true);
+    }
     $link_label = get_post_meta($post->ID, '_cv_project_link_label', true);
+    if (empty($link_label)) {
+        $link_label = get_post_meta($post->ID, 'cv_project_link_label', true);
+    }
     
     echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
     echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
@@ -495,7 +519,13 @@ function cv_one_pager_render_project_meta_box($post) {
     echo '<input type="text" id="cv_project_link_label" name="cv_project_link_label" value="' . esc_attr($link_label) . '" class="widefat" placeholder="View project" />';
     
     $youtube_url = get_post_meta($post->ID, '_cv_project_youtube', true);
+    if (empty($youtube_url)) {
+        $youtube_url = get_post_meta($post->ID, 'cv_project_youtube', true);
+    }
     $youtube_videos = get_post_meta($post->ID, '_cv_project_youtube_videos', true);
+    if (empty($youtube_videos)) {
+        $youtube_videos = get_post_meta($post->ID, 'cv_project_youtube_videos', true);
+    }
     $youtube_text = '';
     if (!empty($youtube_videos) && is_array($youtube_videos)) {
         $youtube_text = implode("\n", $youtube_videos);
@@ -510,7 +540,13 @@ function cv_one_pager_render_project_meta_box($post) {
 function cv_one_pager_render_project_screenshots_meta_box($post) {
     wp_nonce_field('cv_project_screenshots_save', 'cv_project_screenshots_nonce');
     $value = get_post_meta($post->ID, '_cv_project_screenshots', true);
+    if (empty($value)) {
+        $value = get_post_meta($post->ID, 'cv_project_screenshots', true);
+    }
     $saved_alts = get_post_meta($post->ID, '_cv_project_screenshot_alts', true);
+    if (empty($saved_alts)) {
+        $saved_alts = get_post_meta($post->ID, 'cv_project_screenshot_alts', true);
+    }
     $saved_alts = is_array($saved_alts) ? $saved_alts : array();
     $ids = array();
 
@@ -518,6 +554,12 @@ function cv_one_pager_render_project_screenshots_meta_box($post) {
         $ids = array_filter(array_map('absint', $value));
     } elseif (is_string($value) && $value !== '') {
         $ids = array_filter(array_map('absint', explode(',', $value)));
+    }
+    if (empty($ids) && has_post_thumbnail($post->ID)) {
+        $thumb_id = get_post_thumbnail_id($post->ID);
+        if ($thumb_id) {
+            $ids = array($thumb_id);
+        }
     }
 
     echo '<p><button type="button" class="button" id="cv-project-screenshots-add">Add Screenshots</button></p>';
