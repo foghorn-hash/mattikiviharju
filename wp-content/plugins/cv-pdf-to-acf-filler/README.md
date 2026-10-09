@@ -7,12 +7,12 @@ WordPress plugin that extracts CV data from PDF or Word (.docx) files using Open
 ## Features
 
 - **Upload PDF or Word (.docx) CV files** through WordPress admin (Finnish, English, or Swedish)
+- **Standalone Project Import from Word (.docx)**: Dedicated tool to add projects (with images, links, and YouTube videos) without touching experience, education, courses, badges, or skills. Supports appending or replacing projects.
 - **Automatic Embedded Image Extraction**: Extracts embedded PNG/JPEG screenshots from Word documents and adds them to WordPress Media Library and project galleries
 - **Multiple YouTube Videos**: Extracts YouTube links and displays interactive play buttons with popup overlay/lightbox
 - **Automatic AI Translation**: Translates structured CV content into Finnish, English, and Swedish using OpenAI GPT-4o
 - **Polylang Integration**: Automatically creates and links custom posts (`cv_badge`, `cv_experience`, `cv_education`, `cv_course`, `cv_project`, `cv_skill`)
 - **Export CV as Word (.docx) / PDF** from the frontend
-- **Overwrites existing content** - truncates and replaces CV data
 - Support for:
   - Profile badges
   - Experience items (employer, role, dates, summary)

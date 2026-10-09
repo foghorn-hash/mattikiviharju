@@ -81,22 +81,29 @@ Voit lisätä YouTube-linkkejä kahdella tavalla:
 
 ## 3. Tiedoston lataus ja käsittely WordPressissä
 
+### A. Koko CV:n tuonti (PDF tai Word .docx)
 1. Mene WordPressin hallinnassa kohtaan: **Settings > CV PDF to ACF**.
-2. Varmista **Status**-taulukosta:
-   - `Word (.docx) Parser`: **✓ PHP ZipArchive & DOMDocument (Native) is available**
-   - `OpenAI API Key`: **✓ Configured**
-   - `Polylang Plugin`: **✓ Active**
-   - `ACF Plugin`: **✓ Active**
-3. Valitse **Upload CV (PDF or Word .docx)** -osiossa:
-   - Valitse tiedostosi (`.docx` tai `.pdf`).
-   - Valitse lähdekieli (**Finnish**, **English** tai **Swedish**).
+2. Varmista **Status**-taulukosta, että kaikki vaatimukset ovat kunnossa.
+3. Valitse **Upload CV (PDF or Word .docx)** -osiossa tiedosto ja lähdekieli.
 4. Klikkaa **Upload and Process CV**.
-5. Lisäosa suorittaa seuraavat toimenpiteet:
-   - Purkaa tekstin, linkit ja kuvat.
-   - Jäsentelee tiedot OpenAI:lla.
-   - Kääntää sisällön automaattisesti muille kielille (Fi ↔ En ↔ Sv).
-   - Tallentaa tiedot ACF-kenttiin ja luo `cv_project`-, `cv_experience`-, `cv_education`-, `cv_course`-, `cv_skill`- ja `cv_badge`-postaukset.
-   - Linkittää kieliversiot toisiinsa Polylangilla.
+   * *Huom:* Tämä korvaa kaikki aiemmat CV-postaukset (kokemus, koulutus, projektit, taidot, merkit).
+
+### B. Pelkkien projektien tuonti Word-tiedostosta (.docx) (Erillinen projektin lisäys)
+Jos haluat tuoda tai päivittää **vain projektit** koskematta muihin CV-osioihin:
+1. Mene kohtaan **Settings > CV PDF to ACF**.
+2. Etsi osio **Lisää projekteja Word-tiedostosta (.docx) / Add Projects from Word (.docx)**.
+3. Valitse `.docx`-tiedosto, joka sisältää yhden tai useamman projektin. Tiedostossa voi olla:
+   - Projektin nimi ja teknologiapino (Tech Stack)
+   - Kattava kuvaus ja saavutukset
+   - Verkkolinkki (esim. GitHub-repo tai live-sivusto)
+   - Yksi tai useampi YouTube-videolinkki
+   - Suoraan Wordiin upotetut kuvakaappaukset (PNG/JPEG/WebP)
+4. Valitse **Lähdekieli** (Suomi, Englanti tai Ruotsi). Tekoäly kääntää projektit automaattisesti muille kielille.
+5. Valitse **Tuontitapa**:
+   - **Lisää olemassa olevien jatkoksi (suositus):** Säilyttää nykyiset projektit ja lisää uudet näkyviin alkuun.
+   - **Korvaa aiemmat projektit:** Poistaa vain aiemmat `cv_project`-postaukset, mutta **ei koske** kokemukseen, koulutukseen tai taitoihin.
+6. Klikkaa **Tuo projektit (.docx) / Import Projects**.
+7. Lisäosa luo `cv_project`-artikkelit, lataa kuvat mediakirjastoon, asettaa pikkukuvat, linkittää YouTube-videot ja yhdistää kieliversiot Polylangilla!
 
 ---
 
