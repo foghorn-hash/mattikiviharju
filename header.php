@@ -15,6 +15,7 @@ $nav_education = function_exists('get_field') && $front_page_id ? get_field('cv_
 $nav_courses = function_exists('get_field') && $front_page_id ? get_field('cv_nav_courses_label', $front_page_id) : '';
 $nav_projects = function_exists('get_field') && $front_page_id ? get_field('cv_nav_projects_label', $front_page_id) : '';
 $nav_skills = function_exists('get_field') && $front_page_id ? get_field('cv_nav_skills_label', $front_page_id) : '';
+$nav_references = function_exists('get_field') && $front_page_id ? get_field('cv_nav_references_label', $front_page_id) : '';
 $nav_contact = function_exists('get_field') && $front_page_id ? get_field('cv_nav_contact_label', $front_page_id) : '';
 
 $nav_about = $nav_about ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('About') : 'About');
@@ -23,6 +24,7 @@ $nav_education = $nav_education ?: (function_exists('cv_one_pager_t') ? cv_one_p
 $nav_courses = $nav_courses ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Additional training') : 'Additional training');
 $nav_projects = $nav_projects ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Projects') : 'Projects');
 $nav_skills = $nav_skills ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Skills') : 'Skills');
+$nav_references = $nav_references ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('References') : 'References');
 $nav_contact = $nav_contact ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Contact') : 'Contact');
 
 $home_url = home_url('/');
@@ -87,8 +89,9 @@ $anchor_base = is_front_page() ? '' : $home_url;
                 <a href="<?php echo esc_url($anchor_base . '#courses'); ?>"><?php echo esc_html($nav_courses); ?></a>
                 <a href="<?php echo esc_url($anchor_base . '#projects'); ?>"><?php echo esc_html($nav_projects); ?></a>
                 <a href="<?php echo esc_url($anchor_base . '#skills'); ?>"><?php echo esc_html($nav_skills); ?></a>
+                <a href="<?php echo esc_url($anchor_base . '#references'); ?>"><?php echo esc_html($nav_references); ?></a>
                 <a href="<?php echo esc_url($anchor_base . '#contact'); ?>"><?php echo esc_html($nav_contact); ?></a>
-                <a href="<?php echo esc_url(home_url('/blog/')); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Blogi') : 'Blogi'); ?></a>
+                <a href="<?php echo esc_url(function_exists('cv_one_pager_get_blog_url') ? cv_one_pager_get_blog_url() : home_url('/blog/')); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Blogi') : 'Blogi'); ?></a>
             </nav>
         </div>
     </div>

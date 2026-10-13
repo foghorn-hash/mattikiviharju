@@ -28,9 +28,13 @@ class CV_OAI_PLL_Queue {
         $added_count = 0;
 
         // 1. Scan Posts, Pages, and CPTs
-        $post_types = get_option('cv_oai_pll_post_types', ['page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge']);
+        $default_post_types = ['post', 'page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge', 'cv_reference'];
+        $post_types = get_option('cv_oai_pll_post_types', $default_post_types);
         if (!is_array($post_types)) {
-            $post_types = ['page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge'];
+            $post_types = $default_post_types;
+        }
+        if (!in_array('post', $post_types, true)) {
+            $post_types[] = 'post';
         }
 
         foreach ($post_types as $post_type) {

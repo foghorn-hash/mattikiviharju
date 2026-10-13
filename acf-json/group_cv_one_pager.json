@@ -110,6 +110,52 @@
           "type": "text"
         }
       ]
+    },
+    {
+      "key": "field_cv_references_title",
+      "label": "References Section Title",
+      "name": "cv_references_title",
+      "type": "text"
+    },
+    {
+      "key": "field_cv_references",
+      "label": "References",
+      "name": "cv_references",
+      "type": "repeater",
+      "layout": "row",
+      "button_label": "Add Reference",
+      "sub_fields": [
+        {
+          "key": "field_cv_reference_name",
+          "label": "Suosittelijan henkilönimi / Full Name",
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_reference_title",
+          "label": "Titteli / Job Title",
+          "name": "title",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_reference_company",
+          "label": "Yritys / Company",
+          "name": "company",
+          "type": "text"
+        },
+        {
+          "key": "field_cv_reference_email",
+          "label": "Sähköposti / Email",
+          "name": "email",
+          "type": "email"
+        },
+        {
+          "key": "field_cv_reference_phone",
+          "label": "Puhelin / Phone",
+          "name": "phone",
+          "type": "text"
+        }
+      ]
     }
   ],
   "location": [

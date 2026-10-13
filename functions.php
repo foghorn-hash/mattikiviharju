@@ -96,6 +96,20 @@ function cv_one_pager_register_post_types() {
         'supports' => array('title', 'page-attributes'),
         'has_archive' => false,
     ));
+
+    register_post_type('cv_reference', array(
+        'labels' => array(
+            'name' => cv_one_pager_t('References'),
+            'singular_name' => cv_one_pager_t('Reference'),
+            'add_new_item' => cv_one_pager_t('Add Reference'),
+            'edit_item' => cv_one_pager_t('Edit Reference'),
+        ),
+        'public' => true,
+        'show_in_rest' => true,
+        'menu_icon' => 'dashicons-testimonial',
+        'supports' => array('title', 'editor', 'page-attributes'),
+        'has_archive' => false,
+    ));
 }
 add_action('init', 'cv_one_pager_register_post_types');
 
@@ -140,10 +154,12 @@ function cv_one_pager_assets() {
             '1.0.0',
             true
         );
+        $current_lang = function_exists('pll_current_language') ? pll_current_language('slug') : '';
         wp_localize_script('cv-one-pager-blog', 'cvBlog', array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('cv_load_more_posts'),
             'perPage' => (int) get_option('posts_per_page', 6),
+            'lang' => $current_lang,
         ));
     }
 }
@@ -199,6 +215,25 @@ function cv_one_pager_register_polylang_strings() {
         'Tech Stack:',
         'Y-tunnus:',
         'ALV-rek. nro:',
+        'References',
+        'Reference',
+        'Add Reference',
+        'Edit Reference',
+        'Suosittelijat',
+        'Suosittelija',
+        'Lisää suosittelija',
+        'Muokkaa suosittelijaa',
+        'Titteli',
+        'Yritys',
+        'Sähköposti',
+        'Puhelin',
+        'Takaisin blogiin',
+        'Käännökset:',
+        'Julkaistu:',
+        'Kategoriat:',
+        'Avainsanat:',
+        'Edellinen artikkeli',
+        'Seuraava artikkeli',
     );
 
     foreach ($strings as $string) {
@@ -236,21 +271,25 @@ add_filter('acf/location/rule_match', 'cv_one_pager_limit_acf_group_to_front_pag
 
 function cv_one_pager_polylang_post_types($post_types, $is_settings) {
     if ($is_settings) {
+        $post_types['post'] = 'post';
         $post_types['cv_experience'] = 'cv_experience';
         $post_types['cv_education'] = 'cv_education';
         $post_types['cv_course'] = 'cv_course';
         $post_types['cv_project'] = 'cv_project';
         $post_types['cv_skill'] = 'cv_skill';
         $post_types['cv_badge'] = 'cv_badge';
+        $post_types['cv_reference'] = 'cv_reference';
         return $post_types;
     }
 
+    $post_types[] = 'post';
     $post_types[] = 'cv_experience';
     $post_types[] = 'cv_education';
     $post_types[] = 'cv_course';
     $post_types[] = 'cv_project';
     $post_types[] = 'cv_skill';
     $post_types[] = 'cv_badge';
+    $post_types[] = 'cv_reference';
     return array_unique($post_types);
 }
 add_filter('pll_get_post_types', 'cv_one_pager_polylang_post_types', 10, 2);
@@ -389,8 +428,58 @@ function cv_one_pager_add_meta_boxes() {
         'normal',
         'default'
     );
+
+    add_meta_box(
+        'cv_reference_meta',
+        'Reference Details',
+        'cv_one_pager_render_reference_meta_box',
+        'cv_reference',
+        'normal',
+        'default'
+    );
 }
 add_action('add_meta_boxes', 'cv_one_pager_add_meta_boxes', 10);
+
+function cv_one_pager_render_reference_meta_box($post) {
+    wp_nonce_field('cv_reference_meta_save', 'cv_reference_meta_nonce');
+    $title = get_post_meta($post->ID, '_cv_reference_title', true);
+    if (empty($title)) {
+        $title = get_post_meta($post->ID, 'cv_reference_title', true);
+    }
+    $company = get_post_meta($post->ID, '_cv_reference_company', true);
+    if (empty($company)) {
+        $company = get_post_meta($post->ID, 'cv_reference_company', true);
+    }
+    $email = get_post_meta($post->ID, '_cv_reference_email', true);
+    if (empty($email)) {
+        $email = get_post_meta($post->ID, 'cv_reference_email', true);
+    }
+    $phone = get_post_meta($post->ID, '_cv_reference_phone', true);
+    if (empty($phone)) {
+        $phone = get_post_meta($post->ID, 'cv_reference_phone', true);
+    }
+
+    echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
+    echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
+    echo 'Full Name / Henkilönimi: Use title field above<br>';
+    echo 'Job Title / Titteli: Use field below<br>';
+    echo 'Company / Yritys: Use field below<br>';
+    echo 'Email / Sähköposti: Use field below<br>';
+    echo 'Phone / Puhelin: Use field below</p>';
+    echo '</div>';
+
+    echo '<p><label for="cv_reference_title"><strong>Job Title / Titteli</strong></label></p>';
+    echo '<input type="text" id="cv_reference_title" name="cv_reference_title" value="' . esc_attr($title) . '" class="widefat" />';
+
+    echo '<p><label for="cv_reference_company"><strong>Company / Yritys</strong></label></p>';
+    echo '<input type="text" id="cv_reference_company" name="cv_reference_company" value="' . esc_attr($company) . '" class="widefat" />';
+
+    echo '<p><label for="cv_reference_email"><strong>Email / Sähköposti</strong></label></p>';
+    echo '<input type="email" id="cv_reference_email" name="cv_reference_email" value="' . esc_attr($email) . '" class="widefat" />';
+
+    echo '<p><label for="cv_reference_phone"><strong>Phone / Puhelin</strong></label></p>';
+    echo '<input type="text" id="cv_reference_phone" name="cv_reference_phone" value="' . esc_attr($phone) . '" class="widefat" />';
+}
 
 function cv_one_pager_render_experience_meta_box($post) {
     wp_nonce_field('cv_experience_meta_save', 'cv_experience_meta_nonce');
@@ -753,23 +842,83 @@ function cv_one_pager_save_meta_boxes($post_id) {
             update_post_meta($post_id, '_cv_project_screenshot_alts', $alts);
         }
     }
+
+    if (isset($_POST['cv_reference_meta_nonce']) && wp_verify_nonce($_POST['cv_reference_meta_nonce'], 'cv_reference_meta_save')) {
+        if (isset($_POST['cv_reference_title'])) {
+            update_post_meta($post_id, '_cv_reference_title', sanitize_text_field($_POST['cv_reference_title']));
+            update_post_meta($post_id, 'cv_reference_title', sanitize_text_field($_POST['cv_reference_title']));
+        }
+        if (isset($_POST['cv_reference_company'])) {
+            update_post_meta($post_id, '_cv_reference_company', sanitize_text_field($_POST['cv_reference_company']));
+            update_post_meta($post_id, 'cv_reference_company', sanitize_text_field($_POST['cv_reference_company']));
+        }
+        if (isset($_POST['cv_reference_email'])) {
+            update_post_meta($post_id, '_cv_reference_email', sanitize_email($_POST['cv_reference_email']));
+            update_post_meta($post_id, 'cv_reference_email', sanitize_email($_POST['cv_reference_email']));
+        }
+        if (isset($_POST['cv_reference_phone'])) {
+            update_post_meta($post_id, '_cv_reference_phone', sanitize_text_field($_POST['cv_reference_phone']));
+            update_post_meta($post_id, 'cv_reference_phone', sanitize_text_field($_POST['cv_reference_phone']));
+        }
+    }
 }
 add_action('save_post', 'cv_one_pager_save_meta_boxes');
+
+function cv_one_pager_get_blog_url() {
+    $posts_page_id = (int) get_option('page_for_posts');
+    if ($posts_page_id > 0) {
+        if (function_exists('pll_get_post')) {
+            $translated_id = pll_get_post($posts_page_id);
+            if ($translated_id) {
+                return get_permalink($translated_id);
+            }
+        }
+        return get_permalink($posts_page_id);
+    }
+
+    $pages = get_pages(array(
+        'meta_key' => '_wp_page_template',
+        'meta_value' => 'page-blog.php',
+        'number' => 1,
+    ));
+    if (!empty($pages)) {
+        $blog_page_id = (int) $pages[0]->ID;
+        if (function_exists('pll_get_post')) {
+            $translated_id = pll_get_post($blog_page_id);
+            if ($translated_id) {
+                return get_permalink($translated_id);
+            }
+        }
+        return get_permalink($blog_page_id);
+    }
+
+    if (function_exists('pll_home_url')) {
+        return trailingslashit(pll_home_url()) . 'blog/';
+    }
+
+    return home_url('/blog/');
+}
 
 function cv_one_pager_render_post_card($post) {
     $title = get_the_title($post);
     $excerpt = $post->post_excerpt ? $post->post_excerpt : wp_trim_words($post->post_content, 28);
     $permalink = get_permalink($post);
     $date = get_the_date('', $post);
+    $thumbnail = has_post_thumbnail($post) ? get_the_post_thumbnail($post, 'medium_large', array('class' => 'post-card-thumb', 'alt' => esc_attr($title))) : '';
     ob_start();
     ?>
     <article class="post-card">
+        <?php if ($thumbnail) : ?>
+            <a href="<?php echo esc_url($permalink); ?>" class="post-card-thumb-link" aria-label="<?php echo esc_attr($title); ?>">
+                <?php echo $thumbnail; ?>
+            </a>
+        <?php endif; ?>
         <div class="post-card-body">
-            <p class="post-meta"><?php echo esc_html($date); ?></p>
+            <p class="post-meta"><i class="bi bi-calendar3"></i> <?php echo esc_html($date); ?></p>
             <h3 class="post-title"><a href="<?php echo esc_url($permalink); ?>"><?php echo esc_html($title); ?></a></h3>
             <p class="post-excerpt"><?php echo esc_html($excerpt); ?></p>
         </div>
-        <a class="post-link" href="<?php echo esc_url($permalink); ?>">Lue lisää</a>
+        <a class="post-link" href="<?php echo esc_url($permalink); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Read more') : 'Read more'); ?> &rarr;</a>
     </article>
     <?php
     return ob_get_clean();
@@ -780,14 +929,21 @@ function cv_one_pager_load_more_posts() {
 
     $offset = isset($_POST['offset']) ? max(0, (int) $_POST['offset']) : 0;
     $per_page = isset($_POST['perPage']) ? max(1, (int) $_POST['perPage']) : 6;
+    $lang = isset($_POST['lang']) ? sanitize_key($_POST['lang']) : '';
 
-    $query = new WP_Query(array(
+    $args = array(
         'post_type' => 'post',
         'posts_per_page' => $per_page,
         'offset' => $offset,
         'post_status' => 'publish',
         'no_found_rows' => false,
-    ));
+    );
+
+    if (!empty($lang)) {
+        $args['lang'] = $lang;
+    }
+
+    $query = new WP_Query($args);
 
     $html = '';
     if ($query->have_posts()) {
@@ -1075,6 +1231,52 @@ function cv_one_pager_register_acf_fields() {
                 ),
             ),
             array(
+                'key' => 'field_cv_references_title',
+                'label' => 'References Section Title',
+                'name' => 'cv_references_title',
+                'type' => 'text',
+            ),
+            array(
+                'key' => 'field_cv_references',
+                'label' => 'References',
+                'name' => 'cv_references',
+                'type' => 'repeater',
+                'layout' => 'row',
+                'button_label' => 'Add Reference',
+                'sub_fields' => array(
+                    array(
+                        'key' => 'field_cv_reference_name',
+                        'label' => 'Suosittelijan henkilönimi / Full Name',
+                        'name' => 'name',
+                        'type' => 'text',
+                    ),
+                    array(
+                        'key' => 'field_cv_reference_title',
+                        'label' => 'Titteli / Job Title',
+                        'name' => 'title',
+                        'type' => 'text',
+                    ),
+                    array(
+                        'key' => 'field_cv_reference_company',
+                        'label' => 'Yritys / Company',
+                        'name' => 'company',
+                        'type' => 'text',
+                    ),
+                    array(
+                        'key' => 'field_cv_reference_email',
+                        'label' => 'Sähköposti / Email',
+                        'name' => 'email',
+                        'type' => 'email',
+                    ),
+                    array(
+                        'key' => 'field_cv_reference_phone',
+                        'label' => 'Puhelin / Phone',
+                        'name' => 'phone',
+                        'type' => 'text',
+                    ),
+                ),
+            ),
+            array(
                 'key' => 'field_cv_contact_title',
                 'label' => 'Contact Section Title',
                 'name' => 'cv_contact_title',
@@ -1180,6 +1382,13 @@ function cv_one_pager_register_acf_fields() {
                     'param' => 'page_type',
                     'operator' => '==',
                     'value' => 'posts_page',
+                ),
+            ),
+            array(
+                array(
+                    'param' => 'page_template',
+                    'operator' => '==',
+                    'value' => 'page-blog.php',
                 ),
             ),
         ),

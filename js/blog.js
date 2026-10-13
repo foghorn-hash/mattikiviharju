@@ -29,6 +29,7 @@
         nonce: cvBlog.nonce,
         offset: offset,
         perPage: perPage,
+        lang: cvBlog.lang || "",
       },
     })
       .done(function (response) {

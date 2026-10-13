@@ -2,18 +2,29 @@
 get_header();
 
 $posts_page_id = (int) get_option('page_for_posts');
+if ($posts_page_id > 0 && function_exists('pll_get_post')) {
+    $trans_page_id = pll_get_post($posts_page_id);
+    if ($trans_page_id) {
+        $posts_page_id = (int) $trans_page_id;
+    }
+}
 $hero_title = $posts_page_id ? get_the_title($posts_page_id) : (function_exists('cv_one_pager_t') ? cv_one_pager_t('Blogi') : 'Blogi');
 $hero_title = function_exists('get_field') && $posts_page_id ? get_field('cv_blog_title', $posts_page_id) : $hero_title;
 $hero_intro = function_exists('get_field') && $posts_page_id ? get_field('cv_blog_intro', $posts_page_id) : '';
 $hero_intro = $hero_intro ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Uusimmat päivitykset, oivallukset ja projektimuistiinpanot.') : 'Uusimmat päivitykset, oivallukset ja projektimuistiinpanot.');
 
+$current_lang = function_exists('pll_current_language') ? pll_current_language('slug') : '';
 $per_page = (int) get_option('posts_per_page', 6);
-$query = new WP_Query(array(
+$query_args = array(
     'post_type' => 'post',
     'posts_per_page' => $per_page,
     'post_status' => 'publish',
     'no_found_rows' => false,
-));
+);
+if (!empty($current_lang)) {
+    $query_args['lang'] = $current_lang;
+}
+$query = new WP_Query($query_args);
 ?>
 
 <main class="blog-page">

@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CV OpenAI Polylang Translator
- * Description: Manually translate Finnish pages/posts into English and B2B Arabic drafts using OpenAI and Polylang.
+ * Description: Manually translate Finnish pages/posts into English and Swedish drafts using OpenAI and Polylang.
  * Version: 2.0.0
  * Author: Antigravity AI
  * Requires at least: 5.8

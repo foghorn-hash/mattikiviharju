@@ -100,9 +100,13 @@ class CV_OAI_PLL_Admin {
         $cooldown      = get_option('cv_oai_pll_cooldown', '0');
         $custom_fields = get_option('cv_oai_pll_custom_fields', "_yoast_wpseo_title\n_yoast_wpseo_metadesc\n_rank_math_title\n_rank_math_description");
         
-        $post_types = get_option('cv_oai_pll_post_types', ['page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge']);
+        $default_post_types = ['post', 'page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge', 'cv_reference'];
+        $post_types = get_option('cv_oai_pll_post_types', $default_post_types);
         if (!is_array($post_types)) {
-            $post_types = ['page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge'];
+            $post_types = $default_post_types;
+        }
+        if (!in_array('post', $post_types, true)) {
+            $post_types[] = 'post';
         }
 
         $acf_fields = get_option('cv_oai_pll_acf_fields', []);
@@ -526,9 +530,13 @@ class CV_OAI_PLL_Admin {
      * Registers meta boxes for supported content types and translations.
      */
     public function add_meta_boxes($post_type) {
-        $supported_post_types = get_option('cv_oai_pll_post_types', ['page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge']);
+        $default_post_types = ['post', 'page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge', 'cv_reference'];
+        $supported_post_types = get_option('cv_oai_pll_post_types', $default_post_types);
         if (!is_array($supported_post_types)) {
-            $supported_post_types = ['page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge'];
+            $supported_post_types = $default_post_types;
+        }
+        if (!in_array('post', $supported_post_types, true)) {
+            $supported_post_types[] = 'post';
         }
 
         // 1. Meta Box on source posts: OpenAI translation action interface

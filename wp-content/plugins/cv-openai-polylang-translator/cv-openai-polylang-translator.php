@@ -34,7 +34,7 @@ function cv_oai_pll_default_prompt() {
 }
 
 function cv_oai_pll_default_post_types() {
-    return array('cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge');
+    return array('post', 'page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge', 'cv_reference');
 }
 
 function cv_oai_pll_get_selected_post_types() {
@@ -44,6 +44,10 @@ function cv_oai_pll_get_selected_post_types() {
     }
 
     $post_types = array_values(array_unique(array_filter(array_map('sanitize_key', $post_types))));
+
+    if (!in_array('post', $post_types, true)) {
+        $post_types[] = 'post';
+    }
 
     if (post_type_exists('cv_badge') && !in_array('cv_badge', $post_types, true)) {
         $post_types[] = 'cv_badge';
@@ -56,7 +60,7 @@ function cv_oai_pll_get_post_types() {
     $types = get_post_types(array('public' => true), 'objects');
     $options = array();
     foreach ($types as $type) {
-        if (in_array($type->name, array('post', 'page', 'attachment'), true)) {
+        if (in_array($type->name, array('attachment'), true)) {
             continue;
         }
         $options[$type->name] = $type->labels->name;
@@ -277,6 +281,13 @@ function cv_oai_pll_run_translations() {
             if (is_wp_error($new_id) || !$new_id) {
                 $errors++;
                 continue;
+            }
+
+            if (has_post_thumbnail($post->ID)) {
+                $thumb_id = get_post_thumbnail_id($post->ID);
+                if ($thumb_id) {
+                    set_post_thumbnail($new_id, $thumb_id);
+                }
             }
 
             if (function_exists('pll_set_post_language')) {

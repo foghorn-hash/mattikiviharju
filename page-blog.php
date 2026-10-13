@@ -9,13 +9,18 @@ $hero_title = function_exists('get_field') ? get_field('cv_blog_title') : $hero_
 $hero_intro = function_exists('get_field') ? get_field('cv_blog_intro') : '';
 $hero_intro = $hero_intro ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Uusimmat päivitykset, oivallukset ja projektimuistiinpanot.') : 'Uusimmat päivitykset, oivallukset ja projektimuistiinpanot.');
 
+$current_lang = function_exists('pll_current_language') ? pll_current_language('slug') : '';
 $per_page = (int) get_option('posts_per_page', 6);
-$query = new WP_Query(array(
+$query_args = array(
     'post_type' => 'post',
     'posts_per_page' => $per_page,
     'post_status' => 'publish',
     'no_found_rows' => false,
-));
+);
+if (!empty($current_lang)) {
+    $query_args['lang'] = $current_lang;
+}
+$query = new WP_Query($query_args);
 ?>
 
 <main class="blog-page">

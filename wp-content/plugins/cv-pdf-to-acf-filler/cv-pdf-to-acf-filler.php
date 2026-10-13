@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CV PDF & DOCX to ACF Filler
- * Description: Extract CV data from PDF or Word (.docx) files using OpenAI, import standalone projects with images, links and YouTube videos from Word (.docx), auto-translate to Fi/En/Sv, populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill) with language-specific content, extract embedded project PNG images and YouTube video links, and export CV as Word document
- * Version: 2.6.0
+ * Description: Extract CV data from PDF or Word (.docx) files using OpenAI, import standalone projects and work experience from PDF or Word (.docx), auto-translate to Fi/En/Sv, populate custom post types (cv_badge, cv_experience, cv_education, cv_course, cv_project, cv_skill, cv_reference) with language-specific content, extract embedded project PNG images and YouTube video links, and export CV as PDF document
+ * Version: 2.7.0
  * Author: GitHub Copilot
  * Requires Plugins: advanced-custom-fields, polylang
  */
@@ -64,6 +64,13 @@ function cv_pdf_acf_render_settings_page()
     if ($project_import_results && is_array($project_import_results)) {
         delete_transient('cv_pdf_acf_last_project_import');
         cv_pdf_acf_display_project_import_results($project_import_results);
+    }
+
+    // Display imported experience data if available
+    $experience_import_results = get_transient('cv_pdf_acf_last_experience_import');
+    if ($experience_import_results && is_array($experience_import_results)) {
+        delete_transient('cv_pdf_acf_last_experience_import');
+        cv_pdf_acf_display_experience_import_results($experience_import_results);
     }
 
     // Check dependencies
@@ -289,6 +296,72 @@ function cv_pdf_acf_render_settings_page()
                     </tr>
                 </table>
                 <?php submit_button('Tuo projektit (.docx) / Import Projects', 'primary', 'cv_projects_submit'); ?>
+            </form>
+
+            <hr style="margin: 30px 0 20px;" />
+
+            <h2>Lisää työkokemuksia PDF- tai Word-tiedostosta (.pdf / .docx) / Add Work Experience from PDF or Word (.pdf / .docx)</h2>
+            <p>
+                Tällä toiminnolla voit tuoda ja lisätä <strong>pelkät työpaikat ja työkokemukset</strong> PDF- tai Word (.docx) -tiedostosta suoraan <code>cv_experience</code>-artikkeleiksi
+                koskematta muihin CV-osioihin (kuten koulutukseen, kursseihin, projekteihin tai taitoihin).
+            </p>
+
+            <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 12px 16px; margin-bottom: 20px; border-radius: 2px;">
+                <p style="margin: 0; font-weight: 600; color: #166534;">Toiminnon ominaisuudet:</p>
+                <ul style="margin: 8px 0 0 20px; list-style-type: disc; color: #1e293b;">
+                    <li>Tukee sekä <strong>PDF- että Word (.docx)</strong> -tiedostoja.</li>
+                    <li>Tunnistaa ja purkaa dokumentista työkokemusten <strong>yrityksen / työnantajan nimen, työtehtävän (titteli/rooli), ajankohdan (päivämäärät/vuodet) ja työtehtävien kuvauksen</strong>.</li>
+                    <li>Kääntää työpaikat automaattisesti <strong>suomeksi, englanniksi ja ruotsiksi</strong> ja linkittää kieliversiot toisiinsa Polylangilla.</li>
+                    <li>Voit valita, <strong>lisätäänkö uudet työkokemukset</strong> aiempien jatkoksi (suositus) vai <strong>korvataanko</strong> vain aiemmat työkokemukset.</li>
+                </ul>
+            </div>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data">
+                <?php wp_nonce_field('cv_pdf_acf_upload_experience'); ?>
+                <input type="hidden" name="action" value="cv_pdf_acf_upload_experience" />
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="cv_experience_file">CV-tiedosto (.pdf tai .docx)</label></th>
+                        <td>
+                            <input type="file" id="cv_experience_file" name="cv_experience_file"
+                                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                required />
+                            <p class="description">Valitse PDF- tai Word (.docx) -tiedosto, joka sisältää työkokemustietoja.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Lähdekieli / Source Language</th>
+                        <td>
+                            <label style="display: block; margin-bottom: 8px;">
+                                <input type="radio" name="cv_experience_source_language" value="fi" checked />
+                                Suomi / Finnish (luo Fi ja kääntää En & Sv)
+                            </label>
+                            <label style="display: block; margin-bottom: 8px;">
+                                <input type="radio" name="cv_experience_source_language" value="en" />
+                                Englanti / English (luo En ja kääntää Fi & Sv)
+                            </label>
+                            <label style="display: block;">
+                                <input type="radio" name="cv_experience_source_language" value="sv" />
+                                Ruotsi / Swedish (luo Sv ja kääntää Fi & En)
+                            </label>
+                            <p class="description">Valitse ladatun tiedoston alkuperäinen kieli</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Tuontitapa / Import Mode</th>
+                        <td>
+                            <label style="display: block; margin-bottom: 8px;">
+                                <input type="radio" name="cv_experience_mode" value="append" checked />
+                                <strong>Lisää olemassa olevien jatkoksi</strong> (Säilyttää kaikki aiemmat työkokemukset ja asettaa uudet näkyviin alkuun)
+                            </label>
+                            <label style="display: block;">
+                                <input type="radio" name="cv_experience_mode" value="replace" />
+                                <strong>Korvaa aiemmat työkokemukset</strong> (Poistaa vain aiemmat cv_experience-postaukset; ei koske projekteja, koulutusta, kursseja tai taitoja)
+                            </label>
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button('Tuo työkokemukset (.pdf / .docx) / Import Work Experience', 'primary', 'cv_experience_submit'); ?>
             </form>
         <?php endif; ?>
     </div>
@@ -872,6 +945,152 @@ Return the same JSON structure with the text translated to {$target_name}.";
     }
 
     return $translated_data;
+}
+
+/**
+ * Extract structured work experience from text using OpenAI.
+ */
+function cv_pdf_acf_extract_experience_from_text($extracted_text, $api_key, $model)
+{
+    $system_prompt = 'You are an expert CV and resume data extractor specializing in professional work experience.
+Your task is to extract ONLY the work experience / job history items from the provided text into structured JSON.
+Ignore education, courses, standalone portfolio projects, and skills sections unless they are directly described as part of an employment / job position.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "experience_title": "Työkokemus" (or "Experience" / "Arbetslivserfarenhet"),
+  "experience_items": [
+    {
+      "company": "Company / Organization / Employer Name",
+      "role": "Job Title / Role (e.g. Senior Full Stack Developer)",
+      "dates": "Start - End (e.g. 2021 - 2024, or 01/2020 - Nykyhetki / Present)",
+      "summary": "Detailed job summary, responsibilities, accomplishments, and technologies used"
+    }
+  ]
+}
+
+Extraction guidelines:
+1. Extract ALL work experience / employment positions found in the document.
+2. For each experience, extract the employer/company name into "company" and the role/job title into "role".
+3. Extract duration / dates into "dates" (preserve date formats, month/year ranges, and dash separators).
+4. Provide a thorough, professional description in "summary". Include responsibilities, achievements, and tech stack mentioned in connection with that job.
+5. Set "experience_title" appropriately based on the language of the source text.';
+
+    $payload = array(
+        'model' => $model,
+        'temperature' => 0.1,
+        'response_format' => array('type' => 'json_object'),
+        'messages' => array(
+            array(
+                'role' => 'system',
+                'content' => $system_prompt,
+            ),
+            array(
+                'role' => 'user',
+                'content' => "Please extract all work experience items from this text and return it as structured JSON:\n\n" . $extracted_text
+            ),
+        ),
+    );
+
+    $content = cv_pdf_acf_call_openai($payload, $api_key);
+    if (is_wp_error($content)) {
+        return $content;
+    }
+
+    $data = cv_pdf_acf_parse_json($content);
+    if (!$data || !isset($data['experience_items']) || !is_array($data['experience_items'])) {
+        return new WP_Error('openai_parse', 'Failed to parse work experience JSON response from OpenAI.');
+    }
+
+    return $data;
+}
+
+/**
+ * Translate work experience data between languages using OpenAI.
+ */
+function cv_pdf_acf_translate_experience($experience_data, $target_lang, $api_key, $model)
+{
+    $lang_names = array(
+        'fi' => 'Finnish',
+        'en' => 'English',
+        'sv' => 'Swedish'
+    );
+
+    $target_name = $lang_names[$target_lang] ?? $target_lang;
+
+    $system_prompt = "You are a professional CV translator specializing in work experience translation.
+Translate the provided work experience data to {$target_name}.
+Maintain professional tone, accurate technical terminology, and high quality.
+Keep company names ('company') intact unless there is a standard recognized translated name.
+Translate 'role', 'summary', and 'experience_title' to {$target_name}.
+Ensure date terminology (such as 'Present', 'Nykyhetki', 'Nuvarande', month names) is translated appropriately to {$target_name}.
+Return the exact same JSON structure with the text translated to {$target_name}.";
+
+    $payload = array(
+        'model' => $model,
+        'temperature' => 0.2,
+        'response_format' => array('type' => 'json_object'),
+        'messages' => array(
+            array(
+                'role' => 'system',
+                'content' => $system_prompt,
+            ),
+            array(
+                'role' => 'user',
+                'content' => "Please translate this work experience data to {$target_name}, keeping the exact same JSON structure:\n\n" . wp_json_encode($experience_data)
+            ),
+        ),
+    );
+
+    $content = cv_pdf_acf_call_openai($payload, $api_key);
+    if (is_wp_error($content)) {
+        return $content;
+    }
+
+    $translated_data = cv_pdf_acf_parse_json($content);
+    if (!$translated_data || empty($translated_data['experience_items']) || !is_array($translated_data['experience_items'])) {
+        return new WP_Error('openai_translate_parse', 'Failed to parse translated work experience response.');
+    }
+
+    return $translated_data;
+}
+
+/**
+ * Insert a single cv_experience post with metadata and language.
+ */
+function cv_pdf_acf_save_single_experience($item, $lang, $menu_order)
+{
+    $post_data = array(
+        'post_title' => sanitize_text_field($item['role'] ?? ''),
+        'post_excerpt' => sanitize_textarea_field($item['summary'] ?? ''),
+        'post_content' => sanitize_textarea_field($item['summary'] ?? ''),
+        'post_type' => 'cv_experience',
+        'post_status' => 'publish',
+        'menu_order' => $menu_order
+    );
+
+    $post_id = wp_insert_post($post_data);
+    if (!$post_id || is_wp_error($post_id)) {
+        return false;
+    }
+
+    $company = sanitize_text_field($item['company'] ?? '');
+    if (!empty($company)) {
+        update_post_meta($post_id, '_cv_experience_company', $company);
+        update_post_meta($post_id, 'cv_experience_company', $company);
+    }
+
+    $dates = cv_pdf_acf_sanitize_preserve_dashes($item['dates'] ?? '');
+    if (!empty($dates)) {
+        update_post_meta($post_id, '_cv_experience_dates', $dates);
+        update_post_meta($post_id, 'cv_experience_dates', $dates);
+    }
+
+    if (function_exists('pll_set_post_language')) {
+        pll_set_post_language($post_id, $lang);
+    }
+
+    return $post_id;
 }
 
 /**
@@ -1768,6 +1987,235 @@ function cv_pdf_acf_handle_projects_upload()
 }
 add_action('admin_post_cv_pdf_acf_upload_projects', 'cv_pdf_acf_handle_projects_upload');
 
+/**
+ * Handle standalone work experience upload from PDF or DOCX.
+ */
+function cv_pdf_acf_handle_experience_upload()
+{
+    @set_time_limit(300);
+    @ini_set('memory_limit', '256M');
+
+    if (!current_user_can('manage_options')) {
+        wp_die('Insufficient permissions.');
+    }
+    check_admin_referer('cv_pdf_acf_upload_experience');
+
+    $api_key = get_option('cv_pdf_acf_api_key', '');
+    if (empty($api_key)) {
+        cv_pdf_acf_redirect_with_message('OpenAI API -avain puuttuu. Määritä API-avain ensin asetuksissa.', 'error');
+        return;
+    }
+
+    $model = get_option('cv_pdf_acf_model', 'gpt-4o');
+    $source_lang = isset($_POST['cv_experience_source_language']) ? sanitize_text_field($_POST['cv_experience_source_language']) : 'fi';
+    $mode = isset($_POST['cv_experience_mode']) && $_POST['cv_experience_mode'] === 'replace' ? 'replace' : 'append';
+
+    if (empty($_FILES['cv_experience_file']) || $_FILES['cv_experience_file']['error'] !== UPLOAD_ERR_OK) {
+        cv_pdf_acf_redirect_with_message('Tiedoston lataus epäonnistui. Valitse kelvollinen PDF- tai Word (.docx) -tiedosto.', 'error');
+        return;
+    }
+
+    $file = $_FILES['cv_experience_file'];
+    $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if (!in_array($file_ext, array('pdf', 'docx'), true)) {
+        cv_pdf_acf_redirect_with_message('Virheellinen tiedostomuoto. Tämä toiminto hyväksyy ainoastaan PDF- ja Word (.docx) -tiedostoja.', 'error');
+        return;
+    }
+
+    $upload_dir = wp_upload_dir();
+    $temp_file = $upload_dir['basedir'] . '/cv_exp_temp_' . time() . '.' . $file_ext;
+
+    if (!move_uploaded_file($file['tmp_name'], $temp_file)) {
+        cv_pdf_acf_redirect_with_message('Ladatun tiedoston siirtäminen väliaikaishakemistoon epäonnistui.', 'error');
+        return;
+    }
+
+    try {
+        $extracted_text = '';
+        if ($file_ext === 'docx') {
+            $docx_res = cv_pdf_acf_extract_docx_data($temp_file);
+            if (is_wp_error($docx_res)) {
+                if (file_exists($temp_file)) {
+                    @unlink($temp_file);
+                }
+                cv_pdf_acf_redirect_with_message('Word-tiedoston purku epäonnistui: ' . $docx_res->get_error_message(), 'error');
+                return;
+            }
+            $extracted_text = $docx_res['text'] ?? '';
+        } else {
+            $pdf_text = cv_pdf_acf_extract_pdf_text($temp_file);
+            if (is_wp_error($pdf_text)) {
+                if (file_exists($temp_file)) {
+                    @unlink($temp_file);
+                }
+                cv_pdf_acf_redirect_with_message('PDF-tiedoston purku epäonnistui: ' . $pdf_text->get_error_message(), 'error');
+                return;
+            }
+            $extracted_text = $pdf_text;
+        }
+
+        if (file_exists($temp_file)) {
+            @unlink($temp_file);
+        }
+
+        if (empty(trim($extracted_text))) {
+            cv_pdf_acf_redirect_with_message('Dokumentti ei sisältänyt luettavaa tekstiä.', 'error');
+            return;
+        }
+
+        // Extract work experience using OpenAI
+        $experience_result = cv_pdf_acf_extract_experience_from_text($extracted_text, $api_key, $model);
+        if (is_wp_error($experience_result)) {
+            cv_pdf_acf_redirect_with_message('Työkokemusten OpenAI-jäsennys epäonnistui: ' . $experience_result->get_error_message(), 'error');
+            return;
+        }
+
+        $experience_items = $experience_result['experience_items'] ?? array();
+        if (empty($experience_items) || !is_array($experience_items)) {
+            cv_pdf_acf_redirect_with_message('Dokumentista ei löytynyt tunnistettavia työkokemuksia. Varmista dokumentin sisältö ja muotoilu.', 'error');
+            return;
+        }
+
+        $required_langs = array('fi', 'en', 'sv');
+        $has_polylang = function_exists('pll_get_post_translations') && function_exists('pll_set_post_language');
+
+        // Check if replace mode was chosen
+        if ($mode === 'replace') {
+            if ($has_polylang) {
+                foreach ($required_langs as $l) {
+                    $old_items = get_posts(array(
+                        'post_type' => 'cv_experience',
+                        'numberposts' => -1,
+                        'lang' => $l,
+                        'suppress_filters' => false
+                    ));
+                    foreach ($old_items as $oi) {
+                        wp_delete_post($oi->ID, true);
+                    }
+                }
+            } else {
+                $old_items = get_posts(array(
+                    'post_type' => 'cv_experience',
+                    'numberposts' => -1,
+                    'suppress_filters' => false
+                ));
+                foreach ($old_items as $oi) {
+                    wp_delete_post($oi->ID, true);
+                }
+            }
+        }
+
+        // Determine starting menu order
+        $calculate_base_order = function($l) {
+            $existing = get_posts(array(
+                'post_type' => 'cv_experience',
+                'numberposts' => 1,
+                'orderby' => 'menu_order',
+                'order' => 'DESC',
+                'lang' => $l,
+                'suppress_filters' => false
+            ));
+            return (!empty($existing) && isset($existing[0]->menu_order)) ? (int) $existing[0]->menu_order : 0;
+        };
+
+        $total_items = count($experience_items);
+        $base_order = $calculate_base_order($source_lang) + $total_items;
+        $order = $base_order;
+
+        $created_ids = array();
+        foreach ($experience_items as $index => $item) {
+            $post_id = cv_pdf_acf_save_single_experience($item, $source_lang, $order--);
+            if ($post_id) {
+                $created_ids[$source_lang][$index] = $post_id;
+            }
+        }
+
+        $import_data = array(
+            'source_lang' => strtoupper($source_lang),
+            'mode' => $mode,
+            'file_type' => strtoupper($file_ext),
+            'items_count' => count($experience_items),
+            'items' => $experience_items,
+            'translations' => array()
+        );
+
+        // Translate to target languages if Polylang is active
+        if ($has_polylang) {
+            $target_langs = array_diff($required_langs, array($source_lang));
+            foreach ($target_langs as $t_lang) {
+                $trans_result = cv_pdf_acf_translate_experience($experience_result, $t_lang, $api_key, $model);
+                if (is_wp_error($trans_result) || empty($trans_result['experience_items'])) {
+                    continue;
+                }
+
+                $trans_items = $trans_result['experience_items'];
+                $import_data['translations'][strtoupper($t_lang)] = $trans_items;
+
+                $t_order = $calculate_base_order($t_lang) + count($trans_items);
+                foreach ($trans_items as $index => $t_item) {
+                    $t_post_id = cv_pdf_acf_save_single_experience($t_item, $t_lang, $t_order--);
+                    if ($t_post_id) {
+                        $created_ids[$t_lang][$index] = $t_post_id;
+                    }
+                }
+            }
+
+            // Link translations in Polylang
+            if (function_exists('pll_save_post_translations') && !empty($created_ids[$source_lang])) {
+                foreach ($created_ids[$source_lang] as $index => $source_id) {
+                    $link_group = array($source_lang => $source_id);
+                    foreach ($target_langs as $t_lang) {
+                        if (!empty($created_ids[$t_lang][$index])) {
+                            $link_group[$t_lang] = $created_ids[$t_lang][$index];
+                        }
+                    }
+                    pll_save_post_translations($link_group);
+                }
+            }
+        }
+
+        // If experience_title was provided and front page exists, update cv_experience_title
+        if (!empty($experience_result['experience_title']) && function_exists('update_field')) {
+            $front_page_id = get_option('page_on_front');
+            if ($front_page_id) {
+                if ($has_polylang && function_exists('pll_get_post_translations')) {
+                    $trans = pll_get_post_translations($front_page_id);
+                    if (!empty($trans[$source_lang])) {
+                        update_field('cv_experience_title', sanitize_text_field($experience_result['experience_title']), $trans[$source_lang]);
+                    }
+                } else {
+                    update_field('cv_experience_title', sanitize_text_field($experience_result['experience_title']), $front_page_id);
+                }
+            }
+        }
+
+        set_transient('cv_pdf_acf_last_experience_import', $import_data, 300);
+
+        $success_msg = sprintf(
+            'Työkokemukset tuotu onnistuneesti! %d työpaikkaa lisätty järjestelmään (%s).',
+            count($experience_items),
+            strtoupper($file_ext)
+        );
+        cv_pdf_acf_redirect_with_message($success_msg, 'success');
+
+    } catch (Throwable $e) {
+        if (file_exists($temp_file)) {
+            @unlink($temp_file);
+        }
+        wp_die(
+            '<strong>Virhe työkokemusten käsittelyssä:</strong><br><br>' .
+            esc_html($e->getMessage()) . '<br><br>' .
+            '<strong>Tiedosto:</strong> ' . esc_html($e->getFile()) . '<br>' .
+            '<strong>Rivi:</strong> ' . esc_html($e->getLine()) . '<br><br>' .
+            '<a href="' . esc_url(admin_url('options-general.php?page=cv-pdf-to-acf-filler')) . '">&laquo; Takaisin asetuksiin</a>',
+            'Experience Processing Error',
+            array('response' => 500, 'back_link' => true)
+        );
+    }
+}
+add_action('admin_post_cv_pdf_acf_upload_experience', 'cv_pdf_acf_handle_experience_upload');
+
 // Display imported CV data
 function cv_pdf_acf_display_import_results($import_data)
 {
@@ -2003,6 +2451,72 @@ function cv_pdf_acf_render_projects_preview_list($projects)
     echo '</div>';
 }
 
+/**
+ * Display imported Work Experience data notice
+ */
+function cv_pdf_acf_display_experience_import_results($import_data)
+{
+    $items = $import_data['items'] ?? array();
+    $translations = $import_data['translations'] ?? array();
+    $source_lang = $import_data['source_lang'] ?? 'FI';
+    $file_type = $import_data['file_type'] ?? 'DOCX';
+    $mode_text = ($import_data['mode'] ?? 'append') === 'replace' ? 'Korvattu aiemmat työkokemukset' : 'Lisätty olemassa olevien jatkoksi';
+    ?>
+    <div class="notice notice-success" style="padding: 15px; margin-top: 20px;">
+        <h2 style="margin-top: 0;">✓ Työkokemukset tuotu onnistuneesti (<?php echo esc_html($file_type); ?>) &mdash; Lähdekieli: <?php echo esc_html($source_lang); ?></h2>
+        <p>
+            <strong>Työpaikkojen määrä:</strong> <?php echo count($items); ?> kpl &nbsp;|&nbsp; 
+            <strong>Toimintatapa:</strong> <?php echo esc_html($mode_text); ?> &nbsp;|&nbsp; 
+            <strong>Tiedostomuoto:</strong> <?php echo esc_html($file_type); ?>
+        </p>
+
+        <div style="background: #ffffff; border: 1px solid #ccd0d4; padding: 15px; margin-bottom: 15px; border-left: 4px solid #46b450;">
+            <h3 style="margin-top: 0; color: #1d2327;"><?php echo esc_html($source_lang); ?> (Lähdekieli)</h3>
+            <?php cv_pdf_acf_render_experience_preview_list($items); ?>
+        </div>
+
+        <?php foreach ($translations as $lang => $trans_items): ?>
+            <div style="background: #ffffff; border: 1px solid #ccd0d4; padding: 15px; margin-bottom: 15px; border-left: 4px solid #2271b1;">
+                <h3 style="margin-top: 0; color: #1d2327;"><?php echo esc_html($lang); ?> (Käännetty automaattisesti)</h3>
+                <?php cv_pdf_acf_render_experience_preview_list($trans_items); ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <?php
+}
+
+/**
+ * Render preview grid of work experience items in admin notice
+ */
+function cv_pdf_acf_render_experience_preview_list($items)
+{
+    if (empty($items)) {
+        echo '<p><em>Ei työkokemuksia.</em></p>';
+        return;
+    }
+    echo '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;">';
+    foreach ($items as $item) {
+        $role = $item['role'] ?? 'Tehtävänimike';
+        $company = $item['company'] ?? '';
+        $dates = $item['dates'] ?? '';
+        $summary = $item['summary'] ?? '';
+
+        echo '<div style="background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 4px; padding: 12px;">';
+        echo '<h4 style="margin: 0 0 4px 0; font-size: 15px; color: #0073aa;">' . esc_html($role) . '</h4>';
+        if (!empty($company)) {
+            echo '<div style="font-weight: 600; font-size: 13px; color: #1d2327; margin-bottom: 4px;">' . esc_html($company) . '</div>';
+        }
+        if (!empty($dates)) {
+            echo '<div style="margin-bottom: 6px;"><span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 3px; font-size: 12px;">' . esc_html($dates) . '</span></div>';
+        }
+        if (!empty($summary)) {
+            echo '<p style="margin: 6px 0 0 0; font-size: 13px; color: #3c434a; line-height: 1.4;">' . esc_html(wp_trim_words($summary, 30)) . '</p>';
+        }
+        echo '</div>';
+    }
+    echo '</div>';
+}
+
 // Helper function to redirect with message
 function cv_pdf_acf_redirect_with_message($message, $type = 'success')
 {
@@ -2199,6 +2713,49 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang)
         $data['skills'][] = get_the_title($item);
     }
 
+    // Collect references
+    $data['references'] = array();
+    $references_query = array(
+        'post_type' => 'cv_reference',
+        'numberposts' => -1,
+        'orderby' => 'menu_order',
+        'order' => 'DESC',
+        'lang' => $lang,
+        'suppress_filters' => false
+    );
+    $references_items = get_posts($references_query);
+    foreach ($references_items as $item) {
+        $r_title = get_post_meta($item->ID, '_cv_reference_title', true) ?: get_post_meta($item->ID, 'cv_reference_title', true);
+        $r_company = get_post_meta($item->ID, '_cv_reference_company', true) ?: get_post_meta($item->ID, 'cv_reference_company', true);
+        $r_email = get_post_meta($item->ID, '_cv_reference_email', true) ?: get_post_meta($item->ID, 'cv_reference_email', true);
+        $r_phone = get_post_meta($item->ID, '_cv_reference_phone', true) ?: get_post_meta($item->ID, 'cv_reference_phone', true);
+        $data['references'][] = array(
+            'name' => get_the_title($item),
+            'title' => $r_title,
+            'company' => $r_company,
+            'email' => $r_email,
+            'phone' => $r_phone
+        );
+    }
+
+    // Also check ACF repeater if CPT was empty
+    if (empty($data['references']) && function_exists('get_field')) {
+        $acf_refs = get_field('cv_references', $page_id);
+        if (!empty($acf_refs) && is_array($acf_refs)) {
+            foreach ($acf_refs as $acf_ref) {
+                if (!empty($acf_ref['name'])) {
+                    $data['references'][] = array(
+                        'name' => $acf_ref['name'],
+                        'title' => $acf_ref['title'] ?? '',
+                        'company' => $acf_ref['company'] ?? '',
+                        'email' => $acf_ref['email'] ?? '',
+                        'phone' => $acf_ref['phone'] ?? ''
+                    );
+                }
+            }
+        }
+    }
+
     return $data;
 }
 
@@ -2280,6 +2837,11 @@ function cv_pdf_acf_get_translation($key, $lang)
             'fi' => 'Taidot',
             'en' => 'Skills',
             'sv' => 'Färdigheter'
+        ),
+        'references' => array(
+            'fi' => 'Suosittelijat',
+            'en' => 'References',
+            'sv' => 'Referenser'
         )
     );
 
@@ -2603,6 +3165,43 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang)
                     $pdf->MultiCell(0, 5, $clean_text($skill_line), 0, 'L');
                 }
             }
+            $pdf->Ln(2);
+        }
+
+        // References (Suosittelijat)
+        if (!empty($cv_data['references']) && is_array($cv_data['references'])) {
+            $pdf->SetFont('Arial', 'B', 14);
+            $pdf->Cell(0, 8, $clean_text(cv_pdf_acf_get_translation('references', $lang)), 0, 1);
+            $pdf->Ln(1);
+
+            foreach ($cv_data['references'] as $ref) {
+                $ref_name = $clean_text($ref['name'] ?? '');
+                if (!empty($ref_name)) {
+                    $pdf->SetFont('Arial', 'B', 10);
+                    $pdf->Cell(0, 6, $ref_name, 0, 1);
+                }
+                $ref_sub = array();
+                if (!empty($ref['title'])) {
+                    $ref_sub[] = $ref['title'];
+                }
+                if (!empty($ref['company'])) {
+                    $ref_sub[] = $ref['company'];
+                }
+                if (!empty($ref_sub)) {
+                    $pdf->SetFont('Arial', 'I', 10);
+                    $pdf->Cell(0, 5, $clean_text(implode(', ', $ref_sub)), 0, 1);
+                }
+                if (!empty($ref['email'])) {
+                    $pdf->SetFont('Arial', '', 9);
+                    $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('email', $lang) . ': ' . $ref['email']), 0, 1);
+                }
+                if (!empty($ref['phone'])) {
+                    $pdf->SetFont('Arial', '', 9);
+                    $pdf->Cell(0, 5, $clean_text(cv_pdf_acf_get_translation('phone', $lang) . ': ' . $ref['phone']), 0, 1);
+                }
+                $pdf->Ln(2);
+            }
+            $pdf->Ln(1);
         }
 
         // Save to temporary file

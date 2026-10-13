@@ -329,6 +329,7 @@ class CV_OAI_PLL_Translator {
      */
     public static function get_language_name_by_code($code) {
         $langs = [
+            'fi' => 'Finnish',
             'en' => 'English',
             'sv' => 'Swedish',
         ];

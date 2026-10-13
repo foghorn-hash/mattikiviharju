@@ -15,6 +15,7 @@ $education_title = function_exists('get_field') ? get_field('cv_education_title'
 $courses_title = function_exists('get_field') ? get_field('cv_courses_title') : '';
 $projects_title = function_exists('get_field') ? get_field('cv_projects_title') : '';
 $skills_title = function_exists('get_field') ? get_field('cv_skills_title') : '';
+$references_title = function_exists('get_field') ? get_field('cv_references_title') : '';
 $contact_title = function_exists('get_field') ? get_field('cv_contact_title') : '';
 $contact_body = function_exists('get_field') ? get_field('cv_contact_body') : '';
 $contact_email = function_exists('get_field') ? get_field('cv_contact_email') : '';
@@ -37,6 +38,7 @@ $education_title = $education_title ?: (function_exists('cv_one_pager_t') ? cv_o
 $courses_title = $courses_title ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Additional training') : 'Additional training');
 $projects_title = $projects_title ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Selected Projects') : 'Selected Projects');
 $skills_title = $skills_title ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Skills') : 'Skills');
+$references_title = $references_title ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('References') : 'References');
 $contact_title = $contact_title ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Contact') : 'Contact');
 $contact_body = $contact_body ?: (function_exists('cv_one_pager_t') ? cv_one_pager_t('Let’s connect. Share your project goals and I’ll respond within 24 hours.') : 'Let’s connect. Share your project goals and I’ll respond within 24 hours.');
 $contact_email = $contact_email ?: 'hello@example.com';
@@ -507,6 +509,118 @@ if ($is_admin_editor) {
 						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
+			</div>
+		</div>
+	</section>
+
+	<section class="section" id="references">
+		<div class="container">
+			<h2 class="section-title"><?php echo esc_html($references_title); ?></h2>
+			<div class="card-grid">
+				<?php
+				$references_query = array(
+					'post_type' => 'cv_reference',
+					'numberposts' => -1,
+					'orderby' => 'menu_order',
+					'order' => 'DESC',
+				);
+				if (function_exists('pll_current_language')) {
+					$references_query['lang'] = pll_current_language();
+				} else {
+					$references_query['suppress_filters'] = false;
+				}
+				$references = get_posts($references_query);
+
+				$all_references = array();
+				foreach ($references as $ref_post) {
+					$r_title = get_post_meta($ref_post->ID, '_cv_reference_title', true);
+					if (empty($r_title)) {
+						$r_title = get_post_meta($ref_post->ID, 'cv_reference_title', true);
+					}
+					$r_company = get_post_meta($ref_post->ID, '_cv_reference_company', true);
+					if (empty($r_company)) {
+						$r_company = get_post_meta($ref_post->ID, 'cv_reference_company', true);
+					}
+					$r_email = get_post_meta($ref_post->ID, '_cv_reference_email', true);
+					if (empty($r_email)) {
+						$r_email = get_post_meta($ref_post->ID, 'cv_reference_email', true);
+					}
+					$r_phone = get_post_meta($ref_post->ID, '_cv_reference_phone', true);
+					if (empty($r_phone)) {
+						$r_phone = get_post_meta($ref_post->ID, 'cv_reference_phone', true);
+					}
+					$all_references[] = array(
+						'name' => get_the_title($ref_post),
+						'title' => $r_title,
+						'company' => $r_company,
+						'email' => $r_email,
+						'phone' => $r_phone,
+						'post_id' => $ref_post->ID,
+					);
+				}
+
+				if (function_exists('get_field')) {
+					$acf_references = get_field('cv_references');
+					if (!empty($acf_references) && is_array($acf_references)) {
+						foreach ($acf_references as $acf_ref) {
+							if (!empty($acf_ref['name'])) {
+								$all_references[] = array(
+									'name' => $acf_ref['name'],
+									'title' => $acf_ref['title'] ?? '',
+									'company' => $acf_ref['company'] ?? '',
+									'email' => $acf_ref['email'] ?? '',
+									'phone' => $acf_ref['phone'] ?? '',
+									'post_id' => 0,
+								);
+							}
+						}
+					}
+				}
+				?>
+				<?php if (empty($all_references)) : ?>
+					<div class="card">
+						<p><em><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Ei suosittelijoita vielä lisättynä.') : 'Ei suosittelijoita vielä lisättynä.'); ?></em></p>
+					</div>
+				<?php else : ?>
+					<?php foreach ($all_references as $item) : ?>
+						<article class="card reference-card">
+							<h3 class="reference-name"><?php echo esc_html($item['name']); ?></h3>
+							<?php if (!empty($item['title']) || !empty($item['company'])) : ?>
+								<p class="reference-role-company">
+									<?php if (!empty($item['title'])) : ?>
+										<strong class="reference-title"><?php echo esc_html($item['title']); ?></strong>
+									<?php endif; ?>
+									<?php if (!empty($item['title']) && !empty($item['company'])) : ?>
+										<span class="reference-sep"> &bull; </span>
+									<?php endif; ?>
+									<?php if (!empty($item['company'])) : ?>
+										<span class="reference-company"><?php echo esc_html($item['company']); ?></span>
+									<?php endif; ?>
+								</p>
+							<?php endif; ?>
+							<div class="reference-contacts">
+								<?php if (!empty($item['email'])) : ?>
+									<a class="reference-contact-link" href="mailto:<?php echo esc_attr($item['email']); ?>">
+										<i class="bi bi-envelope" aria-hidden="true"></i>
+										<span><?php echo esc_html($item['email']); ?></span>
+									</a>
+								<?php endif; ?>
+								<?php if (!empty($item['phone'])) : ?>
+									<a class="reference-contact-link" href="tel:<?php echo esc_attr(preg_replace('/\s+/', '', $item['phone'])); ?>">
+										<i class="bi bi-telephone" aria-hidden="true"></i>
+										<span><?php echo esc_html($item['phone']); ?></span>
+									</a>
+								<?php endif; ?>
+							</div>
+							<?php if ($is_admin_editor && !empty($item['post_id'])) : ?>
+								<?php $edit_ref_url = get_edit_post_link($item['post_id']); ?>
+								<?php if (!empty($edit_ref_url)) : ?>
+									<p><a href="<?php echo esc_url($edit_ref_url); ?>"><?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Edit Reference') : 'Edit Reference'); ?></a></p>
+								<?php endif; ?>
+							<?php endif; ?>
+						</article>
+					<?php endforeach; ?>
+				<?php endif; ?>
 			</div>
 		</div>
 	</section>
