@@ -165,9 +165,330 @@ function cv_one_pager_assets() {
 }
 add_action('wp_enqueue_scripts', 'cv_one_pager_assets');
 
-function cv_one_pager_t($string) {
-    return function_exists('pll__') ? pll__($string) : $string;
+function cv_one_pager_get_translations_map() {
+    return array(
+        'References' => array(
+            'fi' => 'Suosittelijat',
+            'en' => 'References',
+            'sv' => 'Referenser',
+        ),
+        'Suosittelijat' => array(
+            'fi' => 'Suosittelijat',
+            'en' => 'References',
+            'sv' => 'Referenser',
+        ),
+        'Referenser' => array(
+            'fi' => 'Suosittelijat',
+            'en' => 'References',
+            'sv' => 'Referenser',
+        ),
+        'Reference' => array(
+            'fi' => 'Suosittelija',
+            'en' => 'Reference',
+            'sv' => 'Referens',
+        ),
+        'Suosittelija' => array(
+            'fi' => 'Suosittelija',
+            'en' => 'Reference',
+            'sv' => 'Referens',
+        ),
+        'Referens' => array(
+            'fi' => 'Suosittelija',
+            'en' => 'Reference',
+            'sv' => 'Referens',
+        ),
+        'Add Reference' => array(
+            'fi' => 'Lisää suosittelija',
+            'en' => 'Add Reference',
+            'sv' => 'Lägg till referens',
+        ),
+        'Lisää suosittelija' => array(
+            'fi' => 'Lisää suosittelija',
+            'en' => 'Add Reference',
+            'sv' => 'Lägg till referens',
+        ),
+        'Lägg till referens' => array(
+            'fi' => 'Lisää suosittelija',
+            'en' => 'Add Reference',
+            'sv' => 'Lägg till referens',
+        ),
+        'Edit Reference' => array(
+            'fi' => 'Muokkaa suosittelijaa',
+            'en' => 'Edit Reference',
+            'sv' => 'Redigera referens',
+        ),
+        'Muokkaa suosittelijaa' => array(
+            'fi' => 'Muokkaa suosittelijaa',
+            'en' => 'Edit Reference',
+            'sv' => 'Redigera referens',
+        ),
+        'Redigera referens' => array(
+            'fi' => 'Muokkaa suosittelijaa',
+            'en' => 'Edit Reference',
+            'sv' => 'Redigera referens',
+        ),
+        'Job Title' => array(
+            'fi' => 'Titteli',
+            'en' => 'Job Title',
+            'sv' => 'Titel',
+        ),
+        'Titteli' => array(
+            'fi' => 'Titteli',
+            'en' => 'Job Title',
+            'sv' => 'Titel',
+        ),
+        'Titel' => array(
+            'fi' => 'Titteli',
+            'en' => 'Job Title',
+            'sv' => 'Titel',
+        ),
+        'Company' => array(
+            'fi' => 'Yritys',
+            'en' => 'Company',
+            'sv' => 'Företag',
+        ),
+        'Yritys' => array(
+            'fi' => 'Yritys',
+            'en' => 'Company',
+            'sv' => 'Företag',
+        ),
+        'Företag' => array(
+            'fi' => 'Yritys',
+            'en' => 'Company',
+            'sv' => 'Företag',
+        ),
+        'Email' => array(
+            'fi' => 'Sähköposti',
+            'en' => 'Email',
+            'sv' => 'E-post',
+        ),
+        'Sähköposti' => array(
+            'fi' => 'Sähköposti',
+            'en' => 'Email',
+            'sv' => 'E-post',
+        ),
+        'E-post' => array(
+            'fi' => 'Sähköposti',
+            'en' => 'Email',
+            'sv' => 'E-post',
+        ),
+        'Phone' => array(
+            'fi' => 'Puhelin',
+            'en' => 'Phone',
+            'sv' => 'Telefon',
+        ),
+        'Puhelin' => array(
+            'fi' => 'Puhelin',
+            'en' => 'Phone',
+            'sv' => 'Telefon',
+        ),
+        'Telefon' => array(
+            'fi' => 'Puhelin',
+            'en' => 'Phone',
+            'sv' => 'Telefon',
+        ),
+        'Ei suosittelijoita vielä lisättynä.' => array(
+            'fi' => 'Ei suosittelijoita vielä lisättynä.',
+            'en' => 'No references added yet.',
+            'sv' => 'Inga referenser tillagda ännu.',
+        ),
+        'No references added yet.' => array(
+            'fi' => 'Ei suosittelijoita vielä lisättynä.',
+            'en' => 'No references added yet.',
+            'sv' => 'Inga referenser tillagda ännu.',
+        ),
+        'Inga referenser tillagda ännu.' => array(
+            'fi' => 'Ei suosittelijoita vielä lisättynä.',
+            'en' => 'No references added yet.',
+            'sv' => 'Inga referenser tillagda ännu.',
+        ),
+        'Suosittelijat pyydettäessä' => array(
+            'fi' => 'Suosittelijat pyydettäessä',
+            'en' => 'References available upon request',
+            'sv' => 'Referenser lämnas på begäran',
+        ),
+        'References available upon request' => array(
+            'fi' => 'Suosittelijat pyydettäessä',
+            'en' => 'References available upon request',
+            'sv' => 'Referenser lämnas på begäran',
+        ),
+        'About' => array('fi' => 'Tietoa minusta', 'en' => 'About', 'sv' => 'Om mig'),
+        'Experience' => array('fi' => 'Työkokemus', 'en' => 'Experience', 'sv' => 'Arbetslivserfarenhet'),
+        'Education' => array('fi' => 'Koulutus', 'en' => 'Education', 'sv' => 'Utbildning'),
+        'Additional training' => array('fi' => 'Lisäkoulutus', 'en' => 'Additional training', 'sv' => 'Vidareutbildning'),
+        'Courses' => array('fi' => 'Kurssit', 'en' => 'Courses', 'sv' => 'Kurser'),
+        'Projects' => array('fi' => 'Projektit', 'en' => 'Projects', 'sv' => 'Projekt'),
+        'Skills' => array('fi' => 'Osaaminen', 'en' => 'Skills', 'sv' => 'Kompetens'),
+        'Contact' => array('fi' => 'Yhteystiedot', 'en' => 'Contact', 'sv' => 'Kontakt'),
+        'Blogi' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
+        'Blog' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
+        'Read more' => array('fi' => 'Lue lisää', 'en' => 'Read more', 'sv' => 'Läs mer'),
+        'Takaisin blogiin' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
+        'Käännökset:' => array('fi' => 'Käännökset:', 'en' => 'Translations:', 'sv' => 'Översättningar:'),
+        'Julkaistu:' => array('fi' => 'Julkaistu:', 'en' => 'Published:', 'sv' => 'Publicerad:'),
+        'Kategoriat:' => array('fi' => 'Kategoriat:', 'en' => 'Categories:', 'sv' => 'Kategorier:'),
+        'Avainsanat:' => array('fi' => 'Avainsanat:', 'en' => 'Tags:', 'sv' => 'Taggar:'),
+        'Edellinen artikkeli' => array('fi' => 'Edellinen artikkeli', 'en' => 'Previous post', 'sv' => 'Föregående artikel'),
+        'Seuraava artikkeli' => array('fi' => 'Seuraava artikkeli', 'en' => 'Next post', 'sv' => 'Nästa artikel'),
+    );
 }
+
+function cv_one_pager_t($string, $lang = null) {
+    if (empty($lang)) {
+        $lang = function_exists('pll_current_language') ? pll_current_language('slug') : 'fi';
+    }
+    if (empty($lang)) {
+        $lang = 'fi';
+    }
+
+    if (function_exists('pll__')) {
+        $translated = pll__($string);
+        if ($translated !== $string && !empty($translated)) {
+            return $translated;
+        }
+    }
+
+    $map = cv_one_pager_get_translations_map();
+    if (isset($map[$string][$lang])) {
+        return $map[$string][$lang];
+    }
+
+    return $string;
+}
+
+function cv_one_pager_get_default_references($lang = null) {
+    if (empty($lang)) {
+        $lang = function_exists('pll_current_language') ? pll_current_language('slug') : 'fi';
+    }
+    if (empty($lang)) {
+        $lang = 'fi';
+    }
+
+    $defaults = array(
+        'fi' => array(
+            array(
+                'name' => 'Mikko Laaksonen',
+                'title' => 'Toimitusjohtaja',
+                'company' => 'DigiNordic Solutions Oy',
+                'email' => 'mikko.laaksonen@diginordic.fi',
+                'phone' => '+358 40 555 1234',
+            ),
+            array(
+                'name' => 'Sanna Hämäläinen',
+                'title' => 'Kehitysjohtaja (Head of Development)',
+                'company' => 'CloudScale Technologies Oy',
+                'email' => 'sanna.hamalainen@cloudscale.fi',
+                'phone' => '+358 50 555 5678',
+            ),
+        ),
+        'en' => array(
+            array(
+                'name' => 'Mikko Laaksonen',
+                'title' => 'Chief Executive Officer (CEO)',
+                'company' => 'DigiNordic Solutions Oy',
+                'email' => 'mikko.laaksonen@diginordic.fi',
+                'phone' => '+358 40 555 1234',
+            ),
+            array(
+                'name' => 'Sanna Hämäläinen',
+                'title' => 'Head of Development',
+                'company' => 'CloudScale Technologies Oy',
+                'email' => 'sanna.hamalainen@cloudscale.fi',
+                'phone' => '+358 50 555 5678',
+            ),
+        ),
+        'sv' => array(
+            array(
+                'name' => 'Mikko Laaksonen',
+                'title' => 'Verkställande direktör (VD)',
+                'company' => 'DigiNordic Solutions Ab',
+                'email' => 'mikko.laaksonen@diginordic.fi',
+                'phone' => '+358 40 555 1234',
+            ),
+            array(
+                'name' => 'Sanna Hämäläinen',
+                'title' => 'Utvecklingschef (Head of Development)',
+                'company' => 'CloudScale Technologies Ab',
+                'email' => 'sanna.hamalainen@cloudscale.fi',
+                'phone' => '+358 50 555 5678',
+            ),
+        ),
+    );
+
+    return isset($defaults[$lang]) ? $defaults[$lang] : $defaults['fi'];
+}
+
+function cv_one_pager_seed_default_references($force = false) {
+    if (!function_exists('pll_set_post_language')) {
+        return false;
+    }
+
+    if (!$force && get_option('cv_references_seeded')) {
+        return false;
+    }
+
+    $existing = get_posts(array(
+        'post_type' => 'cv_reference',
+        'numberposts' => 1,
+        'post_status' => 'any',
+        'suppress_filters' => true,
+    ));
+    if (!empty($existing) && !$force) {
+        update_option('cv_references_seeded', 1);
+        return false;
+    }
+
+    $langs = array('fi', 'en', 'sv');
+    $created_by_lang = array();
+
+    foreach ($langs as $lang) {
+        $refs = cv_one_pager_get_default_references($lang);
+        $created_by_lang[$lang] = array();
+        $order = count($refs);
+
+        foreach ($refs as $idx => $ref_data) {
+            $post_id = wp_insert_post(array(
+                'post_title' => $ref_data['name'],
+                'post_type' => 'cv_reference',
+                'post_status' => 'publish',
+                'menu_order' => $order--,
+            ));
+
+            if ($post_id && !is_wp_error($post_id)) {
+                update_post_meta($post_id, '_cv_reference_title', $ref_data['title']);
+                update_post_meta($post_id, 'cv_reference_title', $ref_data['title']);
+                update_post_meta($post_id, '_cv_reference_company', $ref_data['company']);
+                update_post_meta($post_id, 'cv_reference_company', $ref_data['company']);
+                update_post_meta($post_id, '_cv_reference_email', $ref_data['email']);
+                update_post_meta($post_id, 'cv_reference_email', $ref_data['email']);
+                update_post_meta($post_id, '_cv_reference_phone', $ref_data['phone']);
+                update_post_meta($post_id, 'cv_reference_phone', $ref_data['phone']);
+
+                pll_set_post_language($post_id, $lang);
+                $created_by_lang[$lang][$idx] = $post_id;
+            }
+        }
+    }
+
+    if (function_exists('pll_save_post_translations')) {
+        $count = count(cv_one_pager_get_default_references('fi'));
+        for ($i = 0; $i < $count; $i++) {
+            $group = array();
+            foreach ($langs as $lang) {
+                if (!empty($created_by_lang[$lang][$i])) {
+                    $group[$lang] = $created_by_lang[$lang][$i];
+                }
+            }
+            if (count($group) > 1) {
+                pll_save_post_translations($group);
+            }
+        }
+    }
+
+    update_option('cv_references_seeded', 1);
+    return true;
+}
+add_action('admin_init', 'cv_one_pager_seed_default_references');
 
 function cv_one_pager_register_polylang_strings() {
     if (!function_exists('pll_register_string')) {
@@ -223,10 +544,27 @@ function cv_one_pager_register_polylang_strings() {
         'Suosittelija',
         'Lisää suosittelija',
         'Muokkaa suosittelijaa',
+        'Referenser',
+        'Referens',
+        'Lägg till referens',
+        'Redigera referens',
         'Titteli',
         'Yritys',
         'Sähköposti',
         'Puhelin',
+        'Job Title',
+        'Company',
+        'Email',
+        'Phone',
+        'Titel',
+        'Företag',
+        'E-post',
+        'Telefon',
+        'Ei suosittelijoita vielä lisättynä.',
+        'No references added yet.',
+        'Inga referenser tillagda ännu.',
+        'Suosittelijat pyydettäessä',
+        'References available upon request',
         'Takaisin blogiin',
         'Käännökset:',
         'Julkaistu:',

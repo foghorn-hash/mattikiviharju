@@ -710,10 +710,14 @@ function cv_pdf_acf_extract_cv_from_file($file_path, $file_extension, $api_key, 
     }
   ],
   "skills_title": "Skills" or appropriate section title,
-  "skills": ["Category 1: skill1, skill2, skill3, ...", "Category 2: skill4, skill5, skill6, ..."]
+  "skills": ["Category 1: skill1, skill2, skill3, ...", "Category 2: skill4, skill5, skill6, ..."],
+  "references_title": "References" or "Suosittelijat" or appropriate section title,
+  "references": [
+    {"name": "Recommender Name", "title": "Job Title", "company": "Company Name", "email": "Email", "phone": "Phone"}
+  ]
 }
 
-Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately into "company" and the role/job title into "role". For education, extract the institution separately into "institution" and the degree/program name into "degree". For courses/additional training, extract the course name into "title", the provider or organizing school/institution into "provider", and the completion year/dates into "dates". For projects, extract project URLs (e.g. GitHub or live websites) into "url", link label into "url_title", all YouTube video URLs associated with each project into the "youtube_urls" array (projects can have multiple YouTube video links; also check if a video URL is in the project description or notes), and if there are tags like [Embedded Image: filename.png] in or near the project, include those filenames in "image_filenames". For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas.';
+Extract all relevant information from the CV. If a section is not present, use an empty array or null. Profile badges could include certifications, titles, or key qualifications mentioned at the top of the CV. For experience items, extract the company/employer name separately into "company" and the role/job title into "role". For education, extract the institution separately into "institution" and the degree/program name into "degree". For courses/additional training, extract the course name into "title", the provider or organizing school/institution into "provider", and the completion year/dates into "dates". For projects, extract project URLs (e.g. GitHub or live websites) into "url", link label into "url_title", all YouTube video URLs associated with each project into the "youtube_urls" array (projects can have multiple YouTube video links; also check if a video URL is in the project description or notes), and if there are tags like [Embedded Image: filename.png] in or near the project, include those filenames in "image_filenames". For skills, group them by category (e.g., "Full Stack Development", "Scrum Master Expertise", "DevOps", etc.) and format each category as a single line starting with the category name followed by a colon and all related skills separated by commas. For references, extract full name into "name", job title into "title", company into "company", email into "email", and phone into "phone".';
 
     $payload = array(
         'model' => $model,
@@ -1250,7 +1254,8 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
         'education' => array(),
         'courses' => array(),
         'projects' => array(),
-        'skills' => array()
+        'skills' => array(),
+        'references' => array()
     );
 
     // Update title fields
@@ -1277,6 +1282,11 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
     if (!empty($cv_data['skills_title'])) {
         update_field('cv_skills_title', sanitize_text_field($cv_data['skills_title']), $page_id);
         $updated[] = 'Skills Title';
+    }
+
+    if (!empty($cv_data['references_title'])) {
+        update_field('cv_references_title', sanitize_text_field($cv_data['references_title']), $page_id);
+        $updated[] = 'References Title';
     }
 
     // Create/update custom post types (OVERWRITE existing)
@@ -1517,6 +1527,58 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
         }
     }
 
+    // References Items
+    if (!empty($cv_data['references']) && is_array($cv_data['references'])) {
+        $existing_refs = get_posts(array(
+            'post_type' => 'cv_reference',
+            'numberposts' => -1,
+            'lang' => $lang,
+            'suppress_filters' => false
+        ));
+        foreach ($existing_refs as $ref_post) {
+            wp_delete_post($ref_post->ID, true);
+        }
+
+        $menu_order = count($cv_data['references']);
+        foreach ($cv_data['references'] as $index => $item) {
+            $post_data = array(
+                'post_title' => sanitize_text_field($item['name'] ?? ''),
+                'post_type' => 'cv_reference',
+                'post_status' => 'publish',
+                'menu_order' => $menu_order--
+            );
+            $post_id = wp_insert_post($post_data);
+            if ($post_id && !is_wp_error($post_id)) {
+                $ref_title = sanitize_text_field($item['title'] ?? '');
+                if (!empty($ref_title)) {
+                    update_post_meta($post_id, '_cv_reference_title', $ref_title);
+                    update_post_meta($post_id, 'cv_reference_title', $ref_title);
+                }
+                $ref_company = sanitize_text_field($item['company'] ?? '');
+                if (!empty($ref_company)) {
+                    update_post_meta($post_id, '_cv_reference_company', $ref_company);
+                    update_post_meta($post_id, 'cv_reference_company', $ref_company);
+                }
+                $ref_email = sanitize_text_field($item['email'] ?? '');
+                if (!empty($ref_email)) {
+                    update_post_meta($post_id, '_cv_reference_email', $ref_email);
+                    update_post_meta($post_id, 'cv_reference_email', $ref_email);
+                }
+                $ref_phone = sanitize_text_field($item['phone'] ?? '');
+                if (!empty($ref_phone)) {
+                    update_post_meta($post_id, '_cv_reference_phone', $ref_phone);
+                    update_post_meta($post_id, 'cv_reference_phone', $ref_phone);
+                }
+
+                if (function_exists('pll_set_post_language')) {
+                    pll_set_post_language($post_id, $lang);
+                    $created_ids['references'][$index] = $post_id;
+                }
+            }
+        }
+        $updated[] = 'References (' . count($cv_data['references']) . ')';
+    }
+
     return array(
         'updated' => $updated,
         'created_ids' => $created_ids
@@ -1741,6 +1803,19 @@ function cv_pdf_acf_handle_upload()
                     foreach ($target_langs as $target_lang) {
                         if (!empty($all_created_ids[$target_lang]['skills'][$index])) {
                             $translation_ids[$target_lang] = $all_created_ids[$target_lang]['skills'][$index];
+                        }
+                    }
+                    pll_save_post_translations($translation_ids);
+                }
+            }
+
+            // Link references
+            if (!empty($all_created_ids[$source_lang]['references'])) {
+                foreach ($all_created_ids[$source_lang]['references'] as $index => $source_id) {
+                    $translation_ids = array($source_lang => $source_id);
+                    foreach ($target_langs as $target_lang) {
+                        if (!empty($all_created_ids[$target_lang]['references'][$index])) {
+                            $translation_ids[$target_lang] = $all_created_ids[$target_lang]['references'][$index];
                         }
                     }
                     pll_save_post_translations($translation_ids);
@@ -2754,6 +2829,11 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang)
                 }
             }
         }
+    }
+
+    // Also fall back to default references if none found
+    if (empty($data['references']) && function_exists('cv_one_pager_get_default_references')) {
+        $data['references'] = cv_one_pager_get_default_references($lang);
     }
 
     return $data;

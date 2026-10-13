@@ -576,6 +576,10 @@ if ($is_admin_editor) {
 						}
 					}
 				}
+				if (empty($all_references) && function_exists('cv_one_pager_get_default_references')) {
+					$current_lang = function_exists('pll_current_language') ? pll_current_language('slug') : 'fi';
+					$all_references = cv_one_pager_get_default_references($current_lang);
+				}
 				?>
 				<?php if (empty($all_references)) : ?>
 					<div class="card">

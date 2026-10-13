@@ -64,6 +64,24 @@ class CV_OAI_PLL_Content_Extractor {
             }
         }
 
+        // 3.5. Extract cv_reference custom fields if this is a cv_reference post
+        if ($post->post_type === 'cv_reference') {
+            $ref_title = get_post_meta($post->ID, '_cv_reference_title', true) ?: get_post_meta($post->ID, 'cv_reference_title', true);
+            if (!empty($ref_title) && is_string($ref_title)) {
+                $translatable['meta__cv_reference_title'] = [
+                    'type'    => 'text',
+                    'content' => $ref_title,
+                ];
+            }
+            $ref_company = get_post_meta($post->ID, '_cv_reference_company', true) ?: get_post_meta($post->ID, 'cv_reference_company', true);
+            if (!empty($ref_company) && is_string($ref_company)) {
+                $translatable['meta__cv_reference_company'] = [
+                    'type'    => 'text',
+                    'content' => $ref_company,
+                ];
+            }
+        }
+
         // 4. Extract Custom Fields / SEO fields
         $custom_fields = get_option('cv_oai_pll_custom_fields', [
             '_yoast_wpseo_title',
@@ -469,6 +487,27 @@ class CV_OAI_PLL_Content_Extractor {
                 if (isset($reassembled['meta_' . $meta_key])) {
                     $meta_data[$meta_key] = $reassembled['meta_' . $meta_key];
                 }
+            }
+        }
+
+        if ($post->post_type === 'cv_reference') {
+            if (isset($reassembled['meta__cv_reference_title'])) {
+                $meta_data['_cv_reference_title'] = sanitize_text_field($reassembled['meta__cv_reference_title']);
+                $meta_data['cv_reference_title']  = sanitize_text_field($reassembled['meta__cv_reference_title']);
+            }
+            if (isset($reassembled['meta__cv_reference_company'])) {
+                $meta_data['_cv_reference_company'] = sanitize_text_field($reassembled['meta__cv_reference_company']);
+                $meta_data['cv_reference_company']  = sanitize_text_field($reassembled['meta__cv_reference_company']);
+            }
+            $ref_email = get_post_meta($post->ID, '_cv_reference_email', true) ?: get_post_meta($post->ID, 'cv_reference_email', true);
+            if (!empty($ref_email)) {
+                $meta_data['_cv_reference_email'] = sanitize_text_field($ref_email);
+                $meta_data['cv_reference_email']  = sanitize_text_field($ref_email);
+            }
+            $ref_phone = get_post_meta($post->ID, '_cv_reference_phone', true) ?: get_post_meta($post->ID, 'cv_reference_phone', true);
+            if (!empty($ref_phone)) {
+                $meta_data['_cv_reference_phone'] = sanitize_text_field($ref_phone);
+                $meta_data['cv_reference_phone']  = sanitize_text_field($ref_phone);
             }
         }
 

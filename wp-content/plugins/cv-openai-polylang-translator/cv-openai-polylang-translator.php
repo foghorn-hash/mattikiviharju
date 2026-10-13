@@ -179,6 +179,16 @@ function cv_oai_pll_parse_json($content) {
 function cv_oai_pll_translate_post($post, $target_lang, $api_key, $model, $prompt) {
     $prompt = str_replace('{LANG}', $target_lang, $prompt);
 
+    $source_payload = array(
+        'title' => $post->post_title,
+        'excerpt' => $post->post_excerpt,
+        'content' => $post->post_content,
+    );
+    if ($post->post_type === 'cv_reference') {
+        $source_payload['reference_title'] = get_post_meta($post->ID, '_cv_reference_title', true) ?: get_post_meta($post->ID, 'cv_reference_title', true);
+        $source_payload['reference_company'] = get_post_meta($post->ID, '_cv_reference_company', true) ?: get_post_meta($post->ID, 'cv_reference_company', true);
+    }
+
     $payload = array(
         'model' => $model,
         'temperature' => 0.2,
@@ -190,11 +200,7 @@ function cv_oai_pll_translate_post($post, $target_lang, $api_key, $model, $promp
             ),
             array(
                 'role' => 'user',
-                'content' => wp_json_encode(array(
-                    'title' => $post->post_title,
-                    'excerpt' => $post->post_excerpt,
-                    'content' => $post->post_content,
-                )),
+                'content' => wp_json_encode($source_payload),
             ),
         ),
     );
@@ -213,6 +219,8 @@ function cv_oai_pll_translate_post($post, $target_lang, $api_key, $model, $promp
         'title' => isset($data['title']) ? (string) $data['title'] : '',
         'excerpt' => isset($data['excerpt']) ? (string) $data['excerpt'] : '',
         'content' => isset($data['content']) ? (string) $data['content'] : '',
+        'reference_title' => isset($data['reference_title']) ? (string) $data['reference_title'] : '',
+        'reference_company' => isset($data['reference_company']) ? (string) $data['reference_company'] : '',
     );
 }
 
@@ -287,6 +295,30 @@ function cv_oai_pll_run_translations() {
                 $thumb_id = get_post_thumbnail_id($post->ID);
                 if ($thumb_id) {
                     set_post_thumbnail($new_id, $thumb_id);
+                }
+            }
+
+            if ($post->post_type === 'cv_reference') {
+                $ref_title = !empty($translated['reference_title']) ? $translated['reference_title'] : (get_post_meta($post->ID, '_cv_reference_title', true) ?: get_post_meta($post->ID, 'cv_reference_title', true));
+                $ref_company = !empty($translated['reference_company']) ? $translated['reference_company'] : (get_post_meta($post->ID, '_cv_reference_company', true) ?: get_post_meta($post->ID, 'cv_reference_company', true));
+                $ref_email = get_post_meta($post->ID, '_cv_reference_email', true) ?: get_post_meta($post->ID, 'cv_reference_email', true);
+                $ref_phone = get_post_meta($post->ID, '_cv_reference_phone', true) ?: get_post_meta($post->ID, 'cv_reference_phone', true);
+
+                if (!empty($ref_title)) {
+                    update_post_meta($new_id, '_cv_reference_title', sanitize_text_field($ref_title));
+                    update_post_meta($new_id, 'cv_reference_title', sanitize_text_field($ref_title));
+                }
+                if (!empty($ref_company)) {
+                    update_post_meta($new_id, '_cv_reference_company', sanitize_text_field($ref_company));
+                    update_post_meta($new_id, 'cv_reference_company', sanitize_text_field($ref_company));
+                }
+                if (!empty($ref_email)) {
+                    update_post_meta($new_id, '_cv_reference_email', sanitize_text_field($ref_email));
+                    update_post_meta($new_id, 'cv_reference_email', sanitize_text_field($ref_email));
+                }
+                if (!empty($ref_phone)) {
+                    update_post_meta($new_id, '_cv_reference_phone', sanitize_text_field($ref_phone));
+                    update_post_meta($new_id, 'cv_reference_phone', sanitize_text_field($ref_phone));
                 }
             }
 
