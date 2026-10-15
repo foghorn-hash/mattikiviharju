@@ -12,8 +12,10 @@ if (have_posts()) :
             </section>
             <section class="post-content">
                 <div class="container">
-                    <article class="card">
-                        <?php the_content(); ?>
+                    <article class="card post-body-card">
+                        <div class="entry-content">
+                            <?php the_content(); ?>
+                        </div>
                     </article>
                 </div>
             </section>

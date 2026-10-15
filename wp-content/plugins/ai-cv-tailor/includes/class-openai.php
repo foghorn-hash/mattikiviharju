@@ -35,6 +35,9 @@ class AI_CV_Tailor_OpenAI {
 			'posts_per_page' => -1,
 			'post_status'    => 'publish',
 		) );
+		if ( function_exists( 'cv_one_pager_sort_experience_items' ) ) {
+			$experiences = cv_one_pager_sort_experience_items( $experiences );
+		}
 		
 		if ( ! empty( $experiences ) ) {
 			$cv_data['dynamic_experiences'] = array();

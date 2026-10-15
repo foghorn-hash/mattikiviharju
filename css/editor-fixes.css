@@ -10,3 +10,16 @@ body.block-editor-page .editor-styles-wrapper,
 body.block-editor-page .editor-styles-wrapper .block-editor-block-list__layout {
   opacity: 1 !important;
 }
+
+/* Full-width embeds in Gutenberg editor */
+body.block-editor-page .wp-block-embed,
+body.block-editor-page .wp-block-embed .wp-block-embed__wrapper,
+body.block-editor-page .wp-block-embed iframe,
+body.block-editor-page .wp-block-embed-soundcloud,
+body.block-editor-page .wp-block-embed-soundcloud iframe,
+body.block-editor-page .wp-block-embed-youtube,
+body.block-editor-page .wp-block-embed-youtube iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+

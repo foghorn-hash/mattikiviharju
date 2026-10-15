@@ -1,8 +1,13 @@
 <?php
 
+if (!isset($content_width)) {
+    $content_width = 1200;
+}
+
 function cv_one_pager_setup() {
     add_theme_support('title-tag');
     add_theme_support('post-thumbnails');
+    add_theme_support('responsive-embeds');
     add_theme_support('custom-logo', array(
         'height' => 80,
         'width' => 240,
@@ -126,7 +131,7 @@ function cv_one_pager_assets() {
         array(),
         '1.11.3'
     );
-    wp_enqueue_style('cv-one-pager-style', get_stylesheet_uri(), array('cv-one-pager-fonts', 'bootstrap-icons'), '1.0.1');
+    wp_enqueue_style('cv-one-pager-style', get_stylesheet_uri(), array('cv-one-pager-fonts', 'bootstrap-icons'), '1.0.2');
 
     wp_enqueue_script(
         'cv-one-pager-nav',
@@ -1095,6 +1100,11 @@ function cv_one_pager_save_meta_boxes($post_id) {
 
             add_action('save_post', 'cv_one_pager_save_meta_boxes');
         }
+
+        // Re-sync menu_orders so newest to oldest order is maintained
+        if (function_exists('cv_one_pager_sync_all_experience_menu_orders')) {
+            cv_one_pager_sync_all_experience_menu_orders();
+        }
     }
     if (isset($_POST['cv_education_meta_nonce']) && wp_verify_nonce($_POST['cv_education_meta_nonce'], 'cv_education_meta_save')) {
         if (isset($_POST['cv_education_school'])) {
@@ -1785,3 +1795,458 @@ function cv_one_pager_customize_register($wp_customize) {
     ));
 }
 add_action('customize_register', 'cv_one_pager_customize_register');
+
+/**
+ * CV Experience Date-Based Smart Sorting & Auto-Ordering
+ * Orders work experiences from newest to oldest (e.g. 2026 first, 1996 last).
+ */
+
+function cv_one_pager_split_date_range($str) {
+    if (empty($str) || !is_string($str)) {
+        return array('', null);
+    }
+
+    $str = str_replace(array("–", "—", "−"), "-", $str);
+    $str = trim($str);
+
+    // 1. Separator with spaces around hyphen or word "to" or "..."
+    if (preg_match('/\s+(-|\bto\b|\.{2,})\s*/ui', $str)) {
+        $parts = preg_split('/\s+(-|\bto\b|\.{2,})\s*/ui', $str, 2);
+        return array(trim($parts[0]), isset($parts[1]) ? trim($parts[1]) : '');
+    }
+
+    // 2. Format "YYYY-YYYY" without spaces
+    if (preg_match('/^(\d{4})-(\d{4})$/', $str, $m)) {
+        return array($m[1], $m[2]);
+    }
+
+    // 3. Format "MM.YYYY-MM.YYYY" or "MM/YYYY-MM/YYYY" without spaces
+    if (preg_match('/^(\d{1,2}[\.\/]\d{4})-(\d{1,2}[\.\/]\d{4})$/', $str, $m)) {
+        return array($m[1], $m[2]);
+    }
+
+    // 4. Trailing dash e.g. "2024-" or "2024 -"
+    if (preg_match('/^(.*?)-$/', $str, $m)) {
+        return array(trim($m[1]), '');
+    }
+
+    // 5. Fallback split on single hyphen
+    if (preg_match('/^(.*?)-(.*?)$/', $str, $m)) {
+        return array(trim($m[1]), trim($m[2]));
+    }
+
+    return array($str, null);
+}
+
+function cv_one_pager_parse_cv_date_part($part, $is_end = false) {
+    $part = trim($part);
+    if ($part === '') {
+        return null;
+    }
+
+    $lower = mb_strtolower($part, 'UTF-8');
+
+    // Check ongoing indicators in Finnish, English, Swedish
+    $ongoing_patterns = array(
+        'nykyhetki', 'nykypäivä', 'nykyisin', 'nykyinen', 'nyt', 'jatkuu', 'edelleen',
+        'present', 'current', 'currently', 'ongoing', 'now', 'today',
+        'tillsvidare', 'pågående', 'nuvarande', 'nu'
+    );
+    foreach ($ongoing_patterns as $word) {
+        if (strpos($lower, $word) !== false) {
+            return array(
+                'is_ongoing' => true,
+                'year' => 9999,
+                'month' => 12,
+                'raw' => $part
+            );
+        }
+    }
+
+    // Month mappings (Fi / En / Sv)
+    $months = array(
+        'tammi' => 1, 'helmi' => 2, 'maalis' => 3, 'huhti' => 4,
+        'touko' => 5, 'kesä' => 6, 'heinä' => 7, 'elo' => 8,
+        'syys' => 9, 'loka' => 10, 'marras' => 11, 'joulu' => 12,
+        'kevät' => 4, 'syksy' => 10, 'talvi' => 12,
+
+        'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4,
+        'may' => 5, 'jun' => 6, 'jul' => 7, 'aug' => 8,
+        'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12,
+        'spring' => 4, 'summer' => 7, 'autumn' => 10, 'fall' => 10, 'winter' => 12,
+
+        'maj' => 5, 'okt' => 10, 'vår' => 4, 'sommar' => 7, 'höst' => 10, 'vinter' => 12
+    );
+
+    $found_month = null;
+    foreach ($months as $key => $m) {
+        if (preg_match('/\b' . preg_quote($key, '/') . '[a-zåäö]*/ui', $lower)) {
+            $found_month = $m;
+            break;
+        }
+    }
+
+    // 4-digit year (19xx or 20xx)
+    $year = null;
+    if (preg_match('/\b(19\d\d|20\d\d)\b/', $part, $ym)) {
+        $year = (int)$ym[1];
+    }
+
+    // Try finding numeric month e.g. 01/2026, 1.2026, 2026-01
+    if ($found_month === null && $year !== null) {
+        if (preg_match('/(\b\d{1,2})[\.\/\-]' . $year . '\b/', $part, $mm)) {
+            $m_val = (int)$mm[1];
+            if ($m_val >= 1 && $m_val <= 12) {
+                $found_month = $m_val;
+            }
+        } elseif (preg_match('/\b' . $year . '[\.\/\-](\d{1,2})\b/', $part, $mm)) {
+            $m_val = (int)$mm[1];
+            if ($m_val >= 1 && $m_val <= 12) {
+                $found_month = $m_val;
+            }
+        }
+    }
+
+    if ($year !== null) {
+        if ($found_month === null) {
+            $found_month = $is_end ? 12 : 1;
+        }
+        return array(
+            'is_ongoing' => false,
+            'year' => $year,
+            'month' => $found_month,
+            'raw' => $part
+        );
+    }
+
+    return null;
+}
+
+function cv_one_pager_parse_cv_dates($dates_str) {
+    if (empty($dates_str) || !is_string($dates_str)) {
+        return array(
+            'start' => null,
+            'end' => null,
+            'is_ongoing' => 0,
+            'has_valid_date' => 0,
+            'end_year' => 0,
+            'end_month' => 0,
+            'start_year' => 0,
+            'start_month' => 0
+        );
+    }
+
+    $parts = cv_one_pager_split_date_range($dates_str);
+
+    if ($parts[1] !== null) {
+        $start_info = cv_one_pager_parse_cv_date_part($parts[0], false);
+        $end_info = cv_one_pager_parse_cv_date_part($parts[1], true);
+
+        // Trailing dash e.g. "2024 -" indicates ongoing
+        if ($end_info === null && trim($parts[1]) === '' && $start_info !== null) {
+            $end_info = array(
+                'is_ongoing' => true,
+                'year' => 9999,
+                'month' => 12,
+                'raw' => ''
+            );
+        }
+    } else {
+        $single_info = cv_one_pager_parse_cv_date_part($parts[0], true);
+        $start_info = $single_info;
+        $end_info = $single_info;
+    }
+
+    $is_ongoing = ($end_info && !empty($end_info['is_ongoing'])) ? 1 : 0;
+    $has_valid_date = ($end_info !== null || $start_info !== null) ? 1 : 0;
+
+    $end_year = $end_info ? $end_info['year'] : ($start_info ? $start_info['year'] : 0);
+    $end_month = $end_info ? $end_info['month'] : ($start_info ? $start_info['month'] : 0);
+    $start_year = $start_info ? $start_info['year'] : ($end_info ? $end_info['year'] : 0);
+    $start_month = $start_info ? $start_info['month'] : ($end_info ? $end_info['month'] : 0);
+
+    return array(
+        'start' => $start_info,
+        'end' => $end_info,
+        'is_ongoing' => $is_ongoing,
+        'has_valid_date' => $has_valid_date,
+        'end_year' => $end_year,
+        'end_month' => $end_month,
+        'start_year' => $start_year,
+        'start_month' => $start_month
+    );
+}
+
+function cv_one_pager_compare_cv_dates($dates_a, $dates_b) {
+    $a = cv_one_pager_parse_cv_dates($dates_a);
+    $b = cv_one_pager_parse_cv_dates($dates_b);
+
+    // 1. Items with valid dates come before items without dates
+    if ($a['has_valid_date'] !== $b['has_valid_date']) {
+        return ($a['has_valid_date'] > $b['has_valid_date']) ? -1 : 1;
+    }
+
+    // 2. Ongoing positions come first
+    if ($a['is_ongoing'] !== $b['is_ongoing']) {
+        return ($a['is_ongoing'] > $b['is_ongoing']) ? -1 : 1;
+    }
+
+    // If both are ongoing, compare start year & month DESC
+    if ($a['is_ongoing'] && $b['is_ongoing']) {
+        if ($a['start_year'] !== $b['start_year']) {
+            return ($a['start_year'] > $b['start_year']) ? -1 : 1;
+        }
+        if ($a['start_month'] !== $b['start_month']) {
+            return ($a['start_month'] > $b['start_month']) ? -1 : 1;
+        }
+        return 0;
+    }
+
+    // 3. Compare end_year DESC (e.g. 2026 before 1996)
+    if ($a['end_year'] !== $b['end_year']) {
+        return ($a['end_year'] > $b['end_year']) ? -1 : 1;
+    }
+
+    // 4. Compare end_month DESC
+    if ($a['end_month'] !== $b['end_month']) {
+        return ($a['end_month'] > $b['end_month']) ? -1 : 1;
+    }
+
+    // 5. Compare start_year DESC (if completed same year, job started later is newer)
+    if ($a['start_year'] !== $b['start_year']) {
+        return ($a['start_year'] > $b['start_year']) ? -1 : 1;
+    }
+
+    // 6. Compare start_month DESC
+    if ($a['start_month'] !== $b['start_month']) {
+        return ($a['start_month'] > $b['start_month']) ? -1 : 1;
+    }
+
+    return 0;
+}
+
+function cv_one_pager_sort_experience_items($items) {
+    if (empty($items) || !is_array($items)) {
+        return $items;
+    }
+
+    usort($items, function($a, $b) {
+        $dates_a = '';
+        $dates_b = '';
+        $order_a = 0;
+        $order_b = 0;
+        $id_a = 0;
+        $id_b = 0;
+
+        if (is_object($a)) {
+            $id_a = isset($a->ID) ? (int)$a->ID : 0;
+            $order_a = isset($a->menu_order) ? (int)$a->menu_order : 0;
+            if (function_exists('get_post_meta') && $id_a > 0) {
+                $dates_a = get_post_meta($id_a, '_cv_experience_dates', true);
+                if (empty($dates_a)) {
+                    $dates_a = get_post_meta($id_a, 'cv_experience_dates', true);
+                }
+            } elseif (isset($a->dates)) {
+                $dates_a = $a->dates;
+            }
+        } elseif (is_array($a)) {
+            $id_a = isset($a['ID']) ? (int)$a['ID'] : (isset($a['id']) ? (int)$a['id'] : 0);
+            $order_a = isset($a['menu_order']) ? (int)$a['menu_order'] : 0;
+            $dates_a = $a['dates'] ?? ($a['_cv_experience_dates'] ?? ($a['cv_experience_dates'] ?? ''));
+        }
+
+        if (is_object($b)) {
+            $id_b = isset($b->ID) ? (int)$b->ID : 0;
+            $order_b = isset($b->menu_order) ? (int)$b->menu_order : 0;
+            if (function_exists('get_post_meta') && $id_b > 0) {
+                $dates_b = get_post_meta($id_b, '_cv_experience_dates', true);
+                if (empty($dates_b)) {
+                    $dates_b = get_post_meta($id_b, 'cv_experience_dates', true);
+                }
+            } elseif (isset($b->dates)) {
+                $dates_b = $b->dates;
+            }
+        } elseif (is_array($b)) {
+            $id_b = isset($b['ID']) ? (int)$b['ID'] : (isset($b['id']) ? (int)$b['id'] : 0);
+            $order_b = isset($b['menu_order']) ? (int)$b['menu_order'] : 0;
+            $dates_b = $b['dates'] ?? ($b['_cv_experience_dates'] ?? ($b['cv_experience_dates'] ?? ''));
+        }
+
+        $cmp = cv_one_pager_compare_cv_dates($dates_a, $dates_b);
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+
+        // Tie-breaker: menu_order DESC
+        if ($order_a !== $order_b) {
+            return ($order_a > $order_b) ? -1 : 1;
+        }
+
+        // Tie-breaker: ID DESC
+        if ($id_a !== $id_b) {
+            return ($id_a > $id_b) ? -1 : 1;
+        }
+
+        return 0;
+    });
+
+    return $items;
+}
+
+/**
+ * Re-indexes menu_order for all cv_experience posts so that newest is highest.
+ */
+function cv_one_pager_sync_all_experience_menu_orders() {
+    $languages = array('');
+    if (function_exists('pll_languages_list')) {
+        $pll_langs = pll_languages_list();
+        if (!empty($pll_langs) && is_array($pll_langs)) {
+            $languages = $pll_langs;
+        }
+    }
+
+    global $wpdb;
+
+    foreach ($languages as $lang) {
+        $args = array(
+            'post_type' => 'cv_experience',
+            'numberposts' => -1,
+            'post_status' => 'any',
+            'suppress_filters' => false,
+        );
+        if (!empty($lang)) {
+            $args['lang'] = $lang;
+        }
+        $posts = get_posts($args);
+        if (empty($posts)) {
+            continue;
+        }
+
+        $sorted = cv_one_pager_sort_experience_items($posts);
+        $total = count($sorted);
+        $order = $total * 10;
+
+        foreach ($sorted as $p) {
+            $current_order = (int)$p->menu_order;
+            if ($current_order !== $order) {
+                if (!empty($wpdb)) {
+                    $wpdb->update(
+                        $wpdb->posts,
+                        array('menu_order' => $order),
+                        array('ID' => $p->ID),
+                        array('%d'),
+                        array('%d')
+                    );
+                } else {
+                    wp_update_post(array(
+                        'ID' => $p->ID,
+                        'menu_order' => $order
+                    ));
+                }
+                clean_post_cache($p->ID);
+            }
+            $order -= 10;
+        }
+    }
+}
+
+/**
+ * Automatically sync experience orders once in admin.
+ */
+function cv_one_pager_auto_sync_experience_orders_once() {
+    if (!is_admin()) {
+        return;
+    }
+    if (!get_option('cv_experience_orders_synced_v3')) {
+        cv_one_pager_sync_all_experience_menu_orders();
+        update_option('cv_experience_orders_synced_v3', 1);
+    }
+}
+add_action('admin_init', 'cv_one_pager_auto_sync_experience_orders_once');
+
+/**
+ * Add Company & Dates columns to cv_experience post list in admin.
+ */
+function cv_one_pager_cv_experience_columns($columns) {
+    $new_columns = array();
+    foreach ($columns as $key => $title) {
+        $new_columns[$key] = $title;
+        if ($key === 'title') {
+            $new_columns['cv_company'] = __('Työnantaja / Company', 'cv-one-pager');
+            $new_columns['cv_dates'] = __('Ajankohta / Dates', 'cv-one-pager');
+        }
+    }
+    return $new_columns;
+}
+add_filter('manage_cv_experience_posts_columns', 'cv_one_pager_cv_experience_columns');
+
+function cv_one_pager_cv_experience_column_content($column, $post_id) {
+    if ($column === 'cv_company') {
+        $company = get_post_meta($post_id, '_cv_experience_company', true);
+        if (empty($company)) {
+            $company = get_post_meta($post_id, 'cv_experience_company', true);
+        }
+        echo esc_html($company ?: '—');
+    } elseif ($column === 'cv_dates') {
+        $dates = get_post_meta($post_id, '_cv_experience_dates', true);
+        if (empty($dates)) {
+            $dates = get_post_meta($post_id, 'cv_experience_dates', true);
+        }
+        echo esc_html($dates ?: '—');
+    }
+}
+add_action('manage_cv_experience_posts_custom_column', 'cv_one_pager_cv_experience_column_content', 10, 2);
+
+/**
+ * Ensure default admin order for cv_experience is menu_order DESC.
+ */
+function cv_one_pager_admin_experience_order($query) {
+    if (is_admin() && $query->is_main_query() && $query->get('post_type') === 'cv_experience') {
+        if (!$query->get('orderby')) {
+            $query->set('orderby', 'menu_order');
+            $query->set('order', 'DESC');
+        }
+    }
+}
+add_action('pre_get_posts', 'cv_one_pager_admin_experience_order');
+
+/**
+ * Admin action and notice to manually re-sort experiences if desired.
+ */
+function cv_one_pager_experience_admin_notices() {
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if ($screen && $screen->id === 'edit-cv_experience') {
+        if (isset($_GET['cv_experience_resorted'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Työkokemukset järjestetty onnistuneesti uusimmasta vanhimpaan päivämäärien mukaan (2026 → 1996)!', 'cv-one-pager') . '</p></div>';
+        }
+    }
+}
+add_action('admin_notices', 'cv_one_pager_experience_admin_notices');
+
+function cv_one_pager_handle_resort_experience_action() {
+    if (!is_admin() || !current_user_can('edit_posts')) {
+        return;
+    }
+    if (isset($_GET['action']) && $_GET['action'] === 'cv_resort_experience' && check_admin_referer('cv_resort_experience_nonce')) {
+        cv_one_pager_sync_all_experience_menu_orders();
+        wp_safe_redirect(add_query_arg(array('post_type' => 'cv_experience', 'cv_experience_resorted' => '1'), admin_url('edit.php')));
+        exit;
+    }
+}
+add_action('admin_init', 'cv_one_pager_handle_resort_experience_action');
+
+function cv_one_pager_add_resort_button() {
+    $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+    if ($screen && $screen->id === 'edit-cv_experience') {
+        $resort_url = wp_nonce_url(admin_url('edit.php?post_type=cv_experience&action=cv_resort_experience'), 'cv_resort_experience_nonce');
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            $('.page-title-action').after('<a href="<?php echo esc_url($resort_url); ?>" class="page-title-action" style="margin-left: 8px;">Järjestä päivämäärien mukaan (2026 &rarr; 1996)</a>');
+        });
+        </script>
+        <?php
+    }
+}
+add_action('admin_footer', 'cv_one_pager_add_resort_button');
+

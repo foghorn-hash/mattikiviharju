@@ -1551,6 +1551,152 @@ img {
   color: var(--accent-3);
 }
 
+/* ==========================================================================
+   Full-Width Responsive Embeds (Videos & SoundCloud)
+   ========================================================================== */
+
+/* Universal container width for embeds */
+.entry-content .wp-block-embed,
+.entry-content figure.wp-block-embed,
+.entry-content .wp-block-video,
+.entry-content .wp-block-audio,
+.entry-content .wp-block-embed__wrapper,
+.post-body-card .wp-block-embed,
+.post-body-card figure.wp-block-embed,
+.post-body-card .wp-block-video,
+.post-body-card .wp-block-audio,
+.post-body-card .wp-block-embed__wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+.entry-content .wp-block-embed,
+.entry-content figure.wp-block-embed,
+.entry-content .wp-block-video,
+.post-body-card .wp-block-embed,
+.post-body-card figure.wp-block-embed,
+.post-body-card .wp-block-video {
+  margin: 28px 0 !important;
+  clear: both;
+}
+
+/* Ensure paragraph wrappers around iframes stretch to 100% */
+.entry-content p:has(> iframe),
+.post-body-card p:has(> iframe) {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* --- Video Embeds (YouTube, Vimeo, HTML5 Video) --- */
+/* Gutenberg aspect-ratio responsive embed wrapper */
+.entry-content .wp-block-embed.wp-has-aspect-ratio .wp-block-embed__wrapper,
+.post-body-card .wp-block-embed.wp-has-aspect-ratio .wp-block-embed__wrapper {
+  position: relative;
+  width: 100% !important;
+}
+
+.entry-content .wp-block-embed.wp-has-aspect-ratio .wp-block-embed__wrapper iframe,
+.post-body-card .wp-block-embed.wp-has-aspect-ratio .wp-block-embed__wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  border-radius: 14px;
+}
+
+/* Videos without Gutenberg aspect-ratio wrapper, and raw / oEmbed video iframes */
+.entry-content .wp-block-embed-youtube .wp-block-embed__wrapper iframe,
+.entry-content .wp-block-embed-vimeo .wp-block-embed__wrapper iframe,
+.entry-content .wp-block-embed.is-type-video:not(.wp-has-aspect-ratio) .wp-block-embed__wrapper iframe,
+.entry-content iframe[src*="youtube.com"],
+.entry-content iframe[src*="youtube-nocookie.com"],
+.entry-content iframe[src*="youtu.be"],
+.entry-content iframe[src*="vimeo.com"],
+.post-body-card .wp-block-embed-youtube .wp-block-embed__wrapper iframe,
+.post-body-card .wp-block-embed-vimeo .wp-block-embed__wrapper iframe,
+.post-body-card .wp-block-embed.is-type-video:not(.wp-has-aspect-ratio) .wp-block-embed__wrapper iframe,
+.post-body-card iframe[src*="youtube.com"],
+.post-body-card iframe[src*="youtube-nocookie.com"],
+.post-body-card iframe[src*="youtu.be"],
+.post-body-card iframe[src*="vimeo.com"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  aspect-ratio: 16 / 9;
+  height: auto !important;
+  min-height: 240px;
+  display: block;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  margin: 20px 0;
+}
+
+/* Native video tag & Gutenberg video block */
+.entry-content .wp-block-video video,
+.entry-content video,
+.entry-content .wp-video,
+.entry-content .wp-video-shortcode,
+.post-body-card .wp-block-video video,
+.post-body-card video,
+.post-body-card .wp-video,
+.post-body-card .wp-video-shortcode {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  display: block;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  margin: 20px 0;
+}
+
+/* --- SoundCloud Embeds --- */
+.entry-content .wp-block-embed-soundcloud,
+.entry-content .wp-block-embed.is-provider-soundcloud,
+.entry-content figure.wp-block-embed-soundcloud,
+.post-body-card .wp-block-embed-soundcloud,
+.post-body-card .wp-block-embed.is-provider-soundcloud,
+.post-body-card figure.wp-block-embed-soundcloud {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 28px 0 !important;
+}
+
+.entry-content .wp-block-embed-soundcloud .wp-block-embed__wrapper,
+.entry-content .wp-block-embed.is-provider-soundcloud .wp-block-embed__wrapper,
+.post-body-card .wp-block-embed-soundcloud .wp-block-embed__wrapper,
+.post-body-card .wp-block-embed.is-provider-soundcloud .wp-block-embed__wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.entry-content .wp-block-embed-soundcloud iframe,
+.entry-content .wp-block-embed.is-provider-soundcloud iframe,
+.entry-content iframe[src*="soundcloud.com"],
+.entry-content iframe[src*="w.soundcloud.com"],
+.post-body-card .wp-block-embed-soundcloud iframe,
+.post-body-card .wp-block-embed.is-provider-soundcloud iframe,
+.post-body-card iframe[src*="soundcloud.com"],
+.post-body-card iframe[src*="w.soundcloud.com"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+  display: block;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  margin: 20px 0;
+}
+
+/* Any general iframe in post content */
+.entry-content iframe,
+.post-body-card iframe {
+  max-width: 100%;
+}
+
 /* Post Tags */
 .post-tags-list {
   display: flex;

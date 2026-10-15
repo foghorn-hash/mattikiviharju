@@ -1335,7 +1335,10 @@ function cv_pdf_acf_populate_fields($page_id, $cv_data, $lang = 'fi', $uploaded_
             wp_delete_post($exp->ID, true);
         }
 
-        // Create new experience items
+        // Create new experience items (sorted newest to oldest)
+        if (function_exists('cv_one_pager_sort_experience_items')) {
+            $cv_data['experience_items'] = cv_one_pager_sort_experience_items($cv_data['experience_items']);
+        }
         $menu_order = count($cv_data['experience_items']);
         foreach ($cv_data['experience_items'] as $index => $item) {
             $post_data = array(
@@ -2194,6 +2197,13 @@ function cv_pdf_acf_handle_experience_upload()
             return (!empty($existing) && isset($existing[0]->menu_order)) ? (int) $existing[0]->menu_order : 0;
         };
 
+        if (function_exists('cv_one_pager_sort_experience_items')) {
+            $experience_items = cv_one_pager_sort_experience_items($experience_items);
+            if (isset($experience_result['experience_items'])) {
+                $experience_result['experience_items'] = $experience_items;
+            }
+        }
+
         $total_items = count($experience_items);
         $base_order = $calculate_base_order($source_lang) + $total_items;
         $order = $base_order;
@@ -2708,6 +2718,9 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang)
         'suppress_filters' => false
     );
     $experience_items = get_posts($experience_query);
+    if (function_exists('cv_one_pager_sort_experience_items')) {
+        $experience_items = cv_one_pager_sort_experience_items($experience_items);
+    }
     foreach ($experience_items as $item) {
         $data['experience'][] = array(
             'company' => get_post_meta($item->ID, '_cv_experience_company', true),

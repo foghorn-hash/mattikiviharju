@@ -140,6 +140,9 @@ if ($is_admin_editor) {
 					$experience_query['suppress_filters'] = false;
 				}
 				$experience_items = get_posts($experience_query);
+				if (function_exists('cv_one_pager_sort_experience_items')) {
+					$experience_items = cv_one_pager_sort_experience_items($experience_items);
+				}
 				?>
 				<?php foreach ($experience_items as $item) : ?>
 					<?php 
