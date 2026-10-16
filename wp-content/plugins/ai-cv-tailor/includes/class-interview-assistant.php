@@ -145,13 +145,31 @@ class AI_CV_Tailor_Interview_Assistant {
 			return true;
 		}
 
+		$token = '';
 		$auth_header = $request->get_header( 'authorization' );
 		if ( empty( $auth_header ) && isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
 			$auth_header = $_SERVER['HTTP_AUTHORIZATION'];
 		}
+		if ( empty( $auth_header ) && isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
+			$auth_header = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+		}
 
 		if ( ! empty( $auth_header ) && preg_match( '/Bearer\s+(.*)$/i', $auth_header, $matches ) ) {
 			$token = trim( $matches[1] );
+		}
+
+		// Fallback headers for Apache environments that strip Authorization header
+		if ( empty( $token ) ) {
+			$token = $request->get_header( 'x-device-token' );
+		}
+		if ( empty( $token ) && isset( $_SERVER['HTTP_X_DEVICE_TOKEN'] ) ) {
+			$token = sanitize_text_field( $_SERVER['HTTP_X_DEVICE_TOKEN'] );
+		}
+		if ( empty( $token ) ) {
+			$token = $request->get_param( 'device_token' );
+		}
+
+		if ( ! empty( $token ) ) {
 			$user_id = $this->validate_device_token( $token );
 			if ( $user_id ) {
 				wp_set_current_user( $user_id );

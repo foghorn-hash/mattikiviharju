@@ -1,4 +1,4 @@
-import { AppConfig, ExtensionMessage, InterviewPreparation, AISuggestion } from './types';
+import type { AppConfig, ExtensionMessage, InterviewPreparation, AISuggestion } from './types';
 
 // Declare window.api from preload
 declare global {
@@ -733,4 +733,8 @@ function initAvatarCanvas() {
 }
 
 // Run
-window.addEventListener('DOMContentLoaded', initApp);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

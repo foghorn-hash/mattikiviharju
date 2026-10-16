@@ -130,6 +130,10 @@
 
   // Start Listening
   function startListening() {
+    setListeningUI(true);
+    setupCaptionsObserver();
+    setupFallbackSpeechRecognition();
+
     chrome.runtime.sendMessage(
       {
         action: 'START_LISTENING',
@@ -137,10 +141,8 @@
         captureTabAudio: true,
       },
       (res) => {
-        if (res && res.success) {
-          setListeningUI(true);
-          setupCaptionsObserver();
-          setupFallbackSpeechRecognition();
+        if (chrome.runtime.lastError) {
+          console.warn('[i4ware] startListening warning:', chrome.runtime.lastError);
         }
       }
     );

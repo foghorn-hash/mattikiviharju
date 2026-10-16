@@ -63,6 +63,13 @@ function createMainWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow?.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (avatarPopoutWindow) {
@@ -152,11 +159,12 @@ function startLoopbackServer(port: number) {
     // Origin check
     const origin = req.headers.origin || '';
     const isExtension =
+      !origin ||
       origin.startsWith('chrome-extension://') ||
       origin.startsWith('edge-extension://') ||
       origin.startsWith('moz-extension://') ||
-      origin === 'http://localhost' ||
-      origin === 'http://127.0.0.1';
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1');
 
     if (!isExtension) {
       console.warn('Rejected connection from untrusted origin:', origin);
@@ -264,6 +272,7 @@ function setupIpcHandlers() {
       const res = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${appConfig.deviceToken}`,
+          'X-Device-Token': appConfig.deviceToken,
         },
       });
       return await res.json();
@@ -285,6 +294,7 @@ function setupIpcHandlers() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${appConfig.deviceToken}`,
+          'X-Device-Token': appConfig.deviceToken,
         },
         body: JSON.stringify(prep),
       });
@@ -307,6 +317,7 @@ function setupIpcHandlers() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${appConfig.deviceToken}`,
+          'X-Device-Token': appConfig.deviceToken,
         },
         body: JSON.stringify({ question, mode, history }),
       });
@@ -329,6 +340,7 @@ function setupIpcHandlers() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${appConfig.deviceToken}`,
+          'X-Device-Token': appConfig.deviceToken,
         },
         body: JSON.stringify({
           transcripts,

@@ -142,6 +142,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     isListening = true;
     activeMeetingTabId = sender?.tab?.id || activeMeetingTabId;
 
+    // Send response right away to update UI
+    sendResponse({ success: true, isListening: true });
+
     connectToDesktopApp().then(async () => {
       sendToDesktop({
         type: 'LISTENING_STATE',
@@ -149,24 +152,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         platform: request.platform || 'meet_web',
       });
 
-      // Start tab capture via offscreen if requested
-      if (request.captureTabAudio && sender?.tab?.id) {
+      // Start tab capture via offscreen if supported
+      if (request.captureTabAudio && sender?.tab?.id && chrome.tabCapture?.getMediaStreamId) {
         try {
           await ensureOffscreenDocument();
-          // Request stream ID from tab
           chrome.tabCapture.getMediaStreamId({ targetTabId: sender.tab.id }, (streamId) => {
-            chrome.runtime.sendMessage({
-              type: 'START_TAB_AUDIO_STREAM',
-              target: 'offscreen',
-              streamId: streamId,
-            });
+            if (streamId && !chrome.runtime.lastError) {
+              chrome.runtime.sendMessage({
+                type: 'START_TAB_AUDIO_STREAM',
+                target: 'offscreen',
+                streamId: streamId,
+              }).catch(() => {});
+            }
           });
         } catch (e) {
-          console.warn('[i4ware Extension] Tab audio capture initiation note:', e);
+          console.warn('[i4ware Extension] Tab audio capture error:', e);
         }
       }
-
-      sendResponse({ success: true, isListening: true });
+    }).catch((err) => {
+      console.warn('[i4ware Extension] Connect desktop error:', err);
     });
     return true;
   }

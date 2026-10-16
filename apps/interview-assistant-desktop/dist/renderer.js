@@ -629,4 +629,9 @@ function initAvatarCanvas() {
     requestAnimationFrame(renderFrame);
 }
 // Run
-window.addEventListener('DOMContentLoaded', initApp);
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initApp);
+}
+else {
+    initApp();
+}
