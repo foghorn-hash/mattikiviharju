@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>i4ware Job Seekers Autopilot AI - Haastatteluavustaja</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">AI</div>
+      <div>
+        <div class="brand-title">i4ware® Job Seekers Autopilot AI</div>
+        <div class="brand-subtitle">Haastatteluavustaja & LiveAvatar</div>
+      </div>
+    </div>
+
+    <!-- Center Mode Switcher -->
+    <div class="header-center">
+      <div class="mode-toggle">
+        <button type="button" class="mode-btn active" id="btn-mode-jobseeker">
+          <span>💼</span> Työnhakijan avustaja
+        </button>
+        <button type="button" class="mode-btn" id="btn-mode-hradvisor">
+          <span>👔</span> HR Advisor -tila
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Status Badges & Settings -->
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="badge" id="badge-wp">
+        <span class="badge-dot"></span>
+        <span id="badge-wp-text">Yhdistetään WordPressiin...</span>
+      </div>
+      <div class="badge" id="badge-extension">
+        <span class="badge-dot"></span>
+        <span id="badge-extension-text">Selainlaajennus: Odottaa</span>
+      </div>
+      <button type="button" class="btn btn-sm" id="btn-open-popout" title="Avaa jaettava LiveAvatar erilliseen ikkunaan ilman yksityisiä ohjeita">
+        📺 Avaa jaettava Avatar
+      </button>
+      <button type="button" class="btn btn-sm" id="btn-open-pairing" title="Asetukset ja WordPress-laiteparitus">
+        ⚙️ Paritus
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace -->
+  <main class="main-container">
+    
+    <!-- LEFT: OPERATOR PRIVATE PANEL (CONFIDENTIAL ADVICE) -->
+    <section class="column-operator" id="operator-panel">
+
+      <!-- Active Background Package Summary Bar -->
+      <div class="prep-bar">
+        <div class="prep-info">
+          <div class="prep-item">
+            <span style="color:var(--text-dim); font-size:11px; display:block;">KOHDEYRITYS & ROOLI</span>
+            <strong id="bar-company-role">Ladataan taustoja...</strong>
+          </div>
+          <div class="prep-item">
+            <span style="color:var(--text-dim); font-size:11px; display:block;">VASTAUSTEN KIELI</span>
+            <span id="bar-language" class="badge">Suomi (FI)</span>
+          </div>
+          <div class="prep-item">
+            <span style="color:var(--text-dim); font-size:11px; display:block;">VAHVISTETUT PROJEKTIT</span>
+            <span id="bar-projects-count" style="font-weight:600;">5 kpl</span>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" id="btn-refresh-prep" title="Päivitä taustapaketti WordPressistä">
+          🔄 Päivitä taustat
+        </button>
+      </div>
+
+      <!-- Live Interviewer Question Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🎙</span> Haastattelijan kysymys (Litterointi)
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span id="listening-indicator-badge" class="badge">
+              <span class="badge-dot"></span> <span id="listening-text">Kuuntelu pois</span>
+            </span>
+            <button type="button" class="btn btn-sm" id="btn-toggle-listen">
+              ▶ Aloita kuuntelu
+            </button>
+          </div>
+        </div>
+
+        <div class="question-box" id="interviewer-question-display">
+          Kuuntelu on valmiustilassa. Voit aktivoida selainlaajennuksen (Teams/Meet) tai käynnistää suoran mikrofonitestin alta.
+        </div>
+
+        <div class="question-controls">
+          <button type="button" class="btn btn-sm" id="btn-mic-test">
+            🎤 Testaa puhetta mikillä
+          </button>
+          <div style="flex:1;">
+            <input type="text" id="manual-question-input" class="form-control" style="font-size:13px; padding:6px 10px;" placeholder="Tai kirjoita kysymys tähän ja paina Enter..." />
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-submit-manual-q">
+            Analysoi
+          </button>
+        </div>
+
+        <!-- Quick Test Preset Buttons -->
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+          <span style="font-size:11px; color:var(--text-dim); align-self:center;">Pikatestit:</span>
+          <button type="button" class="btn btn-sm btn-preset" data-q="Kerro omin sanoin, mikä on vahvin tekninen ydinosaamisesi ja missä projekteissa olet sitä soveltanut?">Ydinosaaminen</button>
+          <button type="button" class="btn btn-sm btn-preset" data-q="Miten olet varmistanut REST API -rajapintojen tietoturvan ja skaalautuvuuden?">REST API & tietoturva</button>
+          <button type="button" class="btn btn-sm btn-preset" data-q="Miten toimit haastavissa tilanteissa, kun tiimin tai asiakkaan vaatimukset muuttuvat kesken sprintin?">Muutokset & ketteryys</button>
+          <button type="button" class="btn btn-sm btn-preset" data-q="Mikä on palkkatoiveesi tai tuntihintasi tähän toimeksiantoon?">Palkkatoive</button>
+        </div>
+      </div>
+
+      <!-- Loading Spinner -->
+      <div id="ai-loading-bar" style="display:none; padding:12px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:var(--radius-sm); font-size:13px; color:var(--accent-blue); align-items:center; gap:8px;">
+        <span class="badge-dot" style="background:var(--accent-blue); animation:pulse 1s infinite;"></span>
+        Analysoidaan kysymyksen tarkoitusta ja sovitetaan vahvistettuihin CV-faktoihin...
+      </div>
+
+      <!-- JOB SEEKER VIEW: AI STRUCTURED ADVICE -->
+      <div id="jobseeker-view" style="display: flex; flex-direction: column; gap: 10px;">
+        
+        <!-- Intent Card -->
+        <div class="advice-card intent">
+          <div class="advice-label" style="color:var(--accent-blue);">
+            <span>🎯</span> Kysymyksen varsinainen tarkoitus (Intent)
+          </div>
+          <div class="advice-content" id="advice-intent">
+            Avustaja odottaa ensimmäistä haastattelukysymystä. Tähän ilmestyy haastattelijan kysymyksen taustalla oleva tavoite.
+          </div>
+        </div>
+
+        <!-- Main Point First -->
+        <div class="advice-card main-point">
+          <div class="advice-label" style="color:var(--accent-green);">
+            <span>💡</span> Vastauksen pääasia ensin (Vastaa suoraan heti alkuun)
+          </div>
+          <div class="advice-content" id="advice-main-point" style="font-weight:600;">
+            Aloita vastaus aina suoralla, tiiviillä pääasialla ilman pitkää alkujohdantoa.
+          </div>
+        </div>
+
+        <!-- Supporting Points -->
+        <div class="advice-card points">
+          <div class="advice-label" style="color:var(--accent-purple);">
+            <span>📌</span> Enintään 3 lyhyttä tukikohtaa
+          </div>
+          <div class="advice-content">
+            <ul class="bullet-list" id="advice-supporting-points">
+              <li>Pääpointtia tukeva perustelu 1</li>
+              <li>Pääpointtia tukeva perustelu 2</li>
+              <li>Pääpointtia tukeva perustelu 3</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Real Concrete Example (Verified Facts Only) -->
+        <div class="advice-card example">
+          <div class="advice-label" style="color:var(--accent-amber);">
+            <span>🛠</span> Todellinen esimerkki vahvistetuista taustatiedoistasi (Aito data)
+          </div>
+          <div class="advice-content" id="advice-real-example">
+            Viittaus aitoon toteutettuun projektiin tai mitattavaan tulokseen (i4ware Timesheet for Jira, low-code SDK, tai AI CV).
+          </div>
+        </div>
+
+        <!-- Clarifying Question (If intent ambiguous) -->
+        <div class="advice-card clarify" id="advice-clarify-card" style="display:none;">
+          <div class="advice-label" style="color:#ec4899;">
+            <span>❓</span> Ehdotettu tarkentava vastakysymys (Kysymys oli monitulkintainen)
+          </div>
+          <div class="advice-content" id="advice-clarifying-question" style="font-weight:600;"></div>
+        </div>
+
+      </div>
+
+      <!-- HR ADVISOR VIEW (RECRUITER & INTERVIEWER MODE) -->
+      <div id="hradvisor-view" style="display: none; flex-direction: column; gap: 10px;">
+        
+        <div class="card" style="border-top: 3px solid var(--accent-purple);">
+          <div class="card-header">
+            <div class="card-title">
+              <span>👔</span> HR Advisor — Ehdokkaan arviointi & haastattelutyökalut
+            </div>
+            <div class="badge" id="hr-score-badge" style="background:rgba(139,92,246,0.2); color:#c4b5fd;">
+              Pisteytys: <strong id="hr-score-val" style="margin-left:4px;">4 / 5</strong>
+            </div>
+          </div>
+
+          <div class="advice-card points" style="margin-bottom:10px;">
+            <div class="advice-label" style="color:var(--accent-purple);">Avainosaamisen arviointi:</div>
+            <div id="hr-evaluation-content" style="font-size:13.5px; line-height:1.5;">
+              Ehdokkaan vastauksen vahvuudet ja havaitut osaamisalueet verrattuna roolin vaatimuksiin.
+            </div>
+          </div>
+
+          <div class="advice-card example" style="margin-bottom:10px;">
+            <div class="advice-label" style="color:var(--accent-amber);">Suositeltu seuraava syventävä kysymys:</div>
+            <div id="hr-next-question" style="font-size:14px; font-weight:600;">
+              Miten ratkaisit suorituskykyhaasteen suurilla datamäärillä?
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Haastattelijan omat muistiinpanot (Private Recruiter Notes):</label>
+            <textarea id="hr-private-notes" class="form-control" rows="3" placeholder="Kirjaa havaintoja ehdokkaasta tähän..."></textarea>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- RIGHT: LIVEAVATAR PREVIEW & SPEECH APPROVAL -->
+    <section class="column-avatar">
+      
+      <!-- LiveAvatar Visual Card -->
+      <div class="card" style="padding: 12px;">
+        <div class="card-header" style="margin-bottom: 8px;">
+          <div class="card-title">
+            <span>👤</span> LiveAvatar -esikatselu
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">
+            Interaktiivinen digitaalinen ihminen
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="avatar-container">
+          <canvas id="avatar-canvas"></canvas>
+          <div class="avatar-badge" id="avatar-status-badge">
+            <span class="badge-dot" style="background:var(--accent-green);"></span>
+            <span id="avatar-status-text">VALMIUSTILASSA</span>
+          </div>
+          <canvas class="waveform-canvas" id="waveform-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Speech Draft & Approval Card -->
+      <div class="card" style="flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+        <div class="speech-editor-wrap">
+          <div class="card-header" style="margin-bottom:6px;">
+            <div class="card-title">
+              <span>💬</span> Muokattava puheenvuoroluonnos
+            </div>
+            <span style="font-size:11px; color:var(--text-dim);" id="speech-char-count">0 merkkiä</span>
+          </div>
+
+          <p style="font-size:12px; color:var(--text-muted); line-height:1.4;">
+            Voit muokata tekstiä vapaasti. <strong style="color:var(--accent-amber);">Tekstin muuttaminen mitätöi hyväksynnän välittömästi.</strong>
+          </p>
+
+          <textarea class="speech-textarea" id="speech-draft-input" placeholder="Tekoälyn ehdottama puheenvuoro ilmestyy tähän. Voit myös kirjoittaa tai muokata sitä ennen puheluvan myöntämistä..."></textarea>
+
+          <div class="speech-status-bar">
+            <span>Puhelupa:</span>
+            <span class="approval-state approval-pending" id="approval-status-badge">Odottaa hyväksyntää</span>
+          </div>
+        </div>
+
+        <!-- Controls: Approve & Speak + Emergency Stop -->
+        <div style="margin-top:14px;">
+          <div class="speech-action-bar">
+            <button type="button" class="btn btn-success" id="btn-approve-speak" style="justify-content:center; padding:12px;">
+              <span>✓</span> Hyväksy ja puhu
+            </button>
+            <button type="button" class="btn btn-danger" id="btn-emergency-stop" style="justify-content:center; padding:12px;">
+              <span>⏹</span> Välitön Lopeta puhe
+            </button>
+          </div>
+
+          <!-- Strict Safeguards Note -->
+          <div style="margin-top:12px; padding:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius-sm); font-size:11.5px; color:var(--text-dim); line-height:1.4;">
+            🔒 <strong>Yksityisyys- ja puhesäännöt:</strong>
+            <ul style="margin:4px 0 0 16px;">
+              <li>Avatar puhuu <em>vain</em> nimenomaisesti hyväksytyn yksittäisen puheenvuoron.</li>
+              <li>Puheen jälkeen puhelupa poistuu automaattisesti.</li>
+              <li>Yhteyden katkeaminen tai palautuminen ei koskaan toista vanhaa puhetta.</li>
+              <li>Yksityiset ohjeet eivät siirry koskaan kokouksen chatiin.</li>
+              <li>Loopback-suojaus estää avatarin oman äänen päätymisen uudeksi kysymykseksi.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- MODAL: WORDPRESS PAIRING & SETTINGS -->
+  <div class="modal-overlay" id="pairing-modal">
+    <div class="modal-card">
+      <div class="modal-title">WordPress-laiteparitus ja asetukset</div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+        Yhdistä tämä Windows 11 -sovellus turvallisesti omaan WordPressiisi ilman salasanojen tallentamista.
+      </p>
+
+      <div class="form-group">
+        <label for="input-wp-url">Paikallinen WordPress URL:</label>
+        <input type="text" id="input-wp-url" class="form-control" value="http://localhost/mattikiviharju" />
+      </div>
+
+      <div class="form-group">
+        <label for="input-pair-code">6-merkkinen parituskoodi WordPressin hallinnasta:</label>
+        <input type="text" id="input-pair-code" class="form-control" style="font-family:monospace; font-size:18px; letter-spacing:3px; text-transform:uppercase;" placeholder="esim. K9X2P4" maxlength="12" />
+        <span style="font-size:11px; color:var(--text-dim);">Luo koodi WordPressin kohdasta <em>AI CV Tailor → Haastatteluavustaja</em>.</span>
+      </div>
+
+      <div id="pair-error-msg" style="display:none; color:var(--accent-red); font-size:13px; margin-bottom:12px;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button type="button" class="btn" id="btn-close-modal">Sulje</button>
+        <button type="button" class="btn btn-primary" id="btn-do-pair">
+          Yhdistä ja parita
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../dist/renderer.js"></script>
+</body>
+</html>

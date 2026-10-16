@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8">
+  <title>i4ware Kokousavustaja</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
+      color: #f1f5f9;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 10px;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .status-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: rgba(255,255,255,0.08);
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+    .dot.online { background: #10b981; }
+    .dot.active { background: #f59e0b; }
+    .btn {
+      width: 100%;
+      padding: 9px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-secondary { background: rgba(255,255,255,0.1); color: #cbd5e1; }
+    .privacy-notice {
+      font-size: 10.5px;
+      color: #64748b;
+      line-height: 1.4;
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand-icon">AI</div>
+    <div>
+      <div class="title">i4ware Kokousavustaja</div>
+      <div class="subtitle">Teams & Google Meet -integraatio</div>
+    </div>
+  </div>
+
+  <div class="status-card">
+    <div class="status-row">
+      <span style="color:#94a3b8;">Windows 11 App (127.0.0.1):</span>
+      <span class="badge" id="popup-app-badge">
+        <span class="dot" id="popup-app-dot"></span>
+        <span id="popup-app-text">Tarkistetaan...</span>
+      </span>
+    </div>
+    <div class="status-row" style="margin-bottom:0;">
+      <span style="color:#94a3b8;">Kuuntelun tila:</span>
+      <span class="badge" id="popup-listen-badge">
+        <span class="dot" id="popup-listen-dot"></span>
+        <span id="popup-listen-text">Pois käytöstä</span>
+      </span>
+    </div>
+  </div>
+
+  <button type="button" class="btn btn-primary" id="btn-popup-connect">
+    🔄 Yhdistä Windows-sovellukseen
+  </button>
+
+  <button type="button" class="btn btn-secondary" id="btn-popup-listen">
+    ▶ Aloita kuuntelu
+  </button>
+
+  <div class="privacy-notice">
+    🔒 <strong>Yksityisyys:</strong> Laajennus lukee ainoastaan kokouksen ääntä tai tekstitystä käyttäjän nimenomaisesta toiminnosta. Ei evästeiden, salasanojen tai muiden välilehtien lukua.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "i4ware Job Seekers Autopilot - Kokousavustaja",
+  "version": "1.0.0",
+  "description": "Teams- ja Google Meet -kokousavustaja i4ware Job Seekers Autopilot AI Windows -sovellukselle.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://teams.microsoft.com/*",
+    "https://teams.live.com/*",
+    "https://meet.google.com/*",
+    "http://127.0.0.1:41793/*",
+    "http://localhost:41793/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*",
+        "https://meet.google.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "i4ware Kokousavustaja"
+  }
+}

@@ -85,6 +85,27 @@ class AI_CV_Tailor_Settings {
 		if ( isset( $input['sla_url'] ) ) {
 			$sanitized['sla_url'] = esc_url_raw( $input['sla_url'] );
 		}
+		if ( isset( $input['liveavatar_api_key'] ) ) {
+			$sanitized['liveavatar_api_key'] = sanitize_text_field( $input['liveavatar_api_key'] );
+		}
+		if ( isset( $input['liveavatar_avatar_id'] ) ) {
+			$sanitized['liveavatar_avatar_id'] = sanitize_text_field( $input['liveavatar_avatar_id'] );
+		}
+		if ( isset( $input['liveavatar_voice_id'] ) ) {
+			$sanitized['liveavatar_voice_id'] = sanitize_text_field( $input['liveavatar_voice_id'] );
+		}
+		if ( isset( $input['liveavatar_provider'] ) ) {
+			$sanitized['liveavatar_provider'] = sanitize_text_field( $input['liveavatar_provider'] );
+		}
+		if ( isset( $input['interview_transcription_storage'] ) ) {
+			$sanitized['interview_transcription_storage'] = absint( $input['interview_transcription_storage'] );
+		}
+		if ( isset( $input['interview_default_mode'] ) ) {
+			$sanitized['interview_default_mode'] = sanitize_text_field( $input['interview_default_mode'] );
+		}
+		if ( isset( $input['interview_default_language'] ) ) {
+			$sanitized['interview_default_language'] = sanitize_text_field( $input['interview_default_language'] );
+		}
 		
 		return $sanitized;
 	}

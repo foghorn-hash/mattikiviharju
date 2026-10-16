@@ -27,6 +27,7 @@ class AI_CV_Tailor_Plugin {
 		require_once AI_CV_TAILOR_DIR . 'includes/class-application-metaboxes.php';
 		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
 		require_once AI_CV_TAILOR_DIR . 'includes/class-email-sender.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-interview-assistant.php';
 	}
 
 	public function run() {
@@ -62,5 +63,8 @@ class AI_CV_Tailor_Plugin {
 
 		$autopilot_cron = new AI_CV_Tailor_Autopilot_Cron();
 		$autopilot_cron->init();
+
+		$interview_assistant = AI_CV_Tailor_Interview_Assistant::get_instance();
+		$interview_assistant->init();
 	}
 }
