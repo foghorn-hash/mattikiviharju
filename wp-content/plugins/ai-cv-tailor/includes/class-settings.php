@@ -28,6 +28,12 @@ class AI_CV_Tailor_Settings {
 		if ( isset( $input['openai_api_key'] ) ) {
 			$sanitized['openai_api_key'] = sanitize_text_field( $input['openai_api_key'] );
 		}
+		if ( isset( $input['google_ai_api_key'] ) ) {
+			$sanitized['google_ai_api_key'] = sanitize_text_field( $input['google_ai_api_key'] );
+		}
+		if ( isset( $input['google_ai_model'] ) ) {
+			$sanitized['google_ai_model'] = sanitize_text_field( $input['google_ai_model'] );
+		}
 		if ( isset( $input['model'] ) ) {
 			$sanitized['model'] = sanitize_text_field( $input['model'] );
 		}
@@ -43,6 +49,9 @@ class AI_CV_Tailor_Settings {
 		if ( isset( $input['my_name'] ) ) {
 			$sanitized['my_name'] = sanitize_text_field( $input['my_name'] );
 		}
+		if ( isset( $input['my_title'] ) ) {
+			$sanitized['my_title'] = sanitize_text_field( $input['my_title'] );
+		}
 		if ( isset( $input['my_email'] ) ) {
 			$sanitized['my_email'] = sanitize_email( $input['my_email'] );
 		}
@@ -57,6 +66,9 @@ class AI_CV_Tailor_Settings {
 		}
 		if ( isset( $input['website_url'] ) ) {
 			$sanitized['website_url'] = esc_url_raw( $input['website_url'] );
+		}
+		if ( isset( $input['email_footer'] ) ) {
+			$sanitized['email_footer'] = sanitize_textarea_field( $input['email_footer'] );
 		}
 		if ( isset( $input['delivery_terms_url'] ) ) {
 			$sanitized['delivery_terms_url'] = esc_url_raw( $input['delivery_terms_url'] );

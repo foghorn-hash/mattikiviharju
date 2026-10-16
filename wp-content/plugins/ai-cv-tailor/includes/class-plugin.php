@@ -25,6 +25,8 @@ class AI_CV_Tailor_Plugin {
 		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-admin.php';
 		require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-cron.php';
 		require_once AI_CV_TAILOR_DIR . 'includes/class-application-metaboxes.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
+		require_once AI_CV_TAILOR_DIR . 'includes/class-email-sender.php';
 	}
 
 	public function run() {

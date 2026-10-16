@@ -105,63 +105,98 @@ class AI_CV_Tailor_Autopilot_OpenAI {
 		$job_url      = get_post_meta( $post_id, 'source_url', true );
 		$job_desc     = get_post_meta( $post_id, 'description', true );
 		$analysis_json = get_post_meta( $post_id, 'ai_analysis_json', true );
-		
-		// Run standard generator
-		require_once AI_CV_TAILOR_DIR . 'includes/class-openai.php';
-		$standard_openai = new AI_CV_Tailor_OpenAI();
-		$result = $standard_openai->generate_analysis_and_content( $job_desc, 'fi' );
-		
-		if ( is_wp_error( $result ) ) {
-			return $result;
+		$original_cover_letter = get_post_meta( $post_id, 'suggested_cover_letter', true );
+
+		$result = null;
+
+		// Attempt OpenAI analysis only if needed or available
+		if ( ! empty( $job_desc ) ) {
+			require_once AI_CV_TAILOR_DIR . 'includes/class-openai.php';
+			$standard_openai = new AI_CV_Tailor_OpenAI();
+			$res = $standard_openai->generate_analysis_and_content( $job_desc, 'fi' );
+			if ( ! is_wp_error( $res ) ) {
+				$result = $res;
+			}
 		}
-		
-		$post_title = $company_name . ' - ' . $role_title . ' (Autopilot)';
+
+		if ( empty( $result ) && empty( $original_cover_letter ) ) {
+			return new WP_Error( 'insert_failed', 'Hakemuskirjettä tai työpaikan kuvausta ei löytynyt.' );
+		}
+
+		$post_title = ( $company_name ? $company_name : 'Yritys' ) . ' - ' . ( $role_title ? $role_title : 'Työpaikka' ) . ' (AI CV)';
 		$post_title = html_entity_decode( $post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-		
-		// Create ai_cv_application
-		$app_post_id = wp_insert_post( array(
-			'post_title'  => $post_title,
-			'post_type'   => 'ai_cv_application',
-			'post_status' => 'publish',
-		) );
 
-		if ( is_wp_error( $app_post_id ) ) {
-			return new WP_Error( 'insert_failed', 'Hakemuksen luonti epäonnistui' );
+		// Check if application already exists for this job
+		$existing_app_id = get_post_meta( $post_id, 'generated_application_id', true );
+		if ( $existing_app_id && get_post( $existing_app_id ) ) {
+			$app_post_id = $existing_app_id;
+			wp_update_post( array(
+				'ID'         => $app_post_id,
+				'post_title' => $post_title,
+			) );
+		} else {
+			// Create ai_cv_application
+			$app_post_id = wp_insert_post( array(
+				'post_title'  => $post_title,
+				'post_type'   => 'ai_cv_application',
+				'post_status' => 'publish',
+			) );
+
+			if ( is_wp_error( $app_post_id ) ) {
+				return new WP_Error( 'insert_failed', 'Hakemuksen luonti epäonnistui: ' . $app_post_id->get_error_message() );
+			}
 		}
 
-		// Save standard metas for application (underscore prefixed and new format)
+		// Save standard metas for application
 		update_post_meta( $app_post_id, '_company_name', $company_name );
 		update_post_meta( $app_post_id, 'ai_cv_company_name', $company_name );
-		
+
 		update_post_meta( $app_post_id, '_job_title', $role_title );
 		update_post_meta( $app_post_id, 'ai_cv_role_title', $role_title );
-		
+
 		update_post_meta( $app_post_id, '_job_url', $job_url );
 		update_post_meta( $app_post_id, 'ai_cv_source_url', $job_url );
-		
+
 		$match_score = get_post_meta( $post_id, 'match_score', true );
 		update_post_meta( $app_post_id, 'ai_cv_match_score', $match_score );
-		
-		$cover_letter = isset( $result['audiences']['hr']['cover_letter'] ) ? $result['audiences']['hr']['cover_letter'] : '';
+
+		// PRESERVE ORIGINAL COVER LETTER:
+		// Always keep original tailored cover letter from the analysis if present
+		if ( ! empty( $original_cover_letter ) ) {
+			$cover_letter = $original_cover_letter;
+		} elseif ( isset( $result['audiences']['hr']['cover_letter'] ) ) {
+			$cover_letter = $result['audiences']['hr']['cover_letter'];
+		} else {
+			$cover_letter = '';
+		}
+
 		$motivation_letter = isset( $result['audiences']['hr']['motivation_letter'] ) ? $result['audiences']['hr']['motivation_letter'] : '';
-		
+
 		update_post_meta( $app_post_id, 'ai_cv_cover_letter', $cover_letter );
+		update_post_meta( $app_post_id, 'ai_cv_original_cover_letter', $original_cover_letter );
 		update_post_meta( $app_post_id, 'ai_cv_motivation_letter', $motivation_letter );
 		update_post_meta( $app_post_id, 'status', 'Generated' );
-		
+
 		update_post_meta( $app_post_id, '_job_description', $job_desc );
 		update_post_meta( $app_post_id, '_language', 'fi' );
-		update_post_meta( $app_post_id, '_openai_analysis', wp_json_encode($result, JSON_UNESCAPED_UNICODE) );
+		if ( ! empty( $result ) ) {
+			update_post_meta( $app_post_id, '_openai_analysis', wp_json_encode( $result, JSON_UNESCAPED_UNICODE ) );
+		}
 		update_post_meta( $app_post_id, 'source_freelance_job_id', $post_id );
-		update_post_meta( $app_post_id, 'ai_cv_generated_by', 'openai' );
+		update_post_meta( $app_post_id, 'ai_cv_generated_by', 'google_ai_tailor' );
 
-		// Generate tokens
+		// Generate or reuse tokens
 		$audiences = array( 'hr', 'cto', 'ceo', 'team_lead', 'recruiter' );
-		$tokens = array();
+		$tokens = get_post_meta( $app_post_id, '_tokens', true );
+		if ( ! is_array( $tokens ) ) {
+			$tokens = array();
+		}
 		foreach ( $audiences as $audience ) {
-			$tokens[ $audience ] = wp_generate_password( 32, false, false ); // no special chars
-			update_post_meta( $app_post_id, 'ai_cv_' . str_replace('-', '_', $audience) . '_token', $tokens[ $audience ] );
-			update_post_meta( $app_post_id, 'ai_cv_' . str_replace('-', '_', $audience) . '_url', home_url( '/ai-cv/' . $app_post_id . '/' . $audience . '/' . $tokens[ $audience ] ) );
+			if ( empty( $tokens[ $audience ] ) ) {
+				$tokens[ $audience ] = wp_generate_password( 32, false, false );
+			}
+			update_post_meta( $app_post_id, 'ai_cv_' . str_replace( '-', '_', $audience ) . '_token', $tokens[ $audience ] );
+			update_post_meta( $app_post_id, 'ai_cv_' . str_replace( '-', '_', $audience ) . '_url', home_url( '/ai-cv/' . $app_post_id . '/' . $audience . '/' . $tokens[ $audience ] ) );
 		}
 		update_post_meta( $app_post_id, '_tokens', $tokens );
 
@@ -169,11 +204,19 @@ class AI_CV_Tailor_Autopilot_OpenAI {
 		update_post_meta( $post_id, 'generated_application_id', $app_post_id );
 		update_post_meta( $post_id, 'status', 'Awaiting Send' );
 		update_post_meta( $post_id, 'autopilot_processed', '1' );
-		
-		// Follow up date (e.g. +7 days)
-		update_post_meta( $post_id, 'follow_up_date', date('Y-m-d', strtotime('+7 days')) );
 
-		return array( 'success' => true, 'app_id' => $app_post_id );
+		// Ensure job keeps original cover letter
+		if ( ! empty( $cover_letter ) ) {
+			update_post_meta( $post_id, 'suggested_cover_letter', $cover_letter );
+		}
+
+		// Follow up date (e.g. +7 days)
+		update_post_meta( $post_id, 'follow_up_date', date( 'Y-m-d', strtotime( '+7 days' ) ) );
+
+		return array(
+			'success' => true,
+			'app_id'  => $app_post_id,
+		);
 	}
 
 	private function get_analysis_system_prompt( $settings = array() ) {

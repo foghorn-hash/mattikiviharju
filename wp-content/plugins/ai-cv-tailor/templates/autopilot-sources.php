@@ -28,7 +28,7 @@ if ( isset( $_POST['add_auto_source'] ) && check_admin_referer( 'add_auto_source
 	
 	$source_type = sanitize_text_field( $_POST['source_type'] );
 	$source_url  = $_POST['source_url'];
-	if ( $source_type === 'tyomarkkinatori' && ! filter_var( $source_url, FILTER_VALIDATE_URL ) ) {
+	if ( in_array( $source_type, array( 'tyomarkkinatori', 'google_ai', 'finitec' ) ) && ! filter_var( $source_url, FILTER_VALIDATE_URL ) ) {
 		$sanitized_url = sanitize_text_field( $source_url );
 	} else {
 		$sanitized_url = esc_url_raw( $source_url );
@@ -108,6 +108,7 @@ $automated_sources = get_option( 'ai_cv_autopilot_sources_list', array() );
 				<th>Lähdetyyppi</th>
 				<td>
 					<select name="source_type">
+						<option value="google_ai">Google AI Pro (Haku / Rekrysivu)</option>
 						<option value="rss">RSS</option>
 						<option value="tyomarkkinatori">Työmarkkinatori</option>
 						<option value="finitec">Finitec Oy</option>

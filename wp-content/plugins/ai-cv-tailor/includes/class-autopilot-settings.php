@@ -62,6 +62,27 @@ class AI_CV_Tailor_Autopilot_Settings {
 		if ( isset( $input['rejected_keywords'] ) ) {
 			$sanitized['rejected_keywords'] = sanitize_textarea_field( $input['rejected_keywords'] );
 		}
+		if ( isset( $input['google_ai_api_key'] ) ) {
+			$sanitized['google_ai_api_key'] = sanitize_text_field( $input['google_ai_api_key'] );
+		}
+		if ( isset( $input['google_ai_model'] ) ) {
+			$sanitized['google_ai_model'] = sanitize_text_field( $input['google_ai_model'] );
+		}
+		if ( isset( $input['google_search_grounding'] ) ) {
+			$sanitized['google_search_grounding'] = absint( $input['google_search_grounding'] );
+		}
+		if ( isset( $input['google_cse_id'] ) ) {
+			$sanitized['google_cse_id'] = sanitize_text_field( $input['google_cse_id'] );
+		}
+		if ( isset( $input['admin_sender_email'] ) ) {
+			$sanitized['admin_sender_email'] = sanitize_email( $input['admin_sender_email'] );
+		}
+		if ( isset( $input['admin_sender_name'] ) ) {
+			$sanitized['admin_sender_name'] = sanitize_text_field( $input['admin_sender_name'] );
+		}
+		if ( isset( $input['google_search_keywords'] ) ) {
+			$sanitized['google_search_keywords'] = sanitize_textarea_field( $input['google_search_keywords'] );
+		}
 		
 		return $sanitized;
 	}

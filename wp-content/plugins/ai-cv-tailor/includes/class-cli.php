@@ -50,8 +50,32 @@ class AI_CV_Tailor_CLI_Command {
                 $this->list_applications();
                 break;
 
+            case 'google-search':
+                $kw = $assoc_args['keywords'] ?? 'WordPress kehittäjä';
+                WP_CLI::log("Searching Google for '{$kw}'...");
+                require_once AI_CV_TAILOR_DIR . 'includes/class-autopilot-sources.php';
+                $sources = new AI_CV_Tailor_Autopilot_Sources();
+                $count = $sources->fetch_google_ai($kw, "CLI Google Search");
+                WP_CLI::success("Google search and analysis completed. Added {$count} opportunities.");
+                break;
+
+            case 'send-email':
+                $job_id = intval($assoc_args['job-id'] ?? 0);
+                if (!$job_id) {
+                    WP_CLI::error("Specify --job-id=<id>");
+                }
+                require_once AI_CV_TAILOR_DIR . 'includes/class-email-sender.php';
+                $sender = new AI_CV_Tailor_Email_Sender();
+                $res = $sender->send_job_application($job_id);
+                if (is_wp_error($res)) {
+                    WP_CLI::error($res->get_error_message());
+                } else {
+                    WP_CLI::success("Application sent to {$res['recipient']} from {$res['from_email']}");
+                }
+                break;
+
             default:
-                WP_CLI::error('Unknown autopilot command. Use fetch, analyze, generate-applications, run-all, cron, digest, run-debug, reset-test, list-jobs, list-applications.');
+                WP_CLI::error('Unknown autopilot command. Use fetch, analyze, generate-applications, run-all, cron, digest, run-debug, reset-test, list-jobs, list-applications, google-search, send-email.');
         }
     }
 

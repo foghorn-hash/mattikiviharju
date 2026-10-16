@@ -46,6 +46,8 @@ class AI_CV_Tailor_Autopilot_Sources {
 				$new_count += $this->fetch_tyomarkkinatori( $url, $name );
 			} elseif ( 'finitec' === $type ) {
 				$new_count += $this->fetch_finitec( $url, $name );
+			} elseif ( 'google_ai' === $type || 'google' === $type ) {
+				$new_count += $this->fetch_google_ai( $url, $name );
 			}
 		}
 
@@ -448,6 +450,67 @@ class AI_CV_Tailor_Autopilot_Sources {
 		}
 
 		AI_CV_Tailor_Autopilot_Logger::info( "Finitec finish. Added: {$added}, Skipped: {$skipped}" );
+		return $added;
+	}
+
+	public function fetch_google_ai( $url_or_query, $source_name ) {
+		AI_CV_Tailor_Autopilot_Logger::info( "Fetching Google AI source: {$source_name} ({$url_or_query})" );
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
+		$google_ai = new AI_CV_Tailor_Google_AI();
+
+		if ( ! $google_ai->is_configured() ) {
+			AI_CV_Tailor_Autopilot_Logger::error( "Google AI API key not configured, skipping source: {$source_name}" );
+			return 0;
+		}
+
+		$added = 0;
+		$skipped = 0;
+
+		if ( filter_var( $url_or_query, FILTER_VALIDATE_URL ) ) {
+			// Single URL analysis
+			if ( $this->source_url_exists( $url_or_query ) ) {
+				AI_CV_Tailor_Autopilot_Logger::info( "Google AI duplicate URL skipped: {$url_or_query}" );
+				return 0;
+			}
+
+			$analyzed = $google_ai->analyze_recruitment_page( $url_or_query, $source_name );
+			if ( ! is_wp_error( $analyzed ) ) {
+				$post_id = $google_ai->save_analyzed_job( $analyzed );
+				if ( ! is_wp_error( $post_id ) ) {
+					$added++;
+				}
+			}
+		} else {
+			// Keyword search via Google AI
+			$search_results = $google_ai->search_google_jobs( $url_or_query, 5 );
+			if ( is_wp_error( $search_results ) || empty( $search_results ) ) {
+				AI_CV_Tailor_Autopilot_Logger::error( "Google AI search returned no results for: {$url_or_query}" );
+				return 0;
+			}
+
+			foreach ( $search_results as $job_target ) {
+				$target_url = $job_target['url'] ?? '';
+				if ( empty( $target_url ) || $this->source_url_exists( $target_url ) ) {
+					$skipped++;
+					continue;
+				}
+
+				$analyzed = $google_ai->analyze_recruitment_page( $target_url, $url_or_query );
+				if ( ! is_wp_error( $analyzed ) ) {
+					// Use hint from search if AI missed it
+					if ( empty( $analyzed['contact_email'] ) && ! empty( $job_target['contact_email_hint'] ) ) {
+						$analyzed['contact_email'] = $job_target['contact_email_hint'];
+					}
+					$post_id = $google_ai->save_analyzed_job( $analyzed );
+					if ( ! is_wp_error( $post_id ) ) {
+						$added++;
+					}
+				}
+			}
+		}
+
+		AI_CV_Tailor_Autopilot_Logger::info( "Google AI finish ({$source_name}). Added: {$added}, Skipped: {$skipped}" );
 		return $added;
 	}
 }

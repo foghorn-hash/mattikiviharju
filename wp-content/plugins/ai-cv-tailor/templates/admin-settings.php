@@ -31,6 +31,32 @@
 				</tr>
 			</table>
 		</div>
+
+		<div class="ai-cv-card" style="border-left: 4px solid #1a73e8;">
+			<h2><span class="dashicons dashicons-google" style="color: #1a73e8;"></span> Google AI Pro (Gemini API)</h2>
+			<p class="description">Käytetään työpaikkojen etsimiseen Googlesta, rekrysivujen analysointiin ja sähköpostien kalastamiseen.</p>
+			<table class="form-table">
+				<tr>
+					<th scope="row"><label for="google_ai_api_key">Google AI API Key</label></th>
+					<td>
+						<input type="password" id="google_ai_api_key" name="ai_cv_tailor_settings[google_ai_api_key]" value="<?php echo esc_attr( $settings['google_ai_api_key'] ?? '' ); ?>" class="regular-text" />
+						<p class="description">Hanki avain osoitteesta <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="google_ai_model">Gemini Malli</label></th>
+					<td>
+						<select id="google_ai_model" name="ai_cv_tailor_settings[google_ai_model]">
+							<option value="gemini-3.5-flash" <?php selected( $settings['google_ai_model'] ?? 'gemini-3.5-flash', 'gemini-3.5-flash' ); ?>>Gemini 3.5 Flash (Suositeltu: Nopea, luotettava ja ilmaiskiintiöllä toimiva)</option>
+							<option value="gemini-flash-latest" <?php selected( $settings['google_ai_model'] ?? '', 'gemini-flash-latest' ); ?>>Gemini Flash Latest (Googlen uusin tuotanto-Flash)</option>
+							<option value="gemini-3.1-flash-lite" <?php selected( $settings['google_ai_model'] ?? '', 'gemini-3.1-flash-lite' ); ?>>Gemini 3.1 Flash Lite (Erittäin nopea)</option>
+							<option value="gemini-3.1-pro-preview" <?php selected( $settings['google_ai_model'] ?? '', 'gemini-3.1-pro-preview' ); ?>>Gemini 3.1 Pro Preview (Uusin Pro-malli, vaatii GCP-laskutustilin)</option>
+							<option value="gemini-pro-latest" <?php selected( $settings['google_ai_model'] ?? '', 'gemini-pro-latest' ); ?>>Gemini Pro Latest (Vaatii GCP-laskutustilin)</option>
+						</select>
+					</td>
+				</tr>
+			</table>
+		</div>
 		
 		<div class="ai-cv-card">
 			<h2>Yleiset asetukset</h2>
@@ -59,31 +85,46 @@
 			<table class="form-table">
 				<tr>
 					<th scope="row"><label for="company_name">Yrityksen nimi</label></th>
-					<td><input type="text" id="company_name" name="ai_cv_tailor_settings[company_name]" value="<?php echo esc_attr( $settings['company_name'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="text" id="company_name" name="ai_cv_tailor_settings[company_name]" value="<?php echo esc_attr( $settings['company_name'] ?? 'i4ware Software' ); ?>" class="regular-text" /></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="my_name">Oma nimi</label></th>
-					<td><input type="text" id="my_name" name="ai_cv_tailor_settings[my_name]" value="<?php echo esc_attr( $settings['my_name'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="text" id="my_name" name="ai_cv_tailor_settings[my_name]" value="<?php echo esc_attr( $settings['my_name'] ?? 'Matti Kiviharju' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="my_title">Tehtävänimike / Rooli</label></th>
+					<td><input type="text" id="my_title" name="ai_cv_tailor_settings[my_title]" value="<?php echo esc_attr( $settings['my_title'] ?? 'Entrepreneur & Founder & Chief Software Architect' ); ?>" class="regular-text" placeholder="Entrepreneur & Founder & Chief Software Architect" /></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="my_email">Sähköposti</label></th>
-					<td><input type="email" id="my_email" name="ai_cv_tailor_settings[my_email]" value="<?php echo esc_attr( $settings['my_email'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="email" id="my_email" name="ai_cv_tailor_settings[my_email]" value="<?php echo esc_attr( $settings['my_email'] ?? 'info@i4ware.fi' ); ?>" class="regular-text" /></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="my_phone">Puhelinnumero</label></th>
-					<td><input type="text" id="my_phone" name="ai_cv_tailor_settings[my_phone]" value="<?php echo esc_attr( $settings['my_phone'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="text" id="my_phone" name="ai_cv_tailor_settings[my_phone]" value="<?php echo esc_attr( $settings['my_phone'] ?? '+358 40 820 0691' ); ?>" class="regular-text" /></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="business_id">Y-tunnus</label></th>
-					<td><input type="text" id="business_id" name="ai_cv_tailor_settings[business_id]" value="<?php echo esc_attr( $settings['business_id'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="text" id="business_id" name="ai_cv_tailor_settings[business_id]" value="<?php echo esc_attr( $settings['business_id'] ?? '2739594-6' ); ?>" class="regular-text" /></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="vat_id">VAT ID (ALV-tunniste)</label></th>
-					<td><input type="text" id="vat_id" name="ai_cv_tailor_settings[vat_id]" value="<?php echo esc_attr( $settings['vat_id'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="text" id="vat_id" name="ai_cv_tailor_settings[vat_id]" value="<?php echo esc_attr( $settings['vat_id'] ?? 'FI27395946' ); ?>" class="regular-text" /></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="website_url">Verkkosivun URL</label></th>
-					<td><input type="url" id="website_url" name="ai_cv_tailor_settings[website_url]" value="<?php echo esc_attr( $settings['website_url'] ?? '' ); ?>" class="regular-text" /></td>
+					<td><input type="url" id="website_url" name="ai_cv_tailor_settings[website_url]" value="<?php echo esc_attr( $settings['website_url'] ?? 'https://www.i4ware.fi/' ); ?>" class="regular-text" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="email_footer">Sähköpostin Allekirjoitus / Footer</label></th>
+					<td>
+						<?php
+						$default_footer = "-- \n--\nMatti Kiviharju\nEntrepreneur & Founder & Chief Software Architect\ni4ware Software\nhttps://www.i4ware.fi/\n+358 40 820 0691\nVAT-ID: FI27395946\nCorporate ID: 2739594-6";
+						$current_footer = ! empty( $settings['email_footer'] ) ? $settings['email_footer'] : $default_footer;
+						?>
+						<textarea id="email_footer" name="ai_cv_tailor_settings[email_footer]" rows="9" class="large-text code" style="font-family: monospace; font-size: 13px;"><?php echo esc_textarea( $current_footer ); ?></textarea>
+						<p class="description">Tätä allekirjoitus-footeria käytetään sähköpostiviestien loppuallekirjoituksessa ja hakemusyhteenvedoissa.</p>
+					</td>
 				</tr>
 			</table>
 		</div>

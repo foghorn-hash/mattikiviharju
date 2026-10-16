@@ -112,29 +112,53 @@ foreach ( $all_jobs as $job ) {
 						<p style="color:#999; text-align:center; margin-top:10px;">Ei toimeksiantoja.</p>
 					<?php else : ?>
 						<?php foreach ( $grouped_jobs[ $status_key ] as $job ) : 
-							$company     = get_post_meta( $job->ID, 'company_name', true );
-							$role_title  = get_post_meta( $job->ID, 'role_title', true );
-							$match_score = get_post_meta( $job->ID, 'match_score', true );
-							$app_id      = get_post_meta( $job->ID, 'generated_application_id', true );
-							$edit_url    = get_edit_post_link( $job->ID );
+							$company       = get_post_meta( $job->ID, 'company_name', true );
+							$role_title    = get_post_meta( $job->ID, 'role_title', true );
+							$match_score   = get_post_meta( $job->ID, 'match_score', true );
+							$contact_email = get_post_meta( $job->ID, 'contact_email', true );
+							$analysis_date = get_post_meta( $job->ID, 'analysis_date', true );
+							$source_url    = get_post_meta( $job->ID, 'source_url', true );
+							$app_id        = get_post_meta( $job->ID, 'generated_application_id', true );
+							$edit_url      = get_edit_post_link( $job->ID );
 						?>
 							<div class="ai-cv-card">
 								<h4><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $role_title ? $role_title : $job->post_title ); ?></a></h4>
-								<p><?php echo esc_html( $company ? $company : 'Tuntematon yritys' ); ?></p>
+								<p style="margin-bottom: 3px;"><strong><?php echo esc_html( $company ? $company : 'Tuntematon yritys' ); ?></strong></p>
 								
-								<?php if ( $match_score ) : ?>
-									<span class="score">Score: <?php echo esc_html( $match_score ); ?></span>
+								<?php if ( $analysis_date ) : ?>
+									<p style="font-size: 11px; color: #888; margin-bottom: 3px;">Analyysi: <?php echo esc_html( substr( $analysis_date, 0, 16 ) ); ?></p>
+								<?php endif; ?>
+
+								<?php if ( $contact_email ) : ?>
+									<p style="font-size: 11px; color: #1a73e8; margin-bottom: 4px; word-break: break-all;">
+										<span class="dashicons dashicons-email" style="font-size: 12px; width: 12px; height: 12px;"></span>
+										<?php echo esc_html( $contact_email ); ?>
+									</p>
+								<?php endif; ?>
+
+								<?php if ( $source_url ) : ?>
+									<p style="font-size: 11px; margin-bottom: 4px;">
+										<a href="<?php echo esc_url( $source_url ); ?>" target="_blank" rel="noopener noreferrer" style="color: #666;">Avaa ilmoitus &rarr;</a>
+									</p>
 								<?php endif; ?>
 								
-								<div class="actions" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px;">
-									<a class="button button-small" href="<?php echo esc_url( admin_url( 'post.php?post=' . $job->ID . '&action=edit' ) ); ?>">Muokkaa</a>
-									<a class="button button-small" href="<?php echo esc_url( admin_url( 'admin-post.php?action=ai_cv_tailor_analyze_job&job_id=' . $job->ID . '&_wpnonce=' . wp_create_nonce( 'ai_cv_tailor_analyze_job_' . $job->ID ) ) ); ?>">Analyze</a>
+								<?php if ( $match_score !== '' ) : ?>
+									<span class="score">Score: <?php echo esc_html( $match_score ); ?>%</span>
+								<?php endif; ?>
+								
+								<div class="actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 4px;">
+									<a class="button button-small button-primary" style="background: #1a73e8; border-color: #1a73e8; text-align: center;" href="<?php echo esc_url( admin_url( 'admin.php?page=ai-cv-tailor-google-search' ) ); ?>">Lähetä hakemus</a>
 									
-									<?php if ( $app_id ) : ?>
-										<a class="button button-small button-primary" href="<?php echo esc_url( admin_url( 'post.php?post=' . $app_id . '&action=edit' ) ); ?>">Hakemus</a>
-									<?php else : ?>
-										<a class="button button-small button-secondary" href="<?php echo esc_url( admin_url( 'admin-post.php?action=ai_cv_tailor_generate_application_from_job&job_id=' . $job->ID . '&_wpnonce=' . wp_create_nonce( 'ai_cv_tailor_generate_application_' . $job->ID ) ) ); ?>">Luo hakemus</a>
-									<?php endif; ?>
+									<div style="display: flex; gap: 4px; flex-wrap: wrap;">
+										<a class="button button-small" href="<?php echo esc_url( admin_url( 'post.php?post=' . $job->ID . '&action=edit' ) ); ?>">Muokkaa</a>
+										<a class="button button-small" href="<?php echo esc_url( admin_url( 'admin-post.php?action=ai_cv_tailor_analyze_job&job_id=' . $job->ID . '&_wpnonce=' . wp_create_nonce( 'ai_cv_tailor_analyze_job_' . $job->ID ) ) ); ?>">Analyze</a>
+										
+										<?php if ( $app_id ) : ?>
+											<a class="button button-small button-secondary" href="<?php echo esc_url( admin_url( 'post.php?post=' . $app_id . '&action=edit' ) ); ?>">CV-linkit</a>
+										<?php else : ?>
+											<a class="button button-small button-secondary" href="<?php echo esc_url( admin_url( 'admin-post.php?action=ai_cv_tailor_generate_application_from_job&job_id=' . $job->ID . '&_wpnonce=' . wp_create_nonce( 'ai_cv_tailor_generate_application_' . $job->ID ) ) ); ?>">Tee AI CV</a>
+										<?php endif; ?>
+									</div>
 								</div>
 							</div>
 						<?php endforeach; ?>

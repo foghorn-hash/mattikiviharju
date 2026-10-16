@@ -97,15 +97,21 @@ class AI_CV_Tailor_Application_Metaboxes {
 		$summary_text .= "CEO (Toimitusjohtaja / Liiketoimintajohto / Ekonomit): " . esc_url( $ceo_url ) . "\n";
 		$summary_text .= "Team Lead (Tiiminvetäjä / Lähiesihenkilö): " . esc_url( $team_lead_url ) . "\n";
 		$summary_text .= "Recruiter (Ulkoiset rekrytointikonsultit / Headhunterit): " . esc_url( $recruiter_url ) . "\n\n";
+		$default_footer = "-- \n--\nMatti Kiviharju\nEntrepreneur & Founder & Chief Software Architect\ni4ware Software\nhttps://www.i4ware.fi/\n+358 40 820 0691\nVAT-ID: FI27395946\nCorporate ID: 2739594-6";
+		$email_footer   = ! empty( $settings['email_footer'] ) ? $settings['email_footer'] : $default_footer;
+
 		$summary_text .= "Cover Letter:\n" . $this->decode_plain_text( $cover_letter ) . "\n\n";
-		$summary_text .= "Motivation Letter:\n" . $this->decode_plain_text( $motivation_letter ) . "\n\n";
+		if ( ! empty( $motivation_letter ) ) {
+			$summary_text .= "Motivation Letter:\n" . $this->decode_plain_text( $motivation_letter ) . "\n\n";
+		}
+		$summary_text .= $email_footer . "\n\n";
 		$summary_text .= "Commercial & Legal:\n";
-		$summary_text .= "Company: i4ware Software\n";
-		$summary_text .= "Business ID / Y-tunnus: 2739594-6\n";
-		$summary_text .= "VAT ID: FI27395946\n";
 		$summary_text .= "Delivery Terms: " . esc_url( $delivery_terms_url ) . "\n";
 		$summary_text .= "Privacy Policy: " . esc_url( $privacy_policy_url ) . "\n";
-		$summary_text .= "Terms of Service: " . esc_url( $terms_url ) . "\n";
+		if ( ! empty( $terms_url ) ) {
+			$summary_text .= "Terms of Service: " . esc_url( $terms_url ) . "\n";
+		}
+		$summary_text .= "\n---\nPowered by i4ware Job Seeker AI based to Google Gemini API and OpenAI API\n";
 		
 		echo '<h2>i4ware&reg; Job Seeker Autopilot AI Life-cycle Management System&trade;</h2>';
 		echo '<textarea readonly style="width: 100%; height: 300px; font-family: monospace; padding: 10px; background: #f0f0f1;">' . esc_textarea( $summary_text ) . '</textarea>';

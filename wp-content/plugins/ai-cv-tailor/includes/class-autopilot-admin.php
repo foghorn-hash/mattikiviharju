@@ -9,6 +9,11 @@ class AI_CV_Tailor_Autopilot_Admin {
 		add_action( 'wp_ajax_ai_cv_tailor_autopilot_analyze', array( $this, 'ajax_analyze' ) );
 		add_action( 'wp_ajax_ai_cv_tailor_autopilot_reject', array( $this, 'ajax_reject' ) );
 		add_action( 'wp_ajax_ai_cv_tailor_autopilot_generate', array( $this, 'ajax_generate_application' ) );
+		add_action( 'wp_ajax_ai_cv_tailor_google_search', array( $this, 'ajax_google_search' ) );
+		add_action( 'wp_ajax_ai_cv_tailor_analyze_url', array( $this, 'ajax_analyze_url' ) );
+		add_action( 'wp_ajax_ai_cv_tailor_get_email_preview', array( $this, 'ajax_get_email_preview' ) );
+		add_action( 'wp_ajax_ai_cv_tailor_send_application_email', array( $this, 'ajax_send_application_email' ) );
+		add_action( 'wp_ajax_ai_cv_tailor_test_google_ai', array( $this, 'ajax_test_google_ai' ) );
 
 		// Admin post actions for Found Jobs page
 		add_action( 'admin_post_ai_cv_tailor_analyze_job', array( $this, 'handle_analyze_job' ) );
@@ -16,6 +21,8 @@ class AI_CV_Tailor_Autopilot_Admin {
 		add_action( 'admin_post_ai_cv_tailor_reset_job', array( $this, 'handle_reset_job' ) );
 		add_action( 'admin_post_ai_cv_tailor_reject_job', array( $this, 'handle_reject_job' ) );
 		add_action( 'admin_post_ai_cv_tailor_test_openai', array( $this, 'handle_test_openai' ) );
+		add_action( 'admin_post_ai_cv_tailor_test_google_ai', array( $this, 'handle_test_google_ai' ) );
+		add_action( 'admin_post_ai_cv_tailor_send_email', array( $this, 'handle_send_email' ) );
 	}
 
 	public function add_admin_menu() {
@@ -27,6 +34,14 @@ class AI_CV_Tailor_Autopilot_Admin {
 			'manage_options',
 			'ai-cv-tailor-autopilot',
 			array( $this, 'display_dashboard_page' )
+		);
+		add_submenu_page(
+			'ai-cv-tailor',
+			'Google AI Työpaikkahaku',
+			'Google AI Työpaikkahaku',
+			'manage_options',
+			'ai-cv-tailor-google-search',
+			array( $this, 'display_google_search_page' )
 		);
 		add_submenu_page(
 			'ai-cv-tailor',
@@ -79,19 +94,24 @@ class AI_CV_Tailor_Autopilot_Admin {
 	}
 
 	public function enqueue_scripts( $hook ) {
-		if ( strpos( $hook, 'ai-cv-tailor-autopilot' ) === false ) {
+		if ( strpos( $hook, 'ai-cv-tailor' ) === false ) {
 			return;
 		}
 		
 		wp_enqueue_script( 'ai-cv-tailor-autopilot-js', AI_CV_TAILOR_URL . 'assets/autopilot-admin.js', array( 'jquery' ), AI_CV_TAILOR_VERSION, true );
 		wp_localize_script( 'ai-cv-tailor-autopilot-js', 'aiCvTailorAutopilotObj', array(
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
-			'nonce'    => wp_create_nonce( 'ai_cv_tailor_autopilot_nonce' )
+			'ajax_url'    => admin_url( 'admin-ajax.php' ),
+			'nonce'       => wp_create_nonce( 'ai_cv_tailor_autopilot_nonce' ),
+			'admin_email' => get_option( 'admin_email' ),
 		) );
 	}
 
 	public function display_dashboard_page() {
 		require_once AI_CV_TAILOR_DIR . 'templates/autopilot-dashboard.php';
+	}
+
+	public function display_google_search_page() {
+		require_once AI_CV_TAILOR_DIR . 'templates/autopilot-google-search.php';
 	}
 
 	public function display_sources_page() {
@@ -359,5 +379,216 @@ class AI_CV_Tailor_Autopilot_Admin {
 
 		wp_safe_redirect( admin_url( 'admin.php?page=ai-cv-tailor-autopilot-settings' ) );
 		exit;
+	}
+
+	public function handle_test_google_ai() {
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], 'test_google_ai' ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
+		$google_ai = new AI_CV_Tailor_Google_AI();
+
+		if ( ! $google_ai->is_configured() ) {
+			set_transient( 'ai_cv_google_ai_test_result', 'error: Google AI API-avain puuttuu', 30 );
+		} else {
+			$res = $google_ai->test_connection();
+			if ( is_wp_error( $res ) ) {
+				set_transient( 'ai_cv_google_ai_test_result', 'error: ' . $res->get_error_message(), 30 );
+			} else {
+				set_transient( 'ai_cv_google_ai_test_result', 'success: ' . $res['message'] . ' (Malli: ' . $res['model'] . ')', 30 );
+			}
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=ai-cv-tailor-autopilot-settings' ) );
+		exit;
+	}
+
+	public function ajax_google_search() {
+		check_ajax_referer( 'ai_cv_tailor_autopilot_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Ei oikeuksia.' );
+		}
+
+		$keywords = sanitize_text_field( $_POST['keywords'] ?? '' );
+		$limit    = isset( $_POST['limit'] ) ? intval( $_POST['limit'] ) : 5;
+
+		if ( empty( $keywords ) ) {
+			wp_send_json_error( 'Hakusana puuttuu.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
+		$google_ai = new AI_CV_Tailor_Google_AI();
+
+		if ( ! $google_ai->is_configured() ) {
+			wp_send_json_error( 'Google AI API-avainta ei ole asetettu. Siirry Autopilot-asetuksiin ja syötä avain.' );
+		}
+
+		// 1. Search Google
+		$search_results = $google_ai->search_google_jobs( $keywords, $limit );
+		if ( is_wp_error( $search_results ) ) {
+			wp_send_json_error( $search_results->get_error_message() );
+		}
+
+		if ( empty( $search_results ) ) {
+			wp_send_json_error( 'Googlesta ei löytynyt toimeksiantoja tällä hakusanalla.' );
+		}
+
+		$analyzed_jobs = array();
+		$added_count = 0;
+
+		// 2. Analyze recruitment page for each result & fish emails
+		foreach ( $search_results as $job_target ) {
+			$url = $job_target['url'] ?? '';
+			if ( empty( $url ) ) {
+				continue;
+			}
+
+			$analyzed = $google_ai->analyze_recruitment_page( $url, $keywords );
+			if ( ! is_wp_error( $analyzed ) ) {
+				if ( empty( $analyzed['contact_email'] ) && ! empty( $job_target['contact_email_hint'] ) ) {
+					$analyzed['contact_email'] = $job_target['contact_email_hint'];
+				}
+				$post_id = $google_ai->save_analyzed_job( $analyzed );
+				if ( ! is_wp_error( $post_id ) ) {
+					$analyzed['job_id'] = $post_id;
+					$analyzed_jobs[] = $analyzed;
+					$added_count++;
+				}
+			}
+		}
+
+		wp_send_json_success( array(
+			'message'       => "Google-haku valmis! Löydettiin ja analysoitiin {$added_count} toimeksiantoa.",
+			'added_count'   => $added_count,
+			'analyzed_jobs' => $analyzed_jobs,
+		) );
+	}
+
+	public function ajax_analyze_url() {
+		check_ajax_referer( 'ai_cv_tailor_autopilot_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Ei oikeuksia.' );
+		}
+
+		$url = esc_url_raw( $_POST['url'] ?? '' );
+		if ( empty( $url ) || ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+			wp_send_json_error( 'Virheellinen URL-osoite.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
+		$google_ai = new AI_CV_Tailor_Google_AI();
+
+		if ( ! $google_ai->is_configured() ) {
+			wp_send_json_error( 'Google AI API-avainta ei ole asetettu.' );
+		}
+
+		$analyzed = $google_ai->analyze_recruitment_page( $url, 'Suora URL-analyysi' );
+		if ( is_wp_error( $analyzed ) ) {
+			wp_send_json_error( $analyzed->get_error_message() );
+		}
+
+		$post_id = $google_ai->save_analyzed_job( $analyzed );
+		if ( is_wp_error( $post_id ) ) {
+			wp_send_json_error( $post_id->get_error_message() );
+		}
+
+		$analyzed['job_id'] = $post_id;
+		wp_send_json_success( $analyzed );
+	}
+
+	public function ajax_get_email_preview() {
+		check_ajax_referer( 'ai_cv_tailor_autopilot_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Ei oikeuksia.' );
+		}
+
+		$job_id = intval( $_POST['job_id'] ?? 0 );
+		if ( ! $job_id ) {
+			wp_send_json_error( 'Post ID puuttuu.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-email-sender.php';
+		$sender = new AI_CV_Tailor_Email_Sender();
+		$data = $sender->prepare_email_data( $job_id );
+
+		if ( is_wp_error( $data ) ) {
+			wp_send_json_error( $data->get_error_message() );
+		}
+
+		wp_send_json_success( $data );
+	}
+
+	public function ajax_send_application_email() {
+		check_ajax_referer( 'ai_cv_tailor_autopilot_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Ei oikeuksia.' );
+		}
+
+		$job_id   = intval( $_POST['job_id'] ?? 0 );
+		$to_email = sanitize_email( $_POST['to_email'] ?? '' );
+		$subject  = sanitize_text_field( $_POST['subject'] ?? '' );
+		$body     = wp_kses_post( $_POST['body'] ?? '' );
+
+		if ( ! $job_id ) {
+			wp_send_json_error( 'Job ID puuttuu.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-email-sender.php';
+		$sender = new AI_CV_Tailor_Email_Sender();
+		$result = $sender->send_job_application( $job_id, $to_email, $subject, $body );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( $result->get_error_message() );
+		}
+
+		wp_send_json_success( $result );
+	}
+
+	public function handle_send_email() {
+		$job_id = intval( $_POST['job_id'] ?? 0 );
+
+		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'send_job_email_' . $job_id ) ) {
+			wp_die( 'Turvatarkistus epäonnistui.' );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Ei oikeuksia.' );
+		}
+
+		$to_email = sanitize_email( $_POST['to_email'] ?? '' );
+		$subject  = sanitize_text_field( $_POST['subject'] ?? '' );
+		$body     = wp_kses_post( $_POST['body'] ?? '' );
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-email-sender.php';
+		$sender = new AI_CV_Tailor_Email_Sender();
+		$result = $sender->send_job_application( $job_id, $to_email, $subject, $body );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		$referer = wp_get_referer() ?: admin_url( 'admin.php?page=ai-cv-tailor-google-search' );
+		wp_safe_redirect( add_query_arg( 'email_sent', $job_id, $referer ) );
+		exit;
+	}
+
+	public function ajax_test_google_ai() {
+		check_ajax_referer( 'ai_cv_tailor_autopilot_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Ei oikeuksia.' );
+		}
+
+		require_once AI_CV_TAILOR_DIR . 'includes/class-google-ai.php';
+		$google_ai = new AI_CV_Tailor_Google_AI();
+		$res = $google_ai->test_connection();
+
+		if ( is_wp_error( $res ) ) {
+			wp_send_json_error( $res->get_error_message() );
+		}
+
+		wp_send_json_success( $res );
 	}
 }
