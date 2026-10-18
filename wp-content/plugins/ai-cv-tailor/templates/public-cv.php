@@ -203,7 +203,7 @@ $sla_url = esc_url( $settings['sla_url'] ?? '' );
 								<?php echo esc_html( $proj['name'] ?? '' ); ?>
 							<?php endif; ?>
 						</h3>
-						<p><?php echo wp_kses_post( $proj['description'] ?? '' ); ?></p>
+						<p><?php echo wp_kses_post( str_replace( array( "\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}" ), ' ', $proj['description'] ?? '' ) ); ?></p>
 					</div>
 				<?php endforeach; ?>
 			</section>

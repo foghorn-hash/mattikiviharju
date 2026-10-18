@@ -382,6 +382,59 @@ img {
   font-size: 0.9rem;
 }
 
+.project-summary,
+.project-summary p,
+.timeline-summary,
+.timeline-summary p,
+.card p {
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+  text-wrap: pretty;
+}
+
+.project-summary {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.project-summary p {
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+.project-summary p:last-child {
+  margin-bottom: 0;
+}
+
+.project-links {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-link {
+  margin: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.project-link a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-3);
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.project-link a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .project-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));

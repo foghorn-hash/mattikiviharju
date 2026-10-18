@@ -1104,7 +1104,8 @@ function cv_pdf_acf_save_single_project($project, $lang, $menu_order, $uploaded_
 {
     $post_data = array(
         'post_title' => sanitize_text_field($project['title'] ?? ''),
-        'post_excerpt' => sanitize_textarea_field($project['description'] ?? ''),
+        'post_excerpt' => str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}"), ' ', sanitize_textarea_field($project['description'] ?? '')),
+        'post_content' => str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}"), ' ', sanitize_textarea_field($project['description'] ?? '')),
         'post_type' => 'cv_project',
         'post_status' => 'publish',
         'menu_order' => $menu_order
@@ -1121,18 +1122,38 @@ function cv_pdf_acf_save_single_project($project, $lang, $menu_order, $uploaded_
         update_post_meta($post_id, 'cv_project_meta', $proj_meta);
     }
 
+    $clean_desc = $post_data['post_excerpt'];
+    update_post_meta($post_id, '_cv_project_description', $clean_desc);
+    update_post_meta($post_id, 'cv_project_description', $clean_desc);
+
+    // Save project links (supporting multiple links)
+    $links_to_save = array();
+    if (!empty($project['links']) && is_array($project['links'])) {
+        foreach ($project['links'] as $p_link) {
+            $l_url = esc_url_raw(trim($p_link['url'] ?? ''));
+            $l_label = sanitize_text_field(trim($p_link['label'] ?? ($p_link['title'] ?? '')));
+            if (!empty($l_url) && !preg_match('/(?:youtube\.com|youtu\.be)/i', $l_url)) {
+                $links_to_save[] = array('url' => $l_url, 'label' => $l_label);
+            }
+        }
+    }
+
     $raw_url = trim($project['url'] ?? '');
     $proj_url = esc_url_raw($raw_url);
     $proj_url_title = sanitize_text_field($project['url_title'] ?? '');
     $is_yt_project_url = (bool) preg_match('/(?:youtube\.com|youtu\.be)/i', $raw_url);
 
-    if (!empty($proj_url) && !$is_yt_project_url) {
-        update_post_meta($post_id, '_cv_project_link', $proj_url);
-        update_post_meta($post_id, 'cv_project_link', $proj_url);
+    if (empty($links_to_save) && !empty($proj_url) && !$is_yt_project_url) {
+        $links_to_save[] = array('url' => $proj_url, 'label' => $proj_url_title);
     }
-    if (!empty($proj_url_title) && !$is_yt_project_url) {
-        update_post_meta($post_id, '_cv_project_link_label', $proj_url_title);
-        update_post_meta($post_id, 'cv_project_link_label', $proj_url_title);
+
+    if (!empty($links_to_save)) {
+        update_post_meta($post_id, '_cv_project_links', $links_to_save);
+        update_post_meta($post_id, 'cv_project_links', $links_to_save);
+        update_post_meta($post_id, '_cv_project_link', $links_to_save[0]['url']);
+        update_post_meta($post_id, 'cv_project_link', $links_to_save[0]['url']);
+        update_post_meta($post_id, '_cv_project_link_label', $links_to_save[0]['label']);
+        update_post_meta($post_id, 'cv_project_link_label', $links_to_save[0]['label']);
     }
 
     // YouTube URLs (collect from explicit field, project URL if YouTube, and description)
@@ -2778,11 +2799,24 @@ function cv_pdf_acf_collect_cv_data($page_id, $lang)
     );
     $projects_items = get_posts($projects_query);
     foreach ($projects_items as $item) {
+        $item_links = get_post_meta($item->ID, '_cv_project_links', true);
+        if (empty($item_links)) {
+            $item_links = get_post_meta($item->ID, 'cv_project_links', true);
+        }
+        if (empty($item_links) || !is_array($item_links)) {
+            $single_url = get_post_meta($item->ID, '_cv_project_link', true) ?: get_post_meta($item->ID, 'cv_project_link', true);
+            $single_title = get_post_meta($item->ID, '_cv_project_link_label', true) ?: get_post_meta($item->ID, 'cv_project_link_label', true);
+            $item_links = array();
+            if (!empty($single_url)) {
+                $item_links[] = array('url' => $single_url, 'label' => $single_title);
+            }
+        }
         $data['projects'][] = array(
             'title' => get_the_title($item),
             'meta' => get_post_meta($item->ID, '_cv_project_meta', true),
             'url_title' => get_post_meta($item->ID, '_cv_project_link_label', true),
             'url' => get_post_meta($item->ID, '_cv_project_link', true),
+            'links' => $item_links,
             'description' => $item->post_excerpt ?: wp_trim_words($item->post_content, 50)
         );
     }
@@ -2950,14 +2984,18 @@ function cv_pdf_acf_get_translation($key, $lang)
 function cv_pdf_acf_generate_pdf_document($cv_data, $lang)
 {
     try {
-        // Helper function to clean text for PDF
+        // Helper function to clean text for PDF and ensure line breaks wrap cleanly at spaces
         $clean_text = function ($text) {
             if (empty($text))
                 return '';
             $text = wp_strip_all_tags($text);
             $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+            // Normalize all non-breaking spaces and invisible unicode whitespace to ASCII space 0x20
+            $text = str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}", "&nbsp;"), ' ', $text);
             // Convert UTF-8 to ISO-8859-1 for FPDF
             $text = iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $text);
+            // Ensure any ISO-8859-1 non-breaking space (0xA0) is also converted to 0x20 (' ') so FPDF MultiCell wraps at spaces
+            $text = str_replace(chr(160), ' ', $text);
             return trim($text);
         };
 
@@ -3229,13 +3267,28 @@ function cv_pdf_acf_generate_pdf_document($cv_data, $lang)
                     $pdf->SetFont('Arial', '', 10);
                     $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('tech_stack', $lang) . ': ' . $project['meta']), 0, 'L');
                 }
-                if (!empty($project['url_title'])) {
-                    $pdf->SetFont('Arial', '', 10);
-                    $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url_title', $lang) . ': ' . $project['url_title']), 0, 'L');
-                }
-                if (!empty($project['url'])) {
-                    $pdf->SetFont('Arial', '', 10);
-                    $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url', $lang) . ': ' . $project['url']), 0, 'L');
+                if (!empty($project['links']) && is_array($project['links'])) {
+                    foreach ($project['links'] as $p_link) {
+                        $pl_url = $p_link['url'] ?? '';
+                        $pl_label = $p_link['label'] ?? ($p_link['title'] ?? '');
+                        if (!empty($pl_label)) {
+                            $pdf->SetFont('Arial', '', 10);
+                            $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url_title', $lang) . ': ' . $pl_label), 0, 'L');
+                        }
+                        if (!empty($pl_url)) {
+                            $pdf->SetFont('Arial', '', 10);
+                            $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url', $lang) . ': ' . $pl_url), 0, 'L');
+                        }
+                    }
+                } else {
+                    if (!empty($project['url_title'])) {
+                        $pdf->SetFont('Arial', '', 10);
+                        $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url_title', $lang) . ': ' . $project['url_title']), 0, 'L');
+                    }
+                    if (!empty($project['url'])) {
+                        $pdf->SetFont('Arial', '', 10);
+                        $pdf->MultiCell(0, 5, $clean_text(cv_pdf_acf_get_translation('url', $lang) . ': ' . $project['url']), 0, 'L');
+                    }
                 }
                 if (!empty($project['description'])) {
                     $pdf->SetFont('Arial', '', 10);

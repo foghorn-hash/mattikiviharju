@@ -918,6 +918,9 @@ function cv_one_pager_render_course_meta_box($post) {
 function cv_one_pager_render_project_meta_box($post) {
     wp_nonce_field('cv_project_meta_save', 'cv_project_meta_nonce');
     $description = $post->post_excerpt;
+    // Normalize any non-breaking spaces or invisible unicode characters so text wraps at spaces
+    $description = str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}"), ' ', $description);
+
     $meta = get_post_meta($post->ID, '_cv_project_meta', true);
     if (empty($meta)) {
         $meta = get_post_meta($post->ID, 'cv_project_meta', true);
@@ -930,25 +933,70 @@ function cv_one_pager_render_project_meta_box($post) {
     if (empty($link_label)) {
         $link_label = get_post_meta($post->ID, 'cv_project_link_label', true);
     }
+
+    $links = get_post_meta($post->ID, '_cv_project_links', true);
+    if (empty($links)) {
+        $links = get_post_meta($post->ID, 'cv_project_links', true);
+    }
+    if (empty($links) || !is_array($links)) {
+        $links = array();
+        if (!empty($link)) {
+            $links[] = array(
+                'url' => $link,
+                'label' => $link_label,
+            );
+        }
+    }
+    if (empty($links)) {
+        $links[] = array('url' => '', 'label' => '');
+    }
     
     echo '<div style="margin-bottom: 20px; padding: 12px; background: #f9f9f9; border-left: 4px solid #2271b1;">';
     echo '<p style="margin: 0; font-size: 13px; color: #646970;"><strong>Instructions:</strong><br>';
     echo 'Project Title: Use title field above<br>';
-    echo 'Description: Use field below<br>';
+    echo 'Description: Use field below (Summary wraps cleanly at spaces)<br>';
     echo 'Tech Stack: Use Tech Stack field below<br>';
+    echo 'Project Links: Add one or more URLs with titles below (works in free ACF)<br>';
     echo 'Full Details: Use main editor below</p>';
     echo '</div>';
     
     echo '<p><label for="cv_project_description"><strong>Description (Summary)</strong></label></p>';
-    echo '<textarea id="cv_project_description" name="cv_project_description" rows="3" class="widefat" placeholder="Short project description...">' . esc_textarea($description) . '</textarea>';
-    echo '<p style="margin-top: 5px; font-size: 12px; color: #646970;">Brief summary shown on CV page</p>';
+    echo '<textarea id="cv_project_description" name="cv_project_description" rows="3" class="widefat" placeholder="Short project description..." style="white-space: pre-wrap; word-break: normal; overflow-wrap: break-word;">' . esc_textarea($description) . '</textarea>';
+    echo '<p style="margin-top: 5px; font-size: 12px; color: #646970;">Brief summary shown on CV page (rivittyy välilyöntien kohdalla)</p>';
     
     echo '<p><label for="cv_project_meta"><strong>Tech Stack (e.g. React, PHP, MySQL)</strong></label></p>';
     echo '<input type="text" id="cv_project_meta" name="cv_project_meta" value="' . esc_attr($meta) . '" class="widefat" placeholder="React, PHP, MySQL" />';
-    echo '<p><label for="cv_project_link"><strong>Project URL</strong></label></p>';
-    echo '<input type="url" id="cv_project_link" name="cv_project_link" value="' . esc_attr($link) . '" class="widefat" />';
-    echo '<p><label for="cv_project_link_label"><strong>Project Link Title</strong></label></p>';
-    echo '<input type="text" id="cv_project_link_label" name="cv_project_link_label" value="' . esc_attr($link_label) . '" class="widefat" placeholder="View project" />';
+
+    echo '<div style="margin-top: 20px; margin-bottom: 5px;">';
+    echo '<label><strong>Project Links / Projektilinkit (URL & Title)</strong></label>';
+    echo '<p style="margin: 3px 0 10px 0; font-size: 12px; color: #646970;">Voit lisätä useamman projektilinkin ja linkin otsikon ilmaisessa ACF-versiossa. Ensimmäinen linkki tallennetaan myös päälinkiksi taaksepäinyhteensopivuutta varten.</p>';
+    echo '</div>';
+
+    echo '<div id="cv-project-links-container">';
+    foreach ($links as $idx => $link_item) {
+        $curr_url = isset($link_item['url']) ? $link_item['url'] : '';
+        $curr_label = isset($link_item['label']) ? $link_item['label'] : (isset($link_item['title']) ? $link_item['title'] : '');
+        $badge_num = $idx + 1;
+        echo '<div class="cv-project-link-row" style="background: #fff; border: 1px solid #ccd0d4; padding: 12px; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 1px 1px rgba(0,0,0,.04);">';
+        echo '  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
+        echo '    <strong class="cv-project-link-badge" style="color: #2271b1; font-size: 13px;">Linkki #' . $badge_num . '</strong>';
+        echo '    <button type="button" class="button-link-delete cv-project-link-remove" style="color: #b32d2e; text-decoration: none; cursor: pointer; font-size: 12px;">Poista / Remove</button>';
+        echo '  </div>';
+        echo '  <div style="margin-bottom: 8px;">';
+        echo '    <label style="display: block; font-size: 12px; margin-bottom: 3px; font-weight: 600;">Project URL</label>';
+        echo '    <input type="url" name="cv_project_links[' . $idx . '][url]" value="' . esc_attr($curr_url) . '" class="widefat cv-project-link-url" placeholder="https://..." />';
+        echo '  </div>';
+        echo '  <div>';
+        echo '    <label style="display: block; font-size: 12px; margin-bottom: 3px; font-weight: 600;">Project Link Title</label>';
+        echo '    <input type="text" name="cv_project_links[' . $idx . '][label]" value="' . esc_attr($curr_label) . '" class="widefat cv-project-link-label" placeholder="View project" />';
+        echo '  </div>';
+        echo '</div>';
+    }
+    echo '</div>';
+
+    echo '<p style="margin-top: 8px; margin-bottom: 18px;">';
+    echo '  <button type="button" class="button button-secondary" id="cv-project-link-add">+ Lisää linkki / Add Project Link</button>';
+    echo '</p>';
     
     $youtube_url = get_post_meta($post->ID, '_cv_project_youtube', true);
     if (empty($youtube_url)) {
@@ -1093,9 +1141,12 @@ function cv_one_pager_save_meta_boxes($post_id) {
         if (isset($_POST['cv_experience_summary'])) {
             remove_action('save_post', 'cv_one_pager_save_meta_boxes');
 
+            $clean_exp_summary = sanitize_textarea_field($_POST['cv_experience_summary']);
+            $clean_exp_summary = str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}"), ' ', $clean_exp_summary);
+
             wp_update_post(array(
                 'ID' => $post_id,
-                'post_excerpt' => sanitize_textarea_field($_POST['cv_experience_summary'])
+                'post_excerpt' => $clean_exp_summary
             ));
 
             add_action('save_post', 'cv_one_pager_save_meta_boxes');
@@ -1134,11 +1185,19 @@ function cv_one_pager_save_meta_boxes($post_id) {
             // Unhook to prevent infinite loop
             remove_action('save_post', 'cv_one_pager_save_meta_boxes');
             
-            // Update description in post_excerpt
+            $clean_proj_desc = sanitize_textarea_field($_POST['cv_project_description']);
+            // Normalize non-breaking spaces and invisible characters so text wraps at spaces
+            $clean_proj_desc = str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}"), ' ', $clean_proj_desc);
+
+            // Update description in post_excerpt and post_content
             wp_update_post(array(
                 'ID' => $post_id,
-                'post_excerpt' => sanitize_textarea_field($_POST['cv_project_description'])
+                'post_excerpt' => $clean_proj_desc,
+                'post_content' => $clean_proj_desc,
             ));
+
+            update_post_meta($post_id, '_cv_project_description', $clean_proj_desc);
+            update_post_meta($post_id, 'cv_project_description', $clean_proj_desc);
             
             // Re-hook
             add_action('save_post', 'cv_one_pager_save_meta_boxes');
@@ -1146,11 +1205,57 @@ function cv_one_pager_save_meta_boxes($post_id) {
         if (isset($_POST['cv_project_meta'])) {
             update_post_meta($post_id, '_cv_project_meta', sanitize_text_field($_POST['cv_project_meta']));
         }
-        if (isset($_POST['cv_project_link'])) {
-            update_post_meta($post_id, '_cv_project_link', esc_url_raw($_POST['cv_project_link']));
-        }
-        if (isset($_POST['cv_project_link_label'])) {
-            update_post_meta($post_id, '_cv_project_link_label', sanitize_text_field($_POST['cv_project_link_label']));
+
+        // Save multiple project links (supporting free ACF setup)
+        if (isset($_POST['cv_project_links']) && is_array($_POST['cv_project_links'])) {
+            $cleaned_links = array();
+            foreach ($_POST['cv_project_links'] as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $u = isset($item['url']) ? esc_url_raw(trim($item['url'])) : '';
+                $l = isset($item['label']) ? sanitize_text_field(trim($item['label'])) : '';
+                if (!empty($u)) {
+                    $cleaned_links[] = array(
+                        'url' => $u,
+                        'label' => $l,
+                    );
+                }
+            }
+            if (!empty($cleaned_links)) {
+                update_post_meta($post_id, '_cv_project_links', $cleaned_links);
+                update_post_meta($post_id, 'cv_project_links', $cleaned_links);
+                update_post_meta($post_id, '_cv_project_link', $cleaned_links[0]['url']);
+                update_post_meta($post_id, 'cv_project_link', $cleaned_links[0]['url']);
+                update_post_meta($post_id, '_cv_project_link_label', $cleaned_links[0]['label']);
+                update_post_meta($post_id, 'cv_project_link_label', $cleaned_links[0]['label']);
+            } else {
+                delete_post_meta($post_id, '_cv_project_links');
+                delete_post_meta($post_id, 'cv_project_links');
+                delete_post_meta($post_id, '_cv_project_link');
+                delete_post_meta($post_id, 'cv_project_link');
+                delete_post_meta($post_id, '_cv_project_link_label');
+                delete_post_meta($post_id, 'cv_project_link_label');
+            }
+        } elseif (isset($_POST['cv_project_link'])) {
+            $u = esc_url_raw(trim($_POST['cv_project_link']));
+            $l = isset($_POST['cv_project_link_label']) ? sanitize_text_field(trim($_POST['cv_project_link_label'])) : '';
+            if (!empty($u)) {
+                $cleaned_links = array(array('url' => $u, 'label' => $l));
+                update_post_meta($post_id, '_cv_project_links', $cleaned_links);
+                update_post_meta($post_id, 'cv_project_links', $cleaned_links);
+                update_post_meta($post_id, '_cv_project_link', $u);
+                update_post_meta($post_id, 'cv_project_link', $u);
+                update_post_meta($post_id, '_cv_project_link_label', $l);
+                update_post_meta($post_id, 'cv_project_link_label', $l);
+            } else {
+                delete_post_meta($post_id, '_cv_project_links');
+                delete_post_meta($post_id, 'cv_project_links');
+                delete_post_meta($post_id, '_cv_project_link');
+                delete_post_meta($post_id, 'cv_project_link');
+                delete_post_meta($post_id, '_cv_project_link_label');
+                delete_post_meta($post_id, 'cv_project_link_label');
+            }
         }
         if (isset($_POST['cv_project_youtube'])) {
             $raw_yt = sanitize_textarea_field($_POST['cv_project_youtube']);

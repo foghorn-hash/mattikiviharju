@@ -319,6 +319,19 @@ if ($is_admin_editor) {
 					if (empty($link_label)) {
 						$link_label = get_post_meta($project->ID, 'cv_project_link_label', true);
 					}
+					$project_links = get_post_meta($project->ID, '_cv_project_links', true);
+					if (empty($project_links)) {
+						$project_links = get_post_meta($project->ID, 'cv_project_links', true);
+					}
+					if (empty($project_links) || !is_array($project_links)) {
+						$project_links = array();
+						if (!empty($link)) {
+							$project_links[] = array(
+								'url'   => $link,
+								'label' => !empty($link_label) ? $link_label : '',
+							);
+						}
+					}
 					$youtube_url = get_post_meta($project->ID, '_cv_project_youtube', true);
 					if (empty($youtube_url)) {
 						$youtube_url = get_post_meta($project->ID, 'cv_project_youtube', true);
@@ -380,7 +393,12 @@ if ($is_admin_editor) {
 							<p class="project-tech-stack"><strong><?php echo esc_html($tech_stack_label); ?></strong> <?php echo esc_html($meta); ?></p>
 						<?php endif; ?>
 						<?php if (!empty($project->post_excerpt)) : ?>
-							<p><?php echo esc_html($project->post_excerpt); ?></p>
+							<div class="project-summary">
+								<?php
+								$clean_summary = str_replace(array("\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}"), ' ', $project->post_excerpt);
+								echo wp_kses_post(wpautop($clean_summary));
+								?>
+							</div>
 						<?php elseif (!empty($project->post_content)) : ?>
 							<p><?php echo esc_html(wp_trim_words($project->post_content, 24)); ?></p>
 						<?php endif; ?>
@@ -453,9 +471,19 @@ if ($is_admin_editor) {
 								?>
 							</div>
 						<?php endif; ?>
-						<?php if (!empty($link)) : ?>
-							<?php $link_text = !empty($link_label) ? $link_label : 'View project'; ?>
-							<p><a href="<?php echo esc_url($link); ?>" target="_blank" rel="noopener"><?php echo esc_html($link_text); ?></a></p>
+						<?php if (!empty($project_links)) : ?>
+							<div class="project-links">
+								<?php foreach ($project_links as $plink) : ?>
+									<?php
+									$purl = !empty($plink['url']) ? $plink['url'] : '';
+									if (empty($purl)) {
+										continue;
+									}
+									$plabel = !empty($plink['label']) ? $plink['label'] : (!empty($plink['title']) ? $plink['title'] : (function_exists('cv_one_pager_t') ? cv_one_pager_t('View project') : 'View project'));
+									?>
+									<p class="project-link"><a href="<?php echo esc_url($purl); ?>" target="_blank" rel="noopener"><?php echo esc_html($plabel); ?> &rarr;</a></p>
+								<?php endforeach; ?>
+							</div>
 						<?php endif; ?>
 						<?php if ($is_admin_editor) : ?>
 							<?php $edit_project_url = get_edit_post_link($project->ID); ?>

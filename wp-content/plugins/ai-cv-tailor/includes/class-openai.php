@@ -60,11 +60,16 @@ class AI_CV_Tailor_OpenAI {
 		if ( ! empty( $projects ) ) {
 			$cv_data['dynamic_projects'] = array();
 			foreach ( $projects as $proj ) {
+				$p_links = get_post_meta( $proj->ID, '_cv_project_links', true );
+				$p_url = get_post_meta( $proj->ID, '_cv_project_link', true );
+				$p_desc = get_post_meta( $proj->ID, '_cv_project_description', true ) ?: ( $proj->post_excerpt ?: $proj->post_content );
+				$p_desc = str_replace( array( "\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}" ), ' ', $p_desc );
 				$cv_data['dynamic_projects'][] = array(
 					'title'       => $proj->post_title,
-					'description' => get_post_meta( $proj->ID, '_cv_project_description', true ),
+					'description' => $p_desc,
 					'tech_stack'  => get_post_meta( $proj->ID, '_cv_project_meta', true ),
-					'url'         => get_post_meta( $proj->ID, '_cv_project_link', true ),
+					'url'         => $p_url,
+					'links'       => ! empty( $p_links ) && is_array( $p_links ) ? $p_links : array(),
 				);
 			}
 		}

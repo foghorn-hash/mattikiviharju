@@ -376,12 +376,16 @@ class AI_CV_Tailor_Interview_Assistant {
 
 		$projects = array();
 		foreach ( $proj_posts as $proj ) {
+			$p_links = get_post_meta( $proj->ID, '_cv_project_links', true );
+			$p_desc = get_post_meta( $proj->ID, '_cv_project_description', true ) ?: ( $proj->post_excerpt ?: $proj->post_content );
+			$p_desc = str_replace( array( "\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}" ), ' ', $p_desc );
 			$projects[] = array(
 				'id'          => $proj->ID,
 				'title'       => $proj->post_title,
-				'description' => get_post_meta( $proj->ID, '_cv_project_description', true ) ?: $proj->post_content,
+				'description' => $p_desc,
 				'tech_stack'  => get_post_meta( $proj->ID, '_cv_project_meta', true ),
 				'url'         => get_post_meta( $proj->ID, '_cv_project_link', true ),
+				'links'       => ! empty( $p_links ) && is_array( $p_links ) ? $p_links : array(),
 			);
 		}
 
@@ -513,12 +517,16 @@ class AI_CV_Tailor_Interview_Assistant {
 			) );
 
 			foreach ( $proj_posts as $p ) {
+				$p_links = get_post_meta( $p->ID, '_cv_project_links', true );
+				$p_desc = get_post_meta( $p->ID, '_cv_project_description', true ) ?: ( $p->post_excerpt ?: $p->post_content );
+				$p_desc = str_replace( array( "\xc2\xa0", "\u{00a0}", "\u{200b}", "\u{202f}", "\u{feff}" ), ' ', $p_desc );
 				$prep['verified_projects'][] = array(
 					'id'          => $p->ID,
 					'title'       => $p->post_title,
-					'description' => get_post_meta( $p->ID, '_cv_project_description', true ) ?: $p->post_content,
+					'description' => $p_desc,
 					'tech_stack'  => get_post_meta( $p->ID, '_cv_project_meta', true ),
 					'url'         => get_post_meta( $p->ID, '_cv_project_link', true ),
+					'links'       => ! empty( $p_links ) && is_array( $p_links ) ? $p_links : array(),
 				);
 			}
 		}
