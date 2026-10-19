@@ -4,9 +4,15 @@ get_header();
 if (have_posts()) :
     while (have_posts()) : the_post();
         $date = get_the_date();
-        $blog_url = function_exists('cv_one_pager_get_blog_url') ? cv_one_pager_get_blog_url() : home_url('/blog/');
-        $translations = function_exists('pll_get_post_translations') ? pll_get_post_translations(get_the_ID()) : array();
         $current_post_lang = function_exists('pll_get_post_language') ? pll_get_post_language(get_the_ID()) : '';
+        if (empty($current_post_lang) && function_exists('pll_current_language')) {
+            $current_post_lang = pll_current_language('slug');
+        }
+        if (empty($current_post_lang)) {
+            $current_post_lang = 'fi';
+        }
+        $blog_url = function_exists('cv_one_pager_get_blog_url') ? cv_one_pager_get_blog_url($current_post_lang) : home_url('/blogi/');
+        $translations = function_exists('pll_get_post_translations') ? pll_get_post_translations(get_the_ID()) : array();
         $languages_list = function_exists('pll_languages_list') ? pll_languages_list(array('fields' => null)) : array();
         $categories = get_the_category();
         $tags = get_the_tags();
@@ -18,7 +24,7 @@ if (have_posts()) :
                 <div class="container">
                     <div class="post-hero-top">
                         <a href="<?php echo esc_url($blog_url); ?>" class="post-back-link">
-                            <i class="bi bi-arrow-left"></i> <?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Takaisin blogiin') : 'Takaisin blogiin'); ?>
+                            <i class="bi bi-arrow-left"></i> <?php echo esc_html(function_exists('cv_one_pager_t') ? cv_one_pager_t('Takaisin blogiin', $current_post_lang) : 'Takaisin blogiin'); ?>
                         </a>
 
                         <?php if (count($translations) > 1 && !empty($languages_list)) : ?>

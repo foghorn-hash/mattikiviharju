@@ -33,6 +33,24 @@ class CV_OAI_PLL_Admin {
         add_action('wp_ajax_cv_oai_pll_get_queue_stats', [$this, 'handle_ajax_get_queue_stats']);
         add_action('wp_ajax_cv_oai_pll_retry_failed', [$this, 'handle_ajax_retry_failed']);
         add_action('wp_ajax_cv_oai_pll_clear_queue', [$this, 'handle_ajax_clear_queue']);
+
+        // Bulk translation hooks for post list screens
+        $default_post_types = ['post', 'page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge', 'cv_reference'];
+        $supported_post_types = get_option('cv_oai_pll_post_types', $default_post_types);
+        if (!is_array($supported_post_types)) {
+            $supported_post_types = $default_post_types;
+        }
+        if (!in_array('post', $supported_post_types, true)) {
+            $supported_post_types[] = 'post';
+        }
+
+        foreach ($supported_post_types as $pt) {
+            add_filter("bulk_actions-edit-{$pt}", [$this, 'register_bulk_actions']);
+            add_filter("handle_bulk_actions-edit-{$pt}", [$this, 'handle_bulk_actions'], 10, 3);
+        }
+
+        add_action('admin_notices', [$this, 'render_bulk_admin_notices']);
+        add_action('wp_ajax_cv_oai_pll_bulk_translate_item', [$this, 'handle_ajax_bulk_translate_item']);
     }
 
     /**
@@ -878,6 +896,54 @@ class CV_OAI_PLL_Admin {
                 );
             }
         }
+
+        // Bulk translation assets on list table screen (edit.php)
+        if ($hook === 'edit.php') {
+            $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+            $screen_post_type = ($screen && !empty($screen->post_type)) ? $screen->post_type : 'post';
+
+            $default_post_types = ['post', 'page', 'cv_experience', 'cv_education', 'cv_course', 'cv_project', 'cv_skill', 'cv_badge', 'cv_reference'];
+            $supported_post_types = get_option('cv_oai_pll_post_types', $default_post_types);
+            if (!is_array($supported_post_types)) {
+                $supported_post_types = $default_post_types;
+            }
+            if (!in_array('post', $supported_post_types, true)) {
+                $supported_post_types[] = 'post';
+            }
+
+            if (in_array($screen_post_type, $supported_post_types, true)) {
+                wp_enqueue_style(
+                    'cv-oai-pll-admin-css',
+                    plugins_url('assets/css/admin.css', dirname(__FILE__)),
+                    [],
+                    '1.1.0'
+                );
+
+                wp_enqueue_script(
+                    'cv-oai-pll-admin-bulk-js',
+                    plugins_url('assets/js/admin-bulk.js', dirname(__FILE__)),
+                    ['jquery'],
+                    '1.1.0',
+                    true
+                );
+
+                wp_localize_script('cv-oai-pll-admin-bulk-js', 'cvOaiPllBulkL10n', [
+                    'ajax_url'            => admin_url('admin-ajax.php'),
+                    'nonce'               => wp_create_nonce('cv_oai_pll_bulk_nonce'),
+                    'post_type'           => $screen_post_type,
+                    'bulk_action_en_sv'   => 'cv_oai_pll_bulk_en_sv',
+                    'bulk_action_en'      => 'cv_oai_pll_bulk_en',
+                    'bulk_action_sv'      => 'cv_oai_pll_bulk_sv',
+                    'str_btn_translate'   => __('Käännä valitut: En & Sv', 'cv-openai-polylang-translator'),
+                    'str_btn_select_all'  => __('⚡ Valitse kaikki ja käännä: En & Sv', 'cv-openai-polylang-translator'),
+                    'str_no_posts'        => __('Valitse ensin vähintään yksi artikkeli taulukosta.', 'cv-openai-polylang-translator'),
+                    'str_modal_title'     => __('OpenAI Polylang Käännin — En & Sv', 'cv-openai-polylang-translator'),
+                    'str_cancel'          => __('Keskeytä', 'cv-openai-polylang-translator'),
+                    'str_close'           => __('Sulje ja päivitä sivu', 'cv-openai-polylang-translator'),
+                    'str_confirm_cancel'  => __('Haluatko varmasti keskeyttää eräajon?', 'cv-openai-polylang-translator'),
+                ]);
+            }
+        }
     }
 
     /**
@@ -1161,6 +1227,233 @@ class CV_OAI_PLL_Admin {
             } else {
                 wp_send_json_error(['message' => __('Failed to clear queue.', 'cv-openai-polylang-translator')]);
             }
+        } catch (\Throwable $t) {
+            wp_send_json_error(['message' => 'PHP Fatal Error: ' . $t->getMessage() . ' in ' . $t->getFile() . ' on line ' . $t->getLine()]);
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => 'PHP Exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine()]);
+        }
+    }
+
+    // ==========================================
+    // BULK TRANSLATION HANDLERS (edit.php)
+    // ==========================================
+
+    /**
+     * Registers bulk action items in the list table dropdown.
+     *
+     * @param array $bulk_actions Existing bulk actions.
+     * @return array
+     */
+    public function register_bulk_actions($bulk_actions) {
+        $bulk_actions['cv_oai_pll_bulk_en_sv'] = __('Käännä: En ja Sv (OpenAI)', 'cv-openai-polylang-translator');
+        $bulk_actions['cv_oai_pll_bulk_en']    = __('Käännä: En (OpenAI)', 'cv-openai-polylang-translator');
+        $bulk_actions['cv_oai_pll_bulk_sv']    = __('Käännä: Sv (OpenAI)', 'cv-openai-polylang-translator');
+        return $bulk_actions;
+    }
+
+    /**
+     * Fallback server-side bulk action handler if JavaScript is disabled.
+     *
+     * @param string $redirect_to The redirect URL.
+     * @param string $doaction    The action name.
+     * @param array  $post_ids    Array of selected post IDs.
+     * @return string
+     */
+    public function handle_bulk_actions($redirect_to, $doaction, $post_ids) {
+        if (!in_array($doaction, ['cv_oai_pll_bulk_en_sv', 'cv_oai_pll_bulk_en', 'cv_oai_pll_bulk_sv'], true)) {
+            return $redirect_to;
+        }
+
+        if (empty($post_ids) || !is_array($post_ids)) {
+            return $redirect_to;
+        }
+
+        $target_langs = [];
+        if ($doaction === 'cv_oai_pll_bulk_en_sv') {
+            $target_langs = ['en', 'sv'];
+        } elseif ($doaction === 'cv_oai_pll_bulk_en') {
+            $target_langs = ['en'];
+        } elseif ($doaction === 'cv_oai_pll_bulk_sv') {
+            $target_langs = ['sv'];
+        }
+
+        $options = [
+            'title'   => true,
+            'excerpt' => true,
+            'content' => true,
+            'acf'     => true,
+            'caption' => false,
+            'alt'     => false,
+        ];
+
+        @set_time_limit(300);
+
+        $translated_count = 0;
+        foreach ($post_ids as $pid) {
+            $pid = (int) $pid;
+            if (!$pid || !current_user_can('edit_post', $pid)) {
+                continue;
+            }
+
+            foreach ($target_langs as $t_lang) {
+                $res = CV_OAI_PLL_Translator::translate_post($pid, $t_lang, $options, true, true, false);
+                if (!is_wp_error($res)) {
+                    $translated_count++;
+                }
+            }
+        }
+
+        return add_query_arg([
+            'cv_oai_bulk_translated' => $translated_count,
+            'cv_oai_bulk_total'      => count($post_ids) * count($target_langs),
+        ], $redirect_to);
+    }
+
+    /**
+     * Renders admin notices for bulk actions feedback.
+     */
+    public function render_bulk_admin_notices() {
+        if (isset($_GET['cv_oai_bulk_translated'])) {
+            $count = (int) $_GET['cv_oai_bulk_translated'];
+            $total = isset($_GET['cv_oai_bulk_total']) ? (int) $_GET['cv_oai_bulk_total'] : $count;
+            echo '<div class="notice notice-success is-dismissible">';
+            echo '<p>' . sprintf(
+                esc_html__('Käännös valmis: %1$d / %2$d artikkelikäännöstä luotu tai päivitetty (OpenAI).', 'cv-openai-polylang-translator'),
+                $count,
+                $total
+            ) . '</p>';
+            echo '</div>';
+        }
+    }
+
+    /**
+     * AJAX: Translate a single post item to a target language during bulk operations.
+     */
+    public function handle_ajax_bulk_translate_item() {
+        try {
+            check_ajax_referer('cv_oai_pll_bulk_nonce', 'nonce');
+
+            $post_id = isset($_POST['post_id']) ? (int) $_POST['post_id'] : 0;
+            if (!$post_id || !current_user_can('edit_post', $post_id)) {
+                wp_send_json_error([
+                    'post_id' => $post_id,
+                    'message' => __('Käyttäjällä ei ole oikeutta muokata tätä artikkelia.', 'cv-openai-polylang-translator')
+                ]);
+            }
+
+            $target_lang = isset($_POST['target_lang']) ? sanitize_text_field($_POST['target_lang']) : '';
+            if (empty($target_lang)) {
+                wp_send_json_error([
+                    'post_id' => $post_id,
+                    'message' => __('Kohdekieli puuttuu.', 'cv-openai-polylang-translator')
+                ]);
+            }
+
+            $post = get_post($post_id);
+            if (!$post) {
+                wp_send_json_error([
+                    'post_id' => $post_id,
+                    'message' => __('Artikkelia ei löytynyt tietokannasta.', 'cv-openai-polylang-translator')
+                ]);
+            }
+
+            $post_title = get_the_title($post_id);
+
+            if (!function_exists('pll_get_post_language')) {
+                wp_send_json_error([
+                    'post_id' => $post_id,
+                    'message' => __('Polylang ei ole aktiivinen.', 'cv-openai-polylang-translator')
+                ]);
+            }
+
+            $source_lang = pll_get_post_language($post_id);
+            if (empty($source_lang)) {
+                // If post has no language set in Polylang, set it to default (Finnish)
+                if (function_exists('pll_default_language') && function_exists('pll_set_post_language')) {
+                    $default_lang = pll_default_language('slug');
+                    if ($default_lang) {
+                        pll_set_post_language($post_id, $default_lang);
+                        $source_lang = $default_lang;
+                    }
+                }
+            }
+
+            if (empty($source_lang)) {
+                wp_send_json_error([
+                    'post_id' => $post_id,
+                    'message' => __('Artikkelin kieli ei ole asetettu Polylangissa.', 'cv-openai-polylang-translator')
+                ]);
+            }
+
+            if ($source_lang === $target_lang) {
+                wp_send_json_success([
+                    'skipped'     => true,
+                    'post_id'     => $post_id,
+                    'post_title'  => $post_title,
+                    'target_lang' => $target_lang,
+                    'message'     => sprintf(__('Artikkeli on jo kielellä %s (alkuperäinen kieli).', 'cv-openai-polylang-translator'), strtoupper($target_lang))
+                ]);
+            }
+
+            // Check if existing published translation exists
+            $skip_published = !empty($_POST['skip_published']);
+            $translations = function_exists('pll_get_post_translations') ? pll_get_post_translations($post_id) : [];
+            $existing_id = isset($translations[$target_lang]) ? (int) $translations[$target_lang] : 0;
+            if ($existing_id) {
+                $existing_post = get_post($existing_id);
+                if ($existing_post && $existing_post->post_status === 'publish' && $skip_published) {
+                    wp_send_json_success([
+                        'skipped'     => true,
+                        'post_id'     => $post_id,
+                        'post_title'  => $post_title,
+                        'target_lang' => $target_lang,
+                        'draft_id'    => $existing_id,
+                        'message'     => sprintf(__('Julkaistu käännös (%s) on jo olemassa.', 'cv-openai-polylang-translator'), strtoupper($target_lang))
+                    ]);
+                }
+            }
+
+            $options = [
+                'title'   => true,
+                'excerpt' => true,
+                'content' => true,
+                'acf'     => true,
+                'caption' => false,
+                'alt'     => false,
+            ];
+
+            $overwrite_draft = !empty($_POST['overwrite_draft']);
+
+            $result = CV_OAI_PLL_Translator::translate_post($post_id, $target_lang, $options, $overwrite_draft, true, false);
+
+            if (is_wp_error($result)) {
+                if ($result->get_error_code() === 'published_translation_exists') {
+                    wp_send_json_success([
+                        'skipped'     => true,
+                        'post_id'     => $post_id,
+                        'post_title'  => $post_title,
+                        'target_lang' => $target_lang,
+                        'message'     => __('Julkaistu käännös on jo olemassa, ohitettu.', 'cv-openai-polylang-translator')
+                    ]);
+                }
+
+                wp_send_json_error([
+                    'post_id'     => $post_id,
+                    'post_title'  => $post_title,
+                    'target_lang' => $target_lang,
+                    'message'     => $result->get_error_message()
+                ]);
+            }
+
+            $draft_url = get_edit_post_link($result, 'raw');
+            wp_send_json_success([
+                'post_id'     => $post_id,
+                'post_title'  => $post_title,
+                'target_lang' => $target_lang,
+                'draft_id'    => $result,
+                'draft_url'   => $draft_url,
+                'message'     => __('Käännetty onnistuneesti.', 'cv-openai-polylang-translator')
+            ]);
         } catch (\Throwable $t) {
             wp_send_json_error(['message' => 'PHP Fatal Error: ' . $t->getMessage() . ' in ' . $t->getFile() . ' on line ' . $t->getLine()]);
         } catch (\Exception $e) {

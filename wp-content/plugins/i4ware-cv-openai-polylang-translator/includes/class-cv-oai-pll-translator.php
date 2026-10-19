@@ -281,7 +281,13 @@ class CV_OAI_PLL_Translator {
             }
 
             $translations = pll_get_post_translations($post_id);
-            $translations[$target_lang] = $new_post_id;
+            if (!is_array($translations)) {
+                $translations = [];
+            }
+            if (!isset($translations[$source_lang])) {
+                $translations[$source_lang] = (int) $post_id;
+            }
+            $translations[$target_lang] = (int) $new_post_id;
             if (function_exists('pll_save_post_translations')) {
                 pll_save_post_translations($translations);
             }

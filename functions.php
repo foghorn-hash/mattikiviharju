@@ -327,8 +327,11 @@ function cv_one_pager_get_translations_map() {
         'Contact' => array('fi' => 'Yhteystiedot', 'en' => 'Contact', 'sv' => 'Kontakt'),
         'Blogi' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
         'Blog' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
+        'Blogg' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
         'Read more' => array('fi' => 'Lue lisää', 'en' => 'Read more', 'sv' => 'Läs mer'),
         'Takaisin blogiin' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
+        'Back to blog' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
+        'Tillbaka till bloggen' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
         'Käännökset:' => array('fi' => 'Käännökset:', 'en' => 'Translations:', 'sv' => 'Översättningar:'),
         'Julkaistu:' => array('fi' => 'Julkaistu:', 'en' => 'Published:', 'sv' => 'Publicerad:'),
         'Kategoriat:' => array('fi' => 'Kategoriat:', 'en' => 'Categories:', 'sv' => 'Kategorier:'),
@@ -526,6 +529,7 @@ function cv_one_pager_register_polylang_strings() {
         'Contact',
         'Blogi',
         'Blog',
+        'Blogg',
         'Schedule a call',
         'View work',
         'Profile Snapshot',
@@ -571,6 +575,8 @@ function cv_one_pager_register_polylang_strings() {
         'Suosittelijat pyydettäessä',
         'References available upon request',
         'Takaisin blogiin',
+        'Back to blog',
+        'Tillbaka till bloggen',
         'Käännökset:',
         'Julkaistu:',
         'Kategoriat:',
@@ -1317,40 +1323,70 @@ function cv_one_pager_save_meta_boxes($post_id) {
 }
 add_action('save_post', 'cv_one_pager_save_meta_boxes');
 
-function cv_one_pager_get_blog_url() {
-    $posts_page_id = (int) get_option('page_for_posts');
-    if ($posts_page_id > 0) {
-        if (function_exists('pll_get_post')) {
-            $translated_id = pll_get_post($posts_page_id);
-            if ($translated_id) {
-                return get_permalink($translated_id);
-            }
+function cv_one_pager_get_blog_url($lang = null) {
+    if (empty($lang)) {
+        if (function_exists('pll_current_language')) {
+            $lang = pll_current_language('slug');
         }
-        return get_permalink($posts_page_id);
     }
-
-    $pages = get_pages(array(
-        'meta_key' => '_wp_page_template',
-        'meta_value' => 'page-blog.php',
-        'number' => 1,
-    ));
-    if (!empty($pages)) {
-        $blog_page_id = (int) $pages[0]->ID;
-        if (function_exists('pll_get_post')) {
-            $translated_id = pll_get_post($blog_page_id);
-            if ($translated_id) {
-                return get_permalink($translated_id);
-            }
+    if (empty($lang) && !empty($_SERVER['REQUEST_URI'])) {
+        $uri = $_SERVER['REQUEST_URI'];
+        if (preg_match('#/(en)(/|$|\?)#i', $uri)) {
+            $lang = 'en';
+        } elseif (preg_match('#/(sv)(/|$|\?)#i', $uri)) {
+            $lang = 'sv';
         }
-        return get_permalink($blog_page_id);
     }
-
-    if (function_exists('pll_home_url')) {
-        return trailingslashit(pll_home_url()) . 'blog/';
+    if (empty($lang) && function_exists('is_singular') && is_singular()) {
+        if (function_exists('pll_get_post_language') && function_exists('get_the_ID')) {
+            $lang = pll_get_post_language(get_the_ID());
+        }
     }
+    if (empty($lang)) {
+        $lang = 'fi';
+    }
+    $lang = strtolower(trim($lang));
 
-    return home_url('/blog/');
+    switch ($lang) {
+        case 'en':
+            return home_url('/en/blog/');
+
+        case 'sv':
+            return home_url('/sv/blogg/');
+
+        case 'fi':
+        default:
+            return home_url('/blogi/');
+    }
 }
+
+/**
+ * Filter Polylang translation URLs so the language switcher stays on the blog page in Fi, En, and Sv.
+ */
+function cv_one_pager_filter_pll_translation_url($url, $slug) {
+    if (function_exists('is_singular') && is_singular('post')) {
+        return $url;
+    }
+
+    $is_blog_context = false;
+    if (function_exists('is_home') && is_home()) {
+        $is_blog_context = true;
+    } elseif (function_exists('is_page_template') && is_page_template('page-blog.php')) {
+        $is_blog_context = true;
+    } elseif (!empty($_SERVER['REQUEST_URI']) && preg_match('#/(blogi|blog|blogg)(/|$|\?)#i', $_SERVER['REQUEST_URI'])) {
+        $is_blog_context = true;
+    }
+
+    if ($is_blog_context) {
+        $blog_url = cv_one_pager_get_blog_url($slug);
+        if (!empty($blog_url)) {
+            return $blog_url;
+        }
+    }
+
+    return $url;
+}
+add_filter('pll_translation_url', 'cv_one_pager_filter_pll_translation_url', 10, 2);
 
 function cv_one_pager_render_post_card($post) {
     $title = get_the_title($post);
