@@ -215,8 +215,9 @@ class Gemini_Avatar_Settings {
 	 */
 	public static function get_text_models() {
 		return array(
-			'gemini-3.5-flash'       => 'Gemini 3.5 Flash (Suositus - nopea & luotettava)',
-			'gemini-3-flash-preview' => 'Gemini 3 Flash Preview',
+			'gemini-3.5-flash-lite'  => 'Gemini 3.5 Flash Lite (Matala viive, erillinen kiintiö - Suositus)',
+			'gemini-3.1-flash-lite'  => 'Gemini 3.1 Flash Lite (Nopea & luotettava)',
+			'gemini-3.5-flash'       => 'Gemini 3.5 Flash',
 			'gemini-3.8-flash'       => 'Gemini 3.8 Flash',
 			'gemini-flash-latest'    => 'Gemini Flash Latest',
 		);

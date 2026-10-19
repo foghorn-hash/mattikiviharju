@@ -44,6 +44,18 @@ class Gemini_Avatar_API_Endpoint {
 					'default'           => 'fi',
 					'sanitize_callback' => 'sanitize_key',
 				),
+				'mode'           => array(
+					'required'          => false,
+					'type'              => 'string',
+					'default'           => 'interview',
+					'sanitize_callback' => 'sanitize_key',
+				),
+				'style'          => array(
+					'required'          => false,
+					'type'              => 'string',
+					'default'           => 'conversational',
+					'sanitize_callback' => 'sanitize_key',
+				),
 			),
 		) );
 
@@ -53,10 +65,16 @@ class Gemini_Avatar_API_Endpoint {
 			'callback'            => array( __CLASS__, 'handle_tts' ),
 			'permission_callback' => array( __CLASS__, 'check_permissions' ),
 			'args'                => array(
-				'text' => array(
+				'text'  => array(
 					'required'          => true,
 					'type'              => 'string',
 					'sanitize_callback' => 'sanitize_textarea_field',
+				),
+				'voice' => array(
+					'required'          => false,
+					'type'              => 'string',
+					'default'           => '',
+					'sanitize_callback' => 'sanitize_text_field',
 				),
 			),
 		) );
@@ -127,9 +145,17 @@ class Gemini_Avatar_API_Endpoint {
 		$generate_audio = (bool) $request->get_param( 'generate_audio' );
 		$history        = (array) $request->get_param( 'history' );
 		$lang           = sanitize_key( (string) $request->get_param( 'lang' ) );
+		$mode           = sanitize_key( (string) $request->get_param( 'mode' ) );
+		$style          = sanitize_key( (string) $request->get_param( 'style' ) );
 
 		if ( ! in_array( $lang, array( 'fi', 'en', 'sv' ), true ) ) {
 			$lang = 'fi';
+		}
+		if ( ! in_array( $mode, array( 'interview', 'assistant' ), true ) ) {
+			$mode = 'interview';
+		}
+		if ( ! in_array( $style, array( 'concise', 'conversational', 'technical' ), true ) ) {
+			$style = 'conversational';
 		}
 
 		$max_chars = absint( Gemini_Avatar_Settings::get( 'max_input_chars', 400 ) );
@@ -161,12 +187,14 @@ class Gemini_Avatar_API_Endpoint {
 		// 1. Retrieve relevant knowledge excerpts in the requested language
 		$context = Gemini_Avatar_Knowledge_Base::get_prompt_context( $question, 6, $lang );
 
-		// 2. Generate text answer via Gemini in the requested language
+		// 2. Generate text answer via Gemini in the requested language, mode and style
 		$answer_result = Gemini_Avatar_Gemini_Client::generate_answer(
 			$question,
 			$history,
 			$context['context_text'],
-			$lang
+			$lang,
+			$mode,
+			$style
 		);
 
 		if ( empty( $answer_result['success'] ) ) {
@@ -197,6 +225,9 @@ class Gemini_Avatar_API_Endpoint {
 			'success'      => true,
 			'text'         => $answer_text,
 			'sources'      => $context['sources'],
+			'mode'         => $mode,
+			'style'        => $style,
+			'model_used'   => $answer_result['model_used'] ?? '',
 			'audio_base64' => $audio_data,
 			'mime_type'    => $audio_mime,
 			'audio_error'  => $audio_error,
@@ -210,7 +241,9 @@ class Gemini_Avatar_API_Endpoint {
 	 * @return WP_REST_Response
 	 */
 	public static function handle_tts( $request ) {
-		$text = trim( (string) $request->get_param( 'text' ) );
+		$text  = trim( (string) $request->get_param( 'text' ) );
+		$voice = trim( (string) $request->get_param( 'voice' ) );
+
 		if ( empty( $text ) ) {
 			return new WP_REST_Response( array(
 				'success' => false,
@@ -218,12 +251,13 @@ class Gemini_Avatar_API_Endpoint {
 			), 400 );
 		}
 
-		$tts_result = Gemini_Avatar_Gemini_Client::generate_tts( $text );
+		$tts_result = Gemini_Avatar_Gemini_Client::generate_tts( $text, $voice );
 		if ( ! empty( $tts_result['success'] ) ) {
 			return new WP_REST_Response( array(
 				'success'      => true,
 				'audio_base64' => $tts_result['audio_base64'],
 				'mime_type'    => $tts_result['mime_type'],
+				'voice'        => $tts_result['voice'] ?? 'Puck',
 			), 200 );
 		}
 

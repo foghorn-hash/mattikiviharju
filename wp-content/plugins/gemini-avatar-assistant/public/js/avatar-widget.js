@@ -1,7 +1,8 @@
 /**
  * Gemini AI Avatar Assistant Widget
  * Handles interactive avatar animations, Web Audio API amplitude analysis,
- * speech synthesis playback, REST API communication, and accessibility.
+ * speech synthesis playback, REST API communication, human-in-the-loop interview approval,
+ * audio routing controls, and Popout window synchronization for Teams, Meet, and Isadora 3.
  *
  * @package Gemini_Avatar_Assistant
  */
@@ -18,18 +19,54 @@
 	let currentLang = config.currentLang || 'fi';
 	let i18n = (config.languages && config.languages[currentLang]) ? config.languages[currentLang] : config.i18n;
 
+	// Mode and Style State
+	let currentMode = 'interview'; // 'interview' or 'assistant'
+	let currentStyle = 'conversational'; // 'concise', 'conversational', 'technical'
+	let speechSpeed = 1.0; // 0.85, 1.0, 1.2, 1.4
+
 	// Elements
 	let widgetEl, launcherEl, drawerEl, messagesEl, inputEl, sendBtnEl;
-	let soundBtnEl, resetBtnEl, closeBtnEl, micBtnEl, micStatusEl, micCancelEl;
+	let soundBtnEl, resetBtnEl, closeBtnEl, popoutBtnEl, micBtnEl, micStatusEl, micCancelEl;
 	let starterChipsEl, charCountEl, headerStatusDot, headerStateText, launcherStatus;
-	let portalOuterRing, mouthOverlay, vectorMouth, audioWavesEl, stopSpeechStageBtn;
+	let portalOuterRing, mouthOverlay, vectorMouth, audioWavesEl;
+	let stopSpeechStageBtn, pauseSpeechStageBtn, pauseStageText;
+
+	// Interview Toolbar Elements
+	let modeInterviewBtn, modeAssistantBtn, interviewSubtoolbar;
+	let stylePills, speedPills;
+
+	// Preview Card Elements
+	let previewCardEl, previewTextareaEl, previewDurationEl, previewCharCountEl;
+	let btnApproveSpeak, btnPauseToggle, btnReplayPreview, btnEmergencyStop, btnDismissPreview;
+	let pauseBtnText, speechActivityBadge, aiStatusText;
 
 	// Audio & Web Audio API state
 	let audioCtx = null;
 	let currentAudioSource = null;
+	let currentAudioBuffer = null;
 	let analyserNode = null;
 	let animFrameId = null;
 	let isPlayingAudio = false;
+	let isAudioPaused = false;
+	let lastApprovedSpeechText = '';
+
+	// BroadcastChannel for Popout window synchronization
+	let syncChannel = null;
+	try {
+		if (typeof BroadcastChannel !== 'undefined') {
+			syncChannel = new BroadcastChannel('gemini_avatar_sync');
+		}
+	} catch (e) {
+		console.warn('[Gemini Avatar] BroadcastChannel not supported:', e);
+	}
+
+	function broadcastAvatarState(data) {
+		if (syncChannel) {
+			try {
+				syncChannel.postMessage(data);
+			} catch (e) {}
+		}
+	}
 
 	// Speech recognition state
 	let speechRecognizer = null;
@@ -41,11 +78,15 @@
 	let soundEnabled = config.enableSpeech;
 	let conversationHistory = [];
 
-	// Load sound preference from session
+	// Load sound & mode preferences from session
 	try {
 		const storedSound = sessionStorage.getItem('gemini_avatar_sound');
 		if (storedSound !== null) {
 			soundEnabled = storedSound === '1';
+		}
+		const storedMode = sessionStorage.getItem('gemini_avatar_mode');
+		if (storedMode && (storedMode === 'interview' || storedMode === 'assistant')) {
+			currentMode = storedMode;
 		}
 	} catch (e) {
 		// Ignore storage errors
@@ -64,6 +105,7 @@
 		soundBtnEl     = document.getElementById('gemini-btn-sound');
 		resetBtnEl     = document.getElementById('gemini-btn-reset');
 		closeBtnEl     = document.getElementById('gemini-btn-close');
+		popoutBtnEl    = document.getElementById('gemini-btn-popout');
 		micBtnEl       = document.getElementById('gemini-btn-mic');
 		micStatusEl    = document.getElementById('gemini-mic-status');
 		micCancelEl    = document.getElementById('gemini-mic-cancel');
@@ -78,6 +120,29 @@
 		vectorMouth       = document.getElementById('gemini-vector-mouth');
 		audioWavesEl      = document.getElementById('gemini-audio-waves');
 		stopSpeechStageBtn= document.getElementById('gemini-stage-stop-btn');
+		pauseSpeechStageBtn = document.getElementById('gemini-stage-pause-btn');
+		pauseStageText    = document.getElementById('gemini-stage-pause-text');
+
+		// Mode and toolbar elements
+		modeInterviewBtn   = document.getElementById('gemini-mode-interview');
+		modeAssistantBtn   = document.getElementById('gemini-mode-assistant');
+		interviewSubtoolbar= document.getElementById('gemini-interview-subtoolbar');
+		stylePills         = document.querySelectorAll('.gemini-style-pill');
+		speedPills         = document.querySelectorAll('.gemini-speed-pill');
+
+		// Preview card elements
+		previewCardEl      = document.getElementById('gemini-preview-card');
+		previewTextareaEl  = document.getElementById('gemini-preview-textarea');
+		previewDurationEl  = document.getElementById('gemini-preview-duration');
+		previewCharCountEl = document.getElementById('gemini-preview-char-count');
+		btnApproveSpeak    = document.getElementById('gemini-btn-approve-speak');
+		btnPauseToggle     = document.getElementById('gemini-btn-pause-toggle');
+		btnReplayPreview   = document.getElementById('gemini-btn-replay-preview');
+		btnEmergencyStop   = document.getElementById('gemini-btn-emergency-stop');
+		btnDismissPreview  = document.getElementById('gemini-btn-dismiss-preview');
+		pauseBtnText       = document.getElementById('gemini-pause-btn-text');
+		speechActivityBadge= document.getElementById('gemini-speech-activity-badge');
+		aiStatusText       = document.getElementById('gemini-ai-status-text');
 
 		if (!widgetEl || !launcherEl || !drawerEl) {
 			return;
@@ -85,14 +150,72 @@
 
 		// Update sound toggle UI
 		updateSoundUI();
+		updateModeUI();
 
 		// Bind events
 		launcherEl.addEventListener('click', openDrawer);
 		closeBtnEl.addEventListener('click', closeDrawer);
 		soundBtnEl.addEventListener('click', toggleSound);
 		resetBtnEl.addEventListener('click', resetConversation);
+		if (popoutBtnEl) {
+			popoutBtnEl.addEventListener('click', openPopoutAvatar);
+		}
 		if (stopSpeechStageBtn) {
 			stopSpeechStageBtn.addEventListener('click', stopAudio);
+		}
+		if (pauseSpeechStageBtn) {
+			pauseSpeechStageBtn.addEventListener('click', togglePauseAudio);
+		}
+
+		// Mode buttons
+		if (modeInterviewBtn) {
+			modeInterviewBtn.addEventListener('click', () => setMode('interview'));
+		}
+		if (modeAssistantBtn) {
+			modeAssistantBtn.addEventListener('click', () => setMode('assistant'));
+		}
+
+		// Style pills
+		stylePills.forEach(pill => {
+			pill.addEventListener('click', function () {
+				stylePills.forEach(p => p.classList.remove('active'));
+				pill.classList.add('active');
+				currentStyle = pill.getAttribute('data-style') || 'conversational';
+			});
+		});
+
+		// Speed pills
+		speedPills.forEach(pill => {
+			pill.addEventListener('click', function () {
+				speedPills.forEach(p => p.classList.remove('active'));
+				pill.classList.add('active');
+				speechSpeed = parseFloat(pill.getAttribute('data-speed') || '1.0');
+				if (currentAudioSource && audioCtx && audioCtx.state === 'running') {
+					try {
+						currentAudioSource.playbackRate.value = speechSpeed;
+					} catch (e) {}
+				}
+			});
+		});
+
+		// Preview card events
+		if (btnApproveSpeak) {
+			btnApproveSpeak.addEventListener('click', onApproveAndSpeak);
+		}
+		if (btnPauseToggle) {
+			btnPauseToggle.addEventListener('click', togglePauseAudio);
+		}
+		if (btnReplayPreview) {
+			btnReplayPreview.addEventListener('click', onReplayCurrent);
+		}
+		if (btnEmergencyStop) {
+			btnEmergencyStop.addEventListener('click', stopAudio);
+		}
+		if (btnDismissPreview) {
+			btnDismissPreview.addEventListener('click', dismissPreview);
+		}
+		if (previewTextareaEl) {
+			previewTextareaEl.addEventListener('input', onPreviewTextareaChange);
 		}
 
 		// Chat form submit
@@ -145,6 +268,48 @@
 		// Vector avatar blink timer if SVG mode
 		if (config.avatarType === 'svg') {
 			initVectorAvatarBlink();
+		}
+	}
+
+	/**
+	 * Open Popout avatar window (Broadcast-ready for Teams/Meet/OBS/Isadora 3)
+	 */
+	function openPopoutAvatar() {
+		const popoutUrl = config.popoutUrl || (config.homeUrl + '?gemini_popout=1');
+		window.open(
+			popoutUrl,
+			'GeminiAvatarPopout',
+			'width=780,height=560,menubar=no,toolbar=no,location=no,status=no,resizable=yes'
+		);
+	}
+
+	/**
+	 * Mode switching: 'interview' (1st person job interview) or 'assistant' (3rd person)
+	 */
+	function setMode(mode) {
+		currentMode = mode;
+		try {
+			sessionStorage.setItem('gemini_avatar_mode', mode);
+		} catch (e) {}
+
+		updateModeUI();
+
+		// Update starter chips according to mode
+		renderStarterChips();
+	}
+
+	function updateModeUI() {
+		if (modeInterviewBtn && modeAssistantBtn) {
+			modeInterviewBtn.classList.toggle('active', currentMode === 'interview');
+			modeAssistantBtn.classList.toggle('active', currentMode === 'assistant');
+		}
+		if (interviewSubtoolbar) {
+			interviewSubtoolbar.style.display = (currentMode === 'interview') ? 'flex' : 'none';
+		}
+		if (inputEl) {
+			inputEl.placeholder = (currentMode === 'interview')
+				? (currentLang === 'sv' ? 'Ange intervjuarens fråga eller tala i mikrofonen...' : (currentLang === 'en' ? 'Enter interviewer question or speak into mic...' : 'Syötä haastattelijan kysymys tai puhu mikrofoniin...'))
+				: i18n.inputPlaceholder;
 		}
 	}
 
@@ -216,6 +381,7 @@
 	function resetConversation() {
 		stopAudio();
 		stopVoiceInput();
+		dismissPreview();
 		conversationHistory = [];
 		messagesEl.innerHTML = '';
 		renderInitialState();
@@ -235,7 +401,6 @@
 		const stage = document.getElementById('gemini-stage-visualizer');
 		const speechCtrl = document.getElementById('gemini-stage-speech-ctrl');
 
-		// Remove all state classes
 		if (launcherStatus) {
 			launcherStatus.className = 'gemini-status-indicator status-' + state;
 		}
@@ -252,7 +417,10 @@
 		}
 
 		if (speechCtrl) {
-			speechCtrl.style.display = (state === 'speaking') ? 'block' : 'none';
+			speechCtrl.style.display = (state === 'speaking' || isAudioPaused) ? 'flex' : 'none';
+		}
+		if (speechActivityBadge) {
+			speechActivityBadge.style.display = (state === 'speaking') ? 'inline-flex' : 'none';
 		}
 
 		if (headerStateText) {
@@ -275,6 +443,23 @@
 					break;
 			}
 		}
+
+		if (aiStatusText) {
+			switch (state) {
+				case 'thinking':
+					aiStatusText.textContent = i18n.thinking;
+					break;
+				case 'speaking':
+					aiStatusText.textContent = (currentLang === 'sv') ? 'Puhuu kokoukseen' : ((currentLang === 'en') ? 'Speaking to meeting' : 'Puhuu kokoukseen');
+					break;
+				case 'error':
+					aiStatusText.textContent = 'API-virhe';
+					break;
+				default:
+					aiStatusText.textContent = 'Gemini AI valmiina';
+					break;
+			}
+		}
 	}
 
 	/**
@@ -293,40 +478,27 @@
 		// Update launcher tooltip
 		const launcherTooltip = document.getElementById('gemini-launcher-tooltip-text');
 		if (launcherTooltip) {
-			if (currentLang === 'sv') launcherTooltip.textContent = 'Fråga Mattis AI-assistent!';
-			else if (currentLang === 'en') launcherTooltip.textContent = 'Ask Matti’s AI Assistant!';
-			else launcherTooltip.textContent = 'Kysy Matin AI-avustajalta!';
+			if (currentLang === 'sv') launcherTooltip.textContent = 'Intervju- & AI-assistent';
+			else if (currentLang === 'en') launcherTooltip.textContent = 'Interview & AI Assistant';
+			else launcherTooltip.textContent = 'Haastattelu- & AI-avustaja';
 		}
 
 		// Update privacy notice
 		const privacyText = document.getElementById('gemini-privacy-text');
 		if (privacyText) {
 			if (currentLang === 'sv') {
-				privacyText.innerHTML = 'Jag är Matti Kivihargus AI-assistent. Meddelanden behandlas via Googles Gemini-tjänst. <a href="' + escapeHtml(config.privacyUrl) + '" target="_blank" rel="noopener">Integritetspolicy</a>';
+				privacyText.innerHTML = 'Matti Kiviharjus AI-intervjuassistent. Svaren granskas och godkänns av Matti innan uppläsning. <a href="' + escapeHtml(config.privacyUrl) + '" target="_blank" rel="noopener">Integritetspolicy</a>';
 			} else if (currentLang === 'en') {
-				privacyText.innerHTML = 'I am Matti Kiviharju’s AI assistant. Messages are processed via Google Gemini. <a href="' + escapeHtml(config.privacyUrl) + '" target="_blank" rel="noopener">Privacy Policy</a>';
+				privacyText.innerHTML = 'Matti Kiviharju’s AI Interview Assistant. Proposed answers are reviewed and approved by Matti before speaking. <a href="' + escapeHtml(config.privacyUrl) + '" target="_blank" rel="noopener">Privacy Policy</a>';
 			} else {
-				privacyText.innerHTML = 'Olen Matti Kiviharjun AI-avustaja. Viestit käsitellään Googlen Gemini -palvelussa. <a href="' + escapeHtml(config.privacyUrl) + '" target="_blank" rel="noopener">Tietosuojaseloste</a>';
+				privacyText.innerHTML = 'Matti Kiviharjun AI-haastatteluavustaja. Vastaukset tarkistetaan ja hyväksytään manuaalisesti ennen puhetta. <a href="' + escapeHtml(config.privacyUrl) + '" target="_blank" rel="noopener">Tietosuojaseloste</a>';
 			}
 		}
 
-		// Update placeholder & mic text
-		if (inputEl) {
-			inputEl.placeholder = i18n.inputPlaceholder;
-		}
-		if (micStatusEl) {
-			const micStatusText = micStatusEl.querySelector('.mic-status-text');
-			if (micStatusText) micStatusText.textContent = i18n.listening;
-		}
-		if (stopSpeechStageBtn) {
-			const span = stopSpeechStageBtn.querySelector('span');
-			if (span) span.textContent = i18n.stopSpeech;
-		}
-
+		updateModeUI();
 		updateSoundUI();
 		setStatus('ready');
 
-		// If no user messages yet, update greeting in messages list
 		if (conversationHistory.length === 0) {
 			messagesEl.innerHTML = '';
 			renderInitialState();
@@ -334,7 +506,6 @@
 			renderStarterChips();
 		}
 
-		// Save language preference in sessionStorage
 		try {
 			sessionStorage.setItem('gemini_avatar_lang', currentLang);
 		} catch (e) {}
@@ -344,11 +515,10 @@
 	 * Render initial greeting and suggestion chips
 	 */
 	function renderInitialState() {
-		// Greeting
-		const initialGreeting = (i18n && i18n.greeting) ? i18n.greeting : config.greeting;
-		appendMessage('assistant', initialGreeting, []);
-
-		// Starter suggestion chips
+		const greeting = (currentMode === 'interview')
+			? (i18n.interviewGreeting || i18n.greeting)
+			: i18n.greeting;
+		appendMessage('assistant', greeting, []);
 		renderStarterChips();
 	}
 
@@ -376,18 +546,33 @@
 	}
 
 	/**
-	 * Append message to chat
+	 * Append message to chat transcript
 	 */
-	function appendMessage(role, text, sources, audioData) {
+	function appendMessage(role, text, sources, audioData, isProposed) {
 		const msgEl = document.createElement('div');
 		msgEl.className = 'gemini-msg msg-' + role;
 
+		if (isProposed) {
+			msgEl.classList.add('msg-proposed');
+		}
+
 		const bubbleEl = document.createElement('div');
 		bubbleEl.className = 'gemini-bubble';
-		bubbleEl.innerHTML = formatMarkdown(text);
+
+		if (isProposed) {
+			const badge = document.createElement('div');
+			badge.className = 'gemini-bubble-proposed-badge';
+			badge.innerHTML = '🎯 ' + (i18n.proposedAnswer || 'Ehdotettu puheenvuoro');
+			bubbleEl.appendChild(badge);
+		}
+
+		const textEl = document.createElement('div');
+		textEl.className = 'gemini-bubble-text';
+		textEl.innerHTML = formatMarkdown(text);
+		bubbleEl.appendChild(textEl);
 		msgEl.appendChild(bubbleEl);
 
-		// If assistant message and sources exist
+		// Sources if available
 		if (role === 'assistant' && sources && sources.length) {
 			const sourcesEl = document.createElement('div');
 			sourcesEl.className = 'gemini-msg-sources';
@@ -406,7 +591,7 @@
 			bubbleEl.appendChild(sourcesEl);
 		}
 
-		// Replay audio button for assistant messages
+		// Replay audio button for assistant messages if audio is attached
 		if (role === 'assistant' && audioData) {
 			const actionsEl = document.createElement('div');
 			actionsEl.className = 'gemini-msg-audio-actions';
@@ -433,9 +618,6 @@
 		return msgEl;
 	}
 
-	/**
-	 * Append thinking / formulating indicator
-	 */
 	function showThinkingIndicator() {
 		const indicator = document.createElement('div');
 		indicator.id = 'gemini-thinking-indicator';
@@ -448,62 +630,51 @@
 	}
 
 	function removeThinkingIndicator() {
-		const indicator = document.getElementById('gemini-thinking-indicator');
-		if (indicator) {
-			indicator.remove();
-		}
+		const el = document.getElementById('gemini-thinking-indicator');
+		if (el) el.remove();
 	}
 
 	/**
 	 * Form submit handler
 	 */
 	function onFormSubmit(e) {
-		e.preventDefault();
-		if (isGenerating) return;
+		if (e) e.preventDefault();
+		if (!inputEl) return;
+		const question = inputEl.value.trim();
+		if (!question || isGenerating) return;
 
-		const text = inputEl ? inputEl.value.trim() : '';
-		if (!text) return;
-
-		sendQuestion(text);
+		inputEl.value = '';
+		onInputChange();
+		sendQuestion(question);
 	}
 
 	/**
-	 * Send question to WordPress backend
+	 * Send interview question to backend REST endpoint
 	 */
 	function sendQuestion(question) {
-		if (isGenerating || !question) return;
+		if (isGenerating) return;
+
+		stopAudio();
+		stopVoiceInput();
 
 		isGenerating = true;
+		if (sendBtnEl) sendBtnEl.disabled = true;
 		setStatus('thinking');
 
-		// Hide starter chips after first user query
-		if (starterChipsEl) {
-			starterChipsEl.style.display = 'none';
-		}
+		// Hide existing starter chips
+		if (starterChipsEl) starterChipsEl.style.display = 'none';
 
-		// Append user message
+		// Append user question
 		appendMessage('user', question);
-
-		// Clear input
-		if (inputEl) {
-			inputEl.value = '';
-			onInputChange();
-		}
-
-		// Disable send button
-		if (sendBtnEl) {
-			sendBtnEl.disabled = true;
-		}
-
-		// Show thinking dots
 		showThinkingIndicator();
 
-		// Ensure audio context is ready on user gesture
 		if (soundEnabled) {
 			ensureAudioContext();
 		}
 
-		// Send REST API request
+		// In interview mode, do not auto-generate audio in /chat; user reviews text first!
+		const shouldAutoGenerateAudio = (currentMode === 'assistant' && soundEnabled);
+
 		fetch(config.apiUrl, {
 			method: 'POST',
 			headers: {
@@ -512,17 +683,15 @@
 			},
 			body: JSON.stringify({
 				question: question,
-				generate_audio: soundEnabled,
+				generate_audio: shouldAutoGenerateAudio,
 				history: conversationHistory,
 				lang: currentLang,
+				mode: currentMode,
+				style: currentStyle,
 			}),
 		})
-			.then(function (res) {
-				return res.json().then(function (data) {
-					return { status: res.status, data: data };
-				});
-			})
-			.then(function (result) {
+			.then(res => res.json().then(data => ({ status: res.status, data: data })))
+			.then(result => {
 				removeThinkingIndicator();
 				isGenerating = false;
 				if (sendBtnEl) sendBtnEl.disabled = false;
@@ -536,13 +705,18 @@
 					conversationHistory.push({ role: 'user', text: question });
 					conversationHistory.push({ role: 'model', text: answerText });
 
-					// Append message
-					appendMessage('assistant', answerText, sources, audioData);
 					setStatus('ready');
 
-					// Play audio if available and sound enabled
-					if (soundEnabled && audioData) {
-						playBase64Wav(audioData);
+					if (currentMode === 'interview') {
+						// HUMAN IN THE LOOP: Open preview & editing card
+						showAnswerPreview(answerText, sources);
+						appendMessage('assistant', answerText, sources, null, true);
+					} else {
+						// Normal assistant mode
+						appendMessage('assistant', answerText, sources, audioData);
+						if (soundEnabled && audioData) {
+							playBase64Wav(audioData);
+						}
 					}
 				} else {
 					setStatus('error');
@@ -552,13 +726,144 @@
 					appendMessage('assistant', '⚠️ ' + errorMsg);
 				}
 			})
-			.catch(function (err) {
+			.catch(err => {
 				removeThinkingIndicator();
 				isGenerating = false;
 				if (sendBtnEl) sendBtnEl.disabled = false;
 				setStatus('error');
 				appendMessage('assistant', '⚠️ Verkkovirhe: ' + err.message);
 			});
+	}
+
+	/**
+	 * ==========================================================================
+	 * HUMAN-IN-THE-LOOP PREVIEW & APPROVAL WORKFLOW
+	 * ==========================================================================
+	 */
+	function showAnswerPreview(text, sources) {
+		if (!previewCardEl || !previewTextareaEl) return;
+
+		previewTextareaEl.value = text;
+		onPreviewTextareaChange();
+
+		// Reset action buttons state
+		if (btnApproveSpeak) {
+			btnApproveSpeak.style.display = 'inline-flex';
+			btnApproveSpeak.disabled = false;
+			btnApproveSpeak.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>' + (i18n.approveSpeak || 'Hyväksy ja puhu kokoukseen') + '</span>';
+		}
+		if (btnPauseToggle) btnPauseToggle.style.display = 'none';
+		if (btnReplayPreview) btnReplayPreview.style.display = 'none';
+		if (btnEmergencyStop) btnEmergencyStop.style.display = 'none';
+
+		previewCardEl.style.display = 'block';
+		previewCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	}
+
+	function onPreviewTextareaChange() {
+		if (!previewTextareaEl) return;
+		const val = previewTextareaEl.value;
+
+		if (previewCharCountEl) {
+			previewCharCountEl.textContent = val.length + ' merkkiä';
+		}
+
+		// Estimate speaking duration: ~2.2 words per second (130 words per minute)
+		const words = val.trim().split(/\s+/).filter(Boolean).length;
+		const estSec = Math.max(5, Math.round(words / 2.2));
+		if (previewDurationEl) {
+			previewDurationEl.textContent = '~' + estSec + 's';
+		}
+	}
+
+	function dismissPreview() {
+		if (previewCardEl) {
+			previewCardEl.style.display = 'none';
+		}
+		stopAudio();
+	}
+
+	/**
+	 * User approves the (edited) answer text: Generate speech via Gemini TTS
+	 */
+	function onApproveAndSpeak() {
+		if (!previewTextareaEl) return;
+		const textToSpeak = previewTextareaEl.value.trim();
+		if (!textToSpeak) return;
+
+		lastApprovedSpeechText = textToSpeak;
+		ensureAudioContext();
+
+		if (btnApproveSpeak) {
+			btnApproveSpeak.disabled = true;
+			btnApproveSpeak.innerHTML = '<span class="gemini-thinking-dot"></span> <span>Syntetisoidaan puhetta...</span>';
+		}
+		setStatus('thinking');
+
+		fetch(config.ttsUrl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': config.nonce,
+			},
+			body: JSON.stringify({
+				text: textToSpeak,
+			}),
+		})
+			.then(res => res.json())
+			.then(data => {
+				if (data && data.success && data.audio_base64) {
+					// Play generated speech
+					playBase64Wav(data.audio_base64);
+
+					if (btnApproveSpeak) btnApproveSpeak.style.display = 'none';
+					if (btnPauseToggle) btnPauseToggle.style.display = 'inline-flex';
+					if (btnEmergencyStop) btnEmergencyStop.style.display = 'inline-flex';
+					if (btnReplayPreview) btnReplayPreview.style.display = 'inline-flex';
+				} else {
+					setStatus('error');
+					alert('TTS-virhe: ' + (data.error || 'Puhesynteesi epäonnistui.'));
+					if (btnApproveSpeak) {
+						btnApproveSpeak.disabled = false;
+						btnApproveSpeak.innerHTML = '<span>Yritä uudelleen</span>';
+					}
+				}
+			})
+			.catch(err => {
+				setStatus('error');
+				alert('TTS-yhteysvirhe: ' + err.message);
+				if (btnApproveSpeak) btnApproveSpeak.disabled = false;
+			});
+	}
+
+	function onReplayCurrent() {
+		if (currentAudioBuffer) {
+			startAudioPlayback(currentAudioBuffer);
+		} else if (lastApprovedSpeechText) {
+			onApproveAndSpeak();
+		}
+	}
+
+	function togglePauseAudio() {
+		if (!isPlayingAudio && !isAudioPaused) return;
+
+		if (!isAudioPaused && audioCtx && audioCtx.state === 'running') {
+			audioCtx.suspend().then(() => {
+				isAudioPaused = true;
+				if (pauseBtnText) pauseBtnText.textContent = '▶ ' + (i18n.resume || 'Jatka');
+				if (pauseStageText) pauseStageText.textContent = (i18n.resume || 'Jatka');
+				setStatus('ready');
+				broadcastAvatarState({ isSpeaking: false, amplitude: 0 });
+			});
+		} else if (isAudioPaused && audioCtx && audioCtx.state === 'suspended') {
+			audioCtx.resume().then(() => {
+				isAudioPaused = false;
+				if (pauseBtnText) pauseBtnText.textContent = '⏸ ' + (i18n.pause || 'Tauko');
+				if (pauseStageText) pauseStageText.textContent = (i18n.pause || 'Tauko');
+				setStatus('speaking');
+				broadcastAvatarState({ isSpeaking: true, amplitude: 0.5 });
+			});
+		}
 	}
 
 	/**
@@ -574,7 +879,7 @@
 					audioCtx = new AudioCtxClass();
 				}
 			}
-			if (audioCtx && audioCtx.state === 'suspended') {
+			if (audioCtx && audioCtx.state === 'suspended' && !isAudioPaused) {
 				audioCtx.resume();
 			}
 		} catch (e) {
@@ -595,7 +900,6 @@
 		}
 
 		try {
-			// Convert base64 to ArrayBuffer
 			const binaryString = window.atob(base64Data);
 			const len = binaryString.length;
 			const bytes = new Uint8Array(len);
@@ -606,6 +910,7 @@
 			audioCtx.decodeAudioData(
 				bytes.buffer,
 				function (audioBuffer) {
+					currentAudioBuffer = audioBuffer;
 					startAudioPlayback(audioBuffer);
 				},
 				function (err) {
@@ -631,11 +936,23 @@
 
 		currentAudioSource = audioCtx.createBufferSource();
 		currentAudioSource.buffer = buffer;
+
+		// Set playback rate (speed)
+		try {
+			currentAudioSource.playbackRate.value = speechSpeed;
+		} catch (e) {}
+
 		currentAudioSource.connect(analyserNode);
 		analyserNode.connect(audioCtx.destination);
 
 		isPlayingAudio = true;
+		isAudioPaused = false;
+		if (pauseBtnText) pauseBtnText.textContent = '⏸ ' + (i18n.pause || 'Tauko');
+		if (pauseStageText) pauseStageText.textContent = (i18n.pause || 'Tauko');
 		setStatus('speaking');
+
+		// Broadcast speaking start to Popout window
+		broadcastAvatarState({ isSpeaking: true, amplitude: 0.5 });
 
 		currentAudioSource.onended = function () {
 			stopAudio();
@@ -657,13 +974,12 @@
 		const waveBars = audioWavesEl ? audioWavesEl.querySelectorAll('.wave-bar') : [];
 
 		function renderFrame() {
-			if (!isPlayingAudio || !analyserNode) {
+			if (!isPlayingAudio || !analyserNode || isAudioPaused) {
 				return;
 			}
 
 			analyserNode.getByteFrequencyData(freqData);
 
-			// Calculate average volume / amplitude across frequency spectrum (0.0 to 1.0)
 			let sum = 0;
 			for (let i = 0; i < freqData.length; i++) {
 				sum += freqData[i];
@@ -702,6 +1018,12 @@
 				});
 			}
 
+			// 5. Broadcast to Popout window for Teams / OBS / Isadora
+			broadcastAvatarState({
+				isSpeaking: true,
+				amplitude: amplitude,
+			});
+
 			animFrameId = requestAnimationFrame(renderFrame);
 		}
 
@@ -713,6 +1035,7 @@
 	 */
 	function stopAudio() {
 		isPlayingAudio = false;
+		isAudioPaused = false;
 
 		if (animFrameId) {
 			cancelAnimationFrame(animFrameId);
@@ -745,6 +1068,9 @@
 			});
 		}
 
+		// Broadcast speech stop to Popout window
+		broadcastAvatarState({ isSpeaking: false, amplitude: 0 });
+
 		if (!isGenerating) {
 			setStatus('ready');
 		}
@@ -770,7 +1096,7 @@
 			return;
 		}
 
-		stopAudio(); // Stop any playback
+		stopAudio();
 
 		try {
 			speechRecognizer = new SpeechRecognition();
@@ -839,7 +1165,6 @@
 				eyes.forEach(eye => eye.style.transform = 'scaleY(1)');
 			}, 150);
 
-			// Schedule next blink in 3-6 seconds
 			const nextBlink = 3000 + Math.random() * 3000;
 			setTimeout(triggerBlink, nextBlink);
 		}
@@ -847,16 +1172,11 @@
 		setTimeout(triggerBlink, 3500);
 	}
 
-	/**
-	 * Helper: Input change for auto-resize and counter
-	 */
 	function onInputChange() {
 		if (!inputEl) return;
-		// Auto resize textarea height
 		inputEl.style.height = 'auto';
 		inputEl.style.height = Math.min(100, Math.max(24, inputEl.scrollHeight)) + 'px';
 
-		// Char counter
 		if (charCountEl) {
 			charCountEl.textContent = inputEl.value.length + '/' + config.maxChars;
 		}
@@ -875,23 +1195,15 @@
 		return div.innerHTML;
 	}
 
-	/**
-	 * Basic safe markdown parser (bold, italic, code, linebreaks)
-	 */
 	function formatMarkdown(text) {
 		let safe = escapeHtml(text);
-		// Bold **text**
 		safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-		// Italic *text*
 		safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
-		// Inline code `code`
 		safe = safe.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 4px;border-radius:4px;">$1</code>');
-		// Linebreaks to paragraphs
 		const paragraphs = safe.split(/\n\n+/);
 		return paragraphs.map(p => '<p>' + p.replace(/\n/g, '<br/>') + '</p>').join('');
 	}
 
-	// Initialize when DOM is ready
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', init);
 	} else {

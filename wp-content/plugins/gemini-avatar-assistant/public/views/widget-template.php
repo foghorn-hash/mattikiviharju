@@ -1,6 +1,7 @@
 <?php
 /**
  * Public Avatar and Chat Drawer Template
+ * Integrated Gemini AI Interview Assistant for MS Teams & Google Meet
  *
  * @package Gemini_Avatar_Assistant
  */
@@ -40,17 +41,17 @@ if ( 'sv' === $current_lang ) {
 			<span class="gemini-tooltip-badge">AI</span>
 			<span class="gemini-tooltip-text" id="gemini-launcher-tooltip-text"><?php
 				if ( 'sv' === $current_lang ) {
-					echo 'Fråga Mattis AI-assistent!';
+					echo 'Intervju- & AI-assistent';
 				} elseif ( 'en' === $current_lang ) {
-					echo 'Ask Matti’s AI Assistant!';
+					echo 'Interview & AI Assistant';
 				} else {
-					echo 'Kysy Matin AI-avustajalta!';
+					echo 'Haastattelu- & AI-avustaja';
 				}
 			?></span>
 		</div>
 	</button>
 
-	<!-- CHAT DRAWER / WINDOW -->
+	<!-- CHAT DRAWER / INTERVIEW ASSISTANT WINDOW -->
 	<div id="gemini-avatar-drawer" class="gemini-drawer" role="dialog" aria-modal="false" aria-labelledby="gemini-drawer-title" hidden>
 
 		<!-- DRAWER HEADER -->
@@ -77,6 +78,15 @@ if ( 'sv' === $current_lang ) {
 					<button type="button" class="gemini-lang-pill <?php echo ( 'en' === $current_lang ) ? 'active' : ''; ?>" data-lang="en" title="English" aria-label="English">EN</button>
 					<button type="button" class="gemini-lang-pill <?php echo ( 'sv' === $current_lang ) ? 'active' : ''; ?>" data-lang="sv" title="Svenska" aria-label="Svenska">SV</button>
 				</div>
+
+				<!-- Popout Avatar Window Button (For Teams / OBS / Isadora 3 Screen Capture) -->
+				<button type="button" id="gemini-btn-popout" class="gemini-header-btn" title="Avaa jaettava Avatar (Teams / Meet / Isadora / OBS)" aria-label="Avaa jaettava Avatar">
+					<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+						<line x1="8" y1="21" x2="16" y2="21"></line>
+						<line x1="12" y1="17" x2="12" y2="21"></line>
+					</svg>
+				</button>
 
 				<!-- Sound Toggle Button -->
 				<button type="button" id="gemini-btn-sound" class="gemini-header-btn sound-on" title="Puhe päällä" aria-label="Kytke puhesynteesi">
@@ -108,8 +118,56 @@ if ( 'sv' === $current_lang ) {
 			</div>
 		</header>
 
+		<!-- MODE AND INTERVIEW CONTROLS TOOLBAR -->
+		<div class="gemini-toolbar">
+			<!-- Mode Switcher -->
+			<div class="gemini-mode-group" role="group" aria-label="Toimintatila">
+				<button type="button" id="gemini-mode-interview" class="gemini-mode-pill active" data-mode="interview">
+					<span>🎯 Haastattelu (Teams/Meet)</span>
+				</button>
+				<button type="button" id="gemini-mode-assistant" class="gemini-mode-pill" data-mode="assistant">
+					<span>💬 Sivustoavustaja</span>
+				</button>
+			</div>
+
+			<!-- Interview Settings (Response style & Speed) -->
+			<div class="gemini-subtoolbar" id="gemini-interview-subtoolbar">
+				<!-- Style Selector -->
+				<div class="gemini-pill-selector" id="gemini-style-selector" role="group" aria-label="Vastauksen tyyli">
+					<span class="gemini-selector-label">Tyyli:</span>
+					<button type="button" class="gemini-style-pill" data-style="concise" title="Tiivis vastaus (~20-30s)">Tiivis</button>
+					<button type="button" class="gemini-style-pill active" data-style="conversational" title="Keskusteleva, ammattimainen (~45s)">Normaali</button>
+					<button type="button" class="gemini-style-pill" data-style="technical" title="Syvällinen arkkitehtuuri & teknologia (~75s)">Tekninen</button>
+				</div>
+
+				<!-- Speed Selector -->
+				<div class="gemini-pill-selector" id="gemini-speed-selector" role="group" aria-label="Puhenopeus">
+					<span class="gemini-selector-label">Nopeus:</span>
+					<button type="button" class="gemini-speed-pill" data-speed="0.85">0.8x</button>
+					<button type="button" class="gemini-speed-pill active" data-speed="1.0">1.0x</button>
+					<button type="button" class="gemini-speed-pill" data-speed="1.2">1.2x</button>
+					<button type="button" class="gemini-speed-pill" data-speed="1.4">1.4x</button>
+				</div>
+			</div>
+		</div>
+
 		<!-- INTERACTIVE AVATAR STAGE (Audio-reactive visualizer) -->
 		<section class="gemini-avatar-stage" aria-label="Avatar-animaatio">
+			<!-- Stage Status Strip -->
+			<div class="gemini-stage-status-strip">
+				<div class="gemini-ai-connection-badge" id="gemini-ai-connection-badge">
+					<span class="gemini-pulse-dot dot-online"></span>
+					<span id="gemini-ai-status-text">Gemini AI valmiina</span>
+				</div>
+				<div class="gemini-speech-activity-badge" id="gemini-speech-activity-badge" style="display:none;">
+					<span class="gemini-pulse-dot dot-speaking"></span>
+					<span>Puhe aktiivinen</span>
+				</div>
+				<div class="gemini-audio-route-badge" id="gemini-audio-route-badge" title="Äänireititys Teamsiin / Meetiin virtuaalikaapelilla">
+					<span>🔊 VB-Cable / Kaiuttimet</span>
+				</div>
+			</div>
+
 			<div class="gemini-stage-visualizer" id="gemini-stage-visualizer">
 				
 				<?php if ( 'svg' === $avatar_type ) : ?>
@@ -167,7 +225,14 @@ if ( 'sv' === $current_lang ) {
 
 				<!-- Live Speech Playback Controls (When speaking or paused) -->
 				<div class="gemini-stage-speech-ctrl" id="gemini-stage-speech-ctrl" style="display:none;">
-					<button type="button" class="gemini-stop-speech-btn" id="gemini-stage-stop-btn">
+					<button type="button" class="gemini-stage-btn btn-pause" id="gemini-stage-pause-btn" title="Tauko / Jatka">
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+							<rect x="6" y="4" width="4" height="16" rx="1"></rect>
+							<rect x="14" y="4" width="4" height="16" rx="1"></rect>
+						</svg>
+						<span id="gemini-stage-pause-text">Tauko</span>
+					</button>
+					<button type="button" class="gemini-stage-btn btn-stop" id="gemini-stage-stop-btn" title="Pysäytä puhe välittömästi">
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
 							<rect x="6" y="6" width="12" height="12" rx="2"></rect>
 						</svg>
@@ -177,16 +242,65 @@ if ( 'sv' === $current_lang ) {
 			</div>
 		</section>
 
+		<!-- HUMAN-IN-THE-LOOP ANSWER PREVIEW & EDITING CARD -->
+		<section class="gemini-preview-card" id="gemini-preview-card" style="display:none;" aria-label="Ehdotettu vastauspuheenvuoro">
+			<div class="gemini-preview-header">
+				<div class="gemini-preview-title">
+					<span class="gemini-preview-icon">✨</span>
+					<strong>Ehdotettu puheenvuoro (Muokkaa tarvittaessa)</strong>
+				</div>
+				<span class="gemini-preview-duration" id="gemini-preview-duration">~40s</span>
+			</div>
+			
+			<div class="gemini-preview-body">
+				<textarea id="gemini-preview-textarea" class="gemini-preview-textarea" rows="4" aria-label="Muokkaa puheenvuoroa ennen hyväksymistä"></textarea>
+				<div class="gemini-preview-meta">
+					<span id="gemini-preview-char-count">0 merkkiä</span>
+					<span class="gemini-preview-hint">Tarkista ja muokkaa tekstiä vapaasti ennen puhetta.</span>
+				</div>
+			</div>
+
+			<div class="gemini-preview-actions">
+				<!-- Approve & Speak Button -->
+				<button type="button" class="gemini-action-btn btn-approve" id="gemini-btn-approve-speak" title="Hyväksy vastaus ja aloita puhesynteesi kokoukseen">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="20 6 9 17 4 12"></polyline>
+					</svg>
+					<span>Hyväksy ja puhu kokoukseen</span>
+				</button>
+
+				<!-- Pause/Resume Button -->
+				<button type="button" class="gemini-action-btn btn-secondary" id="gemini-btn-pause-toggle" style="display:none;" title="Keskeytä tai jatka puhetta">
+					<span id="gemini-pause-btn-text">⏸ Tauko</span>
+				</button>
+
+				<!-- Replay Button -->
+				<button type="button" class="gemini-action-btn btn-secondary" id="gemini-btn-replay-preview" style="display:none;" title="Toista puhe uudelleen">
+					<span>🔁 Toista</span>
+				</button>
+
+				<!-- Emergency Stop Button -->
+				<button type="button" class="gemini-action-btn btn-danger" id="gemini-btn-emergency-stop" style="display:none;" title="Hätäpysäytys: lopeta puhe heti">
+					<span>⏹ Pysäytä</span>
+				</button>
+
+				<!-- Dismiss / Cancel Button -->
+				<button type="button" class="gemini-action-btn btn-dismiss" id="gemini-btn-dismiss-preview" title="Hylkää tämä ehdotus">
+					<span>✕ Hylkää</span>
+				</button>
+			</div>
+		</section>
+
 		<!-- PRIVACY NOTICE BANNER -->
 		<div class="gemini-privacy-banner" id="gemini-privacy-banner">
 			<span class="dashicons dashicons-shield"></span>
 			<span id="gemini-privacy-text"><?php
 				if ( 'sv' === $current_lang ) {
-					echo 'Jag är Matti Kivihargus AI-assistent. Meddelanden behandlas via Googles Gemini-tjänst. <a href="' . esc_url( $settings['privacy_policy_url'] ) . '" target="_blank" rel="noopener">Integritetspolicy</a>';
+					echo 'Matti Kiviharjus AI-intervjuassistent. Svaren granskas och godkänns av Matti innan uppläsning. <a href="' . esc_url( $settings['privacy_policy_url'] ) . '" target="_blank" rel="noopener">Integritetspolicy</a>';
 				} elseif ( 'en' === $current_lang ) {
-					echo 'I am Matti Kiviharju’s AI assistant. Messages are processed via Google Gemini. <a href="' . esc_url( $settings['privacy_policy_url'] ) . '" target="_blank" rel="noopener">Privacy Policy</a>';
+					echo 'Matti Kiviharju’s AI Interview Assistant. Proposed answers are reviewed and approved by Matti before speaking. <a href="' . esc_url( $settings['privacy_policy_url'] ) . '" target="_blank" rel="noopener">Privacy Policy</a>';
 				} else {
-					echo 'Olen Matti Kiviharjun AI-avustaja. Viestit käsitellään Googlen Gemini -palvelussa. <a href="' . esc_url( $settings['privacy_policy_url'] ) . '" target="_blank" rel="noopener">Tietosuojaseloste</a>';
+					echo 'Matti Kiviharjun AI-haastatteluavustaja. Vastaukset tarkistetaan ja hyväksytään manuaalisesti ennen puhetta. <a href="' . esc_url( $settings['privacy_policy_url'] ) . '" target="_blank" rel="noopener">Tietosuojaseloste</a>';
 				}
 			?></span>
 		</div>
@@ -209,7 +323,7 @@ if ( 'sv' === $current_lang ) {
 				<!-- Microphone Status Indicator -->
 				<div class="gemini-mic-status" id="gemini-mic-status" style="display:none;">
 					<span class="mic-pulse-dot"></span>
-					<span class="mic-status-text">Kuunnellaan... Puhu mikrofoniin</span>
+					<span class="mic-status-text">Kuunnellaan haastattelijaa... Puhu mikrofoniin</span>
 					<button type="button" class="mic-cancel-btn" id="gemini-mic-cancel">&times;</button>
 				</div>
 
@@ -228,12 +342,12 @@ if ( 'sv' === $current_lang ) {
 
 					<!-- Text Input Area -->
 					<div class="gemini-textarea-wrap">
-						<textarea id="gemini-chat-input" class="gemini-chat-input" rows="1" maxlength="<?php echo absint( $settings['max_input_chars'] ); ?>" placeholder="Kysy jotain Matista tai osaamisesta..." aria-label="Kirjoita kysymys Matin AI-avustajalle"></textarea>
+						<textarea id="gemini-chat-input" class="gemini-chat-input" rows="1" maxlength="<?php echo absint( $settings['max_input_chars'] ); ?>" placeholder="Syötä haastattelijan kysymys tai puhu mikrofoniin..." aria-label="Kirjoita kysymys Matin AI-avustajalle"></textarea>
 						<span class="gemini-char-count" id="gemini-char-count">0/<?php echo absint( $settings['max_input_chars'] ); ?></span>
 					</div>
 
 					<!-- Send Button -->
-					<button type="submit" id="gemini-btn-send" class="gemini-input-btn send-btn" title="Lähetä kysymys" aria-label="Lähetä">
+					<button type="submit" id="gemini-btn-send" class="gemini-input-btn send-btn" title="Muotoile vastaus" aria-label="Lähetä">
 						<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 							<line x1="22" y1="2" x2="11" y2="13"></line>
 							<polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
