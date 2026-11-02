@@ -327,8 +327,11 @@ function cv_one_pager_get_translations_map() {
         'Contact' => array('fi' => 'Yhteystiedot', 'en' => 'Contact', 'sv' => 'Kontakt'),
         'Blogi' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
         'Blog' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
+        'Blogg' => array('fi' => 'Blogi', 'en' => 'Blog', 'sv' => 'Blogg'),
         'Read more' => array('fi' => 'Lue lisää', 'en' => 'Read more', 'sv' => 'Läs mer'),
         'Takaisin blogiin' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
+        'Back to blog' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
+        'Tillbaka till bloggen' => array('fi' => 'Takaisin blogiin', 'en' => 'Back to blog', 'sv' => 'Tillbaka till bloggen'),
         'Käännökset:' => array('fi' => 'Käännökset:', 'en' => 'Translations:', 'sv' => 'Översättningar:'),
         'Julkaistu:' => array('fi' => 'Julkaistu:', 'en' => 'Published:', 'sv' => 'Publicerad:'),
         'Kategoriat:' => array('fi' => 'Kategoriat:', 'en' => 'Categories:', 'sv' => 'Kategorier:'),
@@ -526,6 +529,7 @@ function cv_one_pager_register_polylang_strings() {
         'Contact',
         'Blogi',
         'Blog',
+        'Blogg',
         'Schedule a call',
         'View work',
         'Profile Snapshot',
@@ -571,6 +575,8 @@ function cv_one_pager_register_polylang_strings() {
         'Suosittelijat pyydettäessä',
         'References available upon request',
         'Takaisin blogiin',
+        'Back to blog',
+        'Tillbaka till bloggen',
         'Käännökset:',
         'Julkaistu:',
         'Kategoriat:',
@@ -1171,6 +1177,11 @@ function cv_one_pager_save_meta_boxes($post_id) {
         if (isset($_POST['cv_education_dates'])) {
             update_post_meta($post_id, '_cv_education_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_education_dates']));
         }
+
+        // Re-sync menu_orders so newest to oldest order is maintained
+        if (function_exists('cv_one_pager_sync_all_education_menu_orders')) {
+            cv_one_pager_sync_all_education_menu_orders();
+        }
     }
     if (isset($_POST['cv_course_meta_nonce']) && wp_verify_nonce($_POST['cv_course_meta_nonce'], 'cv_course_meta_save')) {
         if (isset($_POST['cv_course_provider'])) {
@@ -1178,6 +1189,11 @@ function cv_one_pager_save_meta_boxes($post_id) {
         }
         if (isset($_POST['cv_course_dates'])) {
             update_post_meta($post_id, '_cv_course_dates', cv_one_pager_sanitize_preserve_dashes($_POST['cv_course_dates']));
+        }
+
+        // Re-sync menu_orders so newest to oldest order is maintained
+        if (function_exists('cv_one_pager_sync_all_course_menu_orders')) {
+            cv_one_pager_sync_all_course_menu_orders();
         }
     }
     if (isset($_POST['cv_project_meta_nonce']) && wp_verify_nonce($_POST['cv_project_meta_nonce'], 'cv_project_meta_save')) {
@@ -1317,40 +1333,164 @@ function cv_one_pager_save_meta_boxes($post_id) {
 }
 add_action('save_post', 'cv_one_pager_save_meta_boxes');
 
-function cv_one_pager_get_blog_url() {
+function cv_one_pager_get_blog_url($lang = null) {
+    if (empty($lang)) {
+        if (function_exists('pll_current_language')) {
+            $lang = pll_current_language('slug');
+        }
+    }
+    if (empty($lang) && function_exists('is_singular') && is_singular()) {
+        if (function_exists('pll_get_post_language') && function_exists('get_the_ID')) {
+            $lang = pll_get_post_language(get_the_ID());
+        }
+    }
+    if (empty($lang)) {
+        $lang = 'fi';
+    }
+    $lang = strtolower(trim($lang));
+
+    // 1. Check if a posts page (page_for_posts) is designated in Settings > Reading
     $posts_page_id = (int) get_option('page_for_posts');
     if ($posts_page_id > 0) {
         if (function_exists('pll_get_post')) {
-            $translated_id = pll_get_post($posts_page_id);
-            if ($translated_id) {
+            $translated_id = pll_get_post($posts_page_id, $lang);
+            if ($translated_id && function_exists('get_post_status') && get_post_status($translated_id) === 'publish') {
                 return get_permalink($translated_id);
             }
         }
-        return get_permalink($posts_page_id);
+        if (!function_exists('pll_get_post_language') || pll_get_post_language($posts_page_id) === $lang) {
+            if (!function_exists('get_post_status') || get_post_status($posts_page_id) === 'publish') {
+                return get_permalink($posts_page_id);
+            }
+        }
     }
 
-    $pages = get_pages(array(
-        'meta_key' => '_wp_page_template',
-        'meta_value' => 'page-blog.php',
-        'number' => 1,
-    ));
-    if (!empty($pages)) {
-        $blog_page_id = (int) $pages[0]->ID;
-        if (function_exists('pll_get_post')) {
-            $translated_id = pll_get_post($blog_page_id);
-            if ($translated_id) {
-                return get_permalink($translated_id);
+    // 2. Check for published pages using the 'page-blog.php' template
+    if (function_exists('pll_get_post')) {
+        $template_pages = get_posts(array(
+            'post_type'        => 'page',
+            'meta_key'         => '_wp_page_template',
+            'meta_value'       => 'page-blog.php',
+            'post_status'      => 'publish',
+            'numberposts'      => -1,
+            'suppress_filters' => true,
+        ));
+
+        if (!empty($template_pages)) {
+            // First check direct language assignment
+            foreach ($template_pages as $p) {
+                if (function_exists('pll_get_post_language') && pll_get_post_language($p->ID) === $lang) {
+                    return get_permalink($p->ID);
+                }
+            }
+            // Next check Polylang translation link
+            foreach ($template_pages as $p) {
+                $translated_id = pll_get_post($p->ID, $lang);
+                if ($translated_id && function_exists('get_post_status') && get_post_status($translated_id) === 'publish') {
+                    return get_permalink($translated_id);
+                }
             }
         }
-        return get_permalink($blog_page_id);
+    } else {
+        $pages = get_posts(array(
+            'post_type'        => 'page',
+            'meta_key'         => '_wp_page_template',
+            'meta_value'       => 'page-blog.php',
+            'post_status'      => 'publish',
+            'numberposts'      => 1,
+            'suppress_filters' => true,
+        ));
+        if (!empty($pages)) {
+            return get_permalink($pages[0]->ID);
+        }
     }
+
+    // 3. Check for published pages by slug candidates per language
+    $slug_candidates = array(
+        'fi' => array('blogi', 'blog'),
+        'en' => array('blog'),
+        'sv' => array('blogg', 'blog'),
+    );
+    $candidates = isset($slug_candidates[$lang]) ? $slug_candidates[$lang] : array('blog');
+
+    foreach ($candidates as $slug) {
+        $slug_pages = get_posts(array(
+            'name'             => $slug,
+            'post_type'        => 'page',
+            'post_status'      => 'publish',
+            'numberposts'      => -1,
+            'suppress_filters' => true,
+        ));
+
+        if (!empty($slug_pages)) {
+            foreach ($slug_pages as $sp) {
+                if (function_exists('pll_get_post_language')) {
+                    if (pll_get_post_language($sp->ID) === $lang) {
+                        return get_permalink($sp->ID);
+                    }
+                    if (function_exists('pll_get_post')) {
+                        $translated_id = pll_get_post($sp->ID, $lang);
+                        if ($translated_id && function_exists('get_post_status') && get_post_status($translated_id) === 'publish') {
+                            return get_permalink($translated_id);
+                        }
+                    }
+                } else {
+                    return get_permalink($sp->ID);
+                }
+            }
+        }
+    }
+
+    // 4. Fallback URL with language-specific slug
+    $default_slugs = array(
+        'fi' => 'blogi',
+        'en' => 'blog',
+        'sv' => 'blogg',
+    );
+    $fallback_slug = isset($default_slugs[$lang]) ? $default_slugs[$lang] : 'blog';
 
     if (function_exists('pll_home_url')) {
-        return trailingslashit(pll_home_url()) . 'blog/';
+        $pll_home = pll_home_url($lang);
+        if (!empty($pll_home)) {
+            return trailingslashit($pll_home) . $fallback_slug . '/';
+        }
     }
 
-    return home_url('/blog/');
+    if ($lang === 'sv') {
+        return home_url('/sv/' . $fallback_slug . '/');
+    } elseif ($lang === 'en') {
+        return home_url('/en/' . $fallback_slug . '/');
+    }
+
+    return home_url('/' . $fallback_slug . '/');
 }
+
+/**
+ * Filter Polylang translation URLs so the language switcher stays on the blog page in Fi, En, and Sv.
+ */
+function cv_one_pager_filter_pll_translation_url($url, $slug) {
+    $is_blog_context = false;
+    if (function_exists('is_home') && is_home()) {
+        $is_blog_context = true;
+    } elseif (function_exists('is_page_template') && is_page_template('page-blog.php')) {
+        $is_blog_context = true;
+    } elseif (function_exists('is_page') && is_page()) {
+        $queried_obj = get_queried_object();
+        if ($queried_obj && isset($queried_obj->post_name) && in_array($queried_obj->post_name, array('blogi', 'blog', 'blogg'), true)) {
+            $is_blog_context = true;
+        }
+    }
+
+    if ($is_blog_context) {
+        $blog_url = cv_one_pager_get_blog_url($slug);
+        if (!empty($blog_url)) {
+            return $blog_url;
+        }
+    }
+
+    return $url;
+}
+add_filter('pll_translation_url', 'cv_one_pager_filter_pll_translation_url', 10, 2);
 
 function cv_one_pager_render_post_card($post) {
     $title = get_the_title($post);
@@ -1997,17 +2137,38 @@ function cv_one_pager_parse_cv_date_part($part, $is_end = false) {
         $year = (int)$ym[1];
     }
 
-    // Try finding numeric month e.g. 01/2026, 1.2026, 2026-01
-    if ($found_month === null && $year !== null) {
-        if (preg_match('/(\b\d{1,2})[\.\/\-]' . $year . '\b/', $part, $mm)) {
-            $m_val = (int)$mm[1];
+    $day = null;
+    // Try finding numeric day and month e.g. 15.01.2026, 1.2026, 2026-01-15
+    if ($year !== null) {
+        if (preg_match('/(\b\d{1,2})[\.\/\-](\d{1,2})[\.\/\-]' . $year . '\b/', $part, $dm)) {
+            $d_val = (int)$dm[1];
+            $m_val = (int)$dm[2];
             if ($m_val >= 1 && $m_val <= 12) {
                 $found_month = $m_val;
             }
-        } elseif (preg_match('/\b' . $year . '[\.\/\-](\d{1,2})\b/', $part, $mm)) {
-            $m_val = (int)$mm[1];
+            if ($d_val >= 1 && $d_val <= 31) {
+                $day = $d_val;
+            }
+        } elseif (preg_match('/\b' . $year . '[\.\/\-](\d{1,2})[\.\/\-](\d{1,2})\b/', $part, $dm)) {
+            $m_val = (int)$dm[1];
+            $d_val = (int)$dm[2];
             if ($m_val >= 1 && $m_val <= 12) {
                 $found_month = $m_val;
+            }
+            if ($d_val >= 1 && $d_val <= 31) {
+                $day = $d_val;
+            }
+        } elseif ($found_month === null) {
+            if (preg_match('/(\b\d{1,2})[\.\/\-]' . $year . '\b/', $part, $mm)) {
+                $m_val = (int)$mm[1];
+                if ($m_val >= 1 && $m_val <= 12) {
+                    $found_month = $m_val;
+                }
+            } elseif (preg_match('/\b' . $year . '[\.\/\-](\d{1,2})\b/', $part, $mm)) {
+                $m_val = (int)$mm[1];
+                if ($m_val >= 1 && $m_val <= 12) {
+                    $found_month = $m_val;
+                }
             }
         }
     }
@@ -2016,10 +2177,14 @@ function cv_one_pager_parse_cv_date_part($part, $is_end = false) {
         if ($found_month === null) {
             $found_month = $is_end ? 12 : 1;
         }
+        if ($day === null) {
+            $day = $is_end ? 31 : 1;
+        }
         return array(
             'is_ongoing' => false,
             'year' => $year,
             'month' => $found_month,
+            'day' => $day,
             'raw' => $part
         );
     }
@@ -2036,8 +2201,10 @@ function cv_one_pager_parse_cv_dates($dates_str) {
             'has_valid_date' => 0,
             'end_year' => 0,
             'end_month' => 0,
+            'end_day' => 0,
             'start_year' => 0,
-            'start_month' => 0
+            'start_month' => 0,
+            'start_day' => 0
         );
     }
 
@@ -2053,6 +2220,7 @@ function cv_one_pager_parse_cv_dates($dates_str) {
                 'is_ongoing' => true,
                 'year' => 9999,
                 'month' => 12,
+                'day' => 31,
                 'raw' => ''
             );
         }
@@ -2067,8 +2235,11 @@ function cv_one_pager_parse_cv_dates($dates_str) {
 
     $end_year = $end_info ? $end_info['year'] : ($start_info ? $start_info['year'] : 0);
     $end_month = $end_info ? $end_info['month'] : ($start_info ? $start_info['month'] : 0);
+    $end_day = $end_info ? ($end_info['day'] ?? ($is_ongoing ? 31 : 1)) : ($start_info ? ($start_info['day'] ?? 1) : 0);
+
     $start_year = $start_info ? $start_info['year'] : ($end_info ? $end_info['year'] : 0);
     $start_month = $start_info ? $start_info['month'] : ($end_info ? $end_info['month'] : 0);
+    $start_day = $start_info ? ($start_info['day'] ?? 1) : ($end_info ? ($end_info['day'] ?? 1) : 0);
 
     return array(
         'start' => $start_info,
@@ -2077,8 +2248,10 @@ function cv_one_pager_parse_cv_dates($dates_str) {
         'has_valid_date' => $has_valid_date,
         'end_year' => $end_year,
         'end_month' => $end_month,
+        'end_day' => $end_day,
         'start_year' => $start_year,
-        'start_month' => $start_month
+        'start_month' => $start_month,
+        'start_day' => $start_day
     );
 }
 
@@ -2096,13 +2269,16 @@ function cv_one_pager_compare_cv_dates($dates_a, $dates_b) {
         return ($a['is_ongoing'] > $b['is_ongoing']) ? -1 : 1;
     }
 
-    // If both are ongoing, compare start year & month DESC
+    // If both are ongoing, compare start year & month & day DESC
     if ($a['is_ongoing'] && $b['is_ongoing']) {
         if ($a['start_year'] !== $b['start_year']) {
             return ($a['start_year'] > $b['start_year']) ? -1 : 1;
         }
         if ($a['start_month'] !== $b['start_month']) {
             return ($a['start_month'] > $b['start_month']) ? -1 : 1;
+        }
+        if ($a['start_day'] !== $b['start_day']) {
+            return ($a['start_day'] > $b['start_day']) ? -1 : 1;
         }
         return 0;
     }
@@ -2117,14 +2293,24 @@ function cv_one_pager_compare_cv_dates($dates_a, $dates_b) {
         return ($a['end_month'] > $b['end_month']) ? -1 : 1;
     }
 
-    // 5. Compare start_year DESC (if completed same year, job started later is newer)
+    // 5. Compare end_day DESC
+    if ($a['end_day'] !== $b['end_day']) {
+        return ($a['end_day'] > $b['end_day']) ? -1 : 1;
+    }
+
+    // 6. Compare start_year DESC (if completed same year, job/course started later is newer)
     if ($a['start_year'] !== $b['start_year']) {
         return ($a['start_year'] > $b['start_year']) ? -1 : 1;
     }
 
-    // 6. Compare start_month DESC
+    // 7. Compare start_month DESC
     if ($a['start_month'] !== $b['start_month']) {
         return ($a['start_month'] > $b['start_month']) ? -1 : 1;
+    }
+
+    // 8. Compare start_day DESC
+    if ($a['start_day'] !== $b['start_day']) {
+        return ($a['start_day'] > $b['start_day']) ? -1 : 1;
     }
 
     return 0;
@@ -2256,7 +2442,263 @@ function cv_one_pager_sync_all_experience_menu_orders() {
 }
 
 /**
- * Automatically sync experience orders once in admin.
+ * Sorts education items in memory from newest to oldest based on dates.
+ */
+function cv_one_pager_sort_education_items($items) {
+    if (empty($items) || !is_array($items)) {
+        return $items;
+    }
+
+    usort($items, function($a, $b) {
+        $dates_a = '';
+        $dates_b = '';
+        $order_a = 0;
+        $order_b = 0;
+        $id_a = 0;
+        $id_b = 0;
+
+        if (is_object($a)) {
+            $id_a = isset($a->ID) ? (int)$a->ID : 0;
+            $order_a = isset($a->menu_order) ? (int)$a->menu_order : 0;
+            if (function_exists('get_post_meta') && $id_a > 0) {
+                $dates_a = get_post_meta($id_a, '_cv_education_dates', true);
+                if (empty($dates_a)) {
+                    $dates_a = get_post_meta($id_a, 'cv_education_dates', true);
+                }
+            } elseif (isset($a->dates)) {
+                $dates_a = $a->dates;
+            }
+        } elseif (is_array($a)) {
+            $id_a = isset($a['ID']) ? (int)$a['ID'] : (isset($a['id']) ? (int)$a['id'] : 0);
+            $order_a = isset($a['menu_order']) ? (int)$a['menu_order'] : 0;
+            $dates_a = $a['dates'] ?? ($a['_cv_education_dates'] ?? ($a['cv_education_dates'] ?? ''));
+        }
+
+        if (is_object($b)) {
+            $id_b = isset($b->ID) ? (int)$b->ID : 0;
+            $order_b = isset($b->menu_order) ? (int)$b->menu_order : 0;
+            if (function_exists('get_post_meta') && $id_b > 0) {
+                $dates_b = get_post_meta($id_b, '_cv_education_dates', true);
+                if (empty($dates_b)) {
+                    $dates_b = get_post_meta($id_b, 'cv_education_dates', true);
+                }
+            } elseif (isset($b->dates)) {
+                $dates_b = $b->dates;
+            }
+        } elseif (is_array($b)) {
+            $id_b = isset($b['ID']) ? (int)$b['ID'] : (isset($b['id']) ? (int)$b['id'] : 0);
+            $order_b = isset($b['menu_order']) ? (int)$b['menu_order'] : 0;
+            $dates_b = $b['dates'] ?? ($b['_cv_education_dates'] ?? ($b['cv_education_dates'] ?? ''));
+        }
+
+        $cmp = cv_one_pager_compare_cv_dates($dates_a, $dates_b);
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+
+        // Tie-breaker: menu_order DESC
+        if ($order_a !== $order_b) {
+            return ($order_a > $order_b) ? -1 : 1;
+        }
+
+        // Tie-breaker: ID DESC
+        if ($id_a !== $id_b) {
+            return ($id_a > $id_b) ? -1 : 1;
+        }
+
+        return 0;
+    });
+
+    return $items;
+}
+
+/**
+ * Sorts course items in memory from newest to oldest based on dates.
+ */
+function cv_one_pager_sort_course_items($items) {
+    if (empty($items) || !is_array($items)) {
+        return $items;
+    }
+
+    usort($items, function($a, $b) {
+        $dates_a = '';
+        $dates_b = '';
+        $order_a = 0;
+        $order_b = 0;
+        $id_a = 0;
+        $id_b = 0;
+
+        if (is_object($a)) {
+            $id_a = isset($a->ID) ? (int)$a->ID : 0;
+            $order_a = isset($a->menu_order) ? (int)$a->menu_order : 0;
+            if (function_exists('get_post_meta') && $id_a > 0) {
+                $dates_a = get_post_meta($id_a, '_cv_course_dates', true);
+                if (empty($dates_a)) {
+                    $dates_a = get_post_meta($id_a, 'cv_course_dates', true);
+                }
+            } elseif (isset($a->dates)) {
+                $dates_a = $a->dates;
+            }
+        } elseif (is_array($a)) {
+            $id_a = isset($a['ID']) ? (int)$a['ID'] : (isset($a['id']) ? (int)$a['id'] : 0);
+            $order_a = isset($a['menu_order']) ? (int)$a['menu_order'] : 0;
+            $dates_a = $a['dates'] ?? ($a['_cv_course_dates'] ?? ($a['cv_course_dates'] ?? ''));
+        }
+
+        if (is_object($b)) {
+            $id_b = isset($b->ID) ? (int)$b->ID : 0;
+            $order_b = isset($b->menu_order) ? (int)$b->menu_order : 0;
+            if (function_exists('get_post_meta') && $id_b > 0) {
+                $dates_b = get_post_meta($id_b, '_cv_course_dates', true);
+                if (empty($dates_b)) {
+                    $dates_b = get_post_meta($id_b, 'cv_course_dates', true);
+                }
+            } elseif (isset($b->dates)) {
+                $dates_b = $b->dates;
+            }
+        } elseif (is_array($b)) {
+            $id_b = isset($b['ID']) ? (int)$b['ID'] : (isset($b['id']) ? (int)$b['id'] : 0);
+            $order_b = isset($b['menu_order']) ? (int)$b['menu_order'] : 0;
+            $dates_b = $b['dates'] ?? ($b['_cv_course_dates'] ?? ($b['cv_course_dates'] ?? ''));
+        }
+
+        $cmp = cv_one_pager_compare_cv_dates($dates_a, $dates_b);
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+
+        // Tie-breaker: menu_order DESC
+        if ($order_a !== $order_b) {
+            return ($order_a > $order_b) ? -1 : 1;
+        }
+
+        // Tie-breaker: ID DESC
+        if ($id_a !== $id_b) {
+            return ($id_a > $id_b) ? -1 : 1;
+        }
+
+        return 0;
+    });
+
+    return $items;
+}
+
+/**
+ * Re-indexes menu_order for all cv_education posts so that newest is highest.
+ */
+function cv_one_pager_sync_all_education_menu_orders() {
+    $languages = array('');
+    if (function_exists('pll_languages_list')) {
+        $pll_langs = pll_languages_list();
+        if (!empty($pll_langs) && is_array($pll_langs)) {
+            $languages = $pll_langs;
+        }
+    }
+
+    global $wpdb;
+
+    foreach ($languages as $lang) {
+        $args = array(
+            'post_type' => 'cv_education',
+            'numberposts' => -1,
+            'post_status' => 'any',
+            'suppress_filters' => false,
+        );
+        if (!empty($lang)) {
+            $args['lang'] = $lang;
+        }
+        $posts = get_posts($args);
+        if (empty($posts)) {
+            continue;
+        }
+
+        $sorted = cv_one_pager_sort_education_items($posts);
+        $total = count($sorted);
+        $order = $total * 10;
+
+        foreach ($sorted as $p) {
+            $current_order = (int)$p->menu_order;
+            if ($current_order !== $order) {
+                if (!empty($wpdb)) {
+                    $wpdb->update(
+                        $wpdb->posts,
+                        array('menu_order' => $order),
+                        array('ID' => $p->ID),
+                        array('%d'),
+                        array('%d')
+                    );
+                } else {
+                    wp_update_post(array(
+                        'ID' => $p->ID,
+                        'menu_order' => $order
+                    ));
+                }
+                clean_post_cache($p->ID);
+            }
+            $order -= 10;
+        }
+    }
+}
+
+/**
+ * Re-indexes menu_order for all cv_course posts so that newest is highest.
+ */
+function cv_one_pager_sync_all_course_menu_orders() {
+    $languages = array('');
+    if (function_exists('pll_languages_list')) {
+        $pll_langs = pll_languages_list();
+        if (!empty($pll_langs) && is_array($pll_langs)) {
+            $languages = $pll_langs;
+        }
+    }
+
+    global $wpdb;
+
+    foreach ($languages as $lang) {
+        $args = array(
+            'post_type' => 'cv_course',
+            'numberposts' => -1,
+            'post_status' => 'any',
+            'suppress_filters' => false,
+        );
+        if (!empty($lang)) {
+            $args['lang'] = $lang;
+        }
+        $posts = get_posts($args);
+        if (empty($posts)) {
+            continue;
+        }
+
+        $sorted = cv_one_pager_sort_course_items($posts);
+        $total = count($sorted);
+        $order = $total * 10;
+
+        foreach ($sorted as $p) {
+            $current_order = (int)$p->menu_order;
+            if ($current_order !== $order) {
+                if (!empty($wpdb)) {
+                    $wpdb->update(
+                        $wpdb->posts,
+                        array('menu_order' => $order),
+                        array('ID' => $p->ID),
+                        array('%d'),
+                        array('%d')
+                    );
+                } else {
+                    wp_update_post(array(
+                        'ID' => $p->ID,
+                        'menu_order' => $order
+                    ));
+                }
+                clean_post_cache($p->ID);
+            }
+            $order -= 10;
+        }
+    }
+}
+
+/**
+ * Automatically sync experience, education, and course orders once in admin.
  */
 function cv_one_pager_auto_sync_experience_orders_once() {
     if (!is_admin()) {
@@ -2265,6 +2707,11 @@ function cv_one_pager_auto_sync_experience_orders_once() {
     if (!get_option('cv_experience_orders_synced_v3')) {
         cv_one_pager_sync_all_experience_menu_orders();
         update_option('cv_experience_orders_synced_v3', 1);
+    }
+    if (!get_option('cv_education_course_orders_synced_v1')) {
+        cv_one_pager_sync_all_education_menu_orders();
+        cv_one_pager_sync_all_course_menu_orders();
+        update_option('cv_education_course_orders_synced_v1', 1);
     }
 }
 add_action('admin_init', 'cv_one_pager_auto_sync_experience_orders_once');
@@ -2303,26 +2750,98 @@ function cv_one_pager_cv_experience_column_content($column, $post_id) {
 add_action('manage_cv_experience_posts_custom_column', 'cv_one_pager_cv_experience_column_content', 10, 2);
 
 /**
- * Ensure default admin order for cv_experience is menu_order DESC.
+ * Add School & Dates columns to cv_education post list in admin.
+ */
+function cv_one_pager_cv_education_columns($columns) {
+    $new_columns = array();
+    foreach ($columns as $key => $title) {
+        $new_columns[$key] = $title;
+        if ($key === 'title') {
+            $new_columns['cv_school'] = __('Oppilaitos / School', 'cv-one-pager');
+            $new_columns['cv_dates'] = __('Ajankohta / Dates', 'cv-one-pager');
+        }
+    }
+    return $new_columns;
+}
+add_filter('manage_cv_education_posts_columns', 'cv_one_pager_cv_education_columns');
+
+function cv_one_pager_cv_education_column_content($column, $post_id) {
+    if ($column === 'cv_school') {
+        $post = get_post($post_id);
+        echo esc_html($post->post_excerpt ?: '—');
+    } elseif ($column === 'cv_dates') {
+        $dates = get_post_meta($post_id, '_cv_education_dates', true);
+        if (empty($dates)) {
+            $dates = get_post_meta($post_id, 'cv_education_dates', true);
+        }
+        echo esc_html($dates ?: '—');
+    }
+}
+add_action('manage_cv_education_posts_custom_column', 'cv_one_pager_cv_education_column_content', 10, 2);
+
+/**
+ * Add Provider & Dates columns to cv_course post list in admin.
+ */
+function cv_one_pager_cv_course_columns($columns) {
+    $new_columns = array();
+    foreach ($columns as $key => $title) {
+        $new_columns[$key] = $title;
+        if ($key === 'title') {
+            $new_columns['cv_provider'] = __('Järjestäjä / Provider', 'cv-one-pager');
+            $new_columns['cv_dates'] = __('Ajankohta / Dates', 'cv-one-pager');
+        }
+    }
+    return $new_columns;
+}
+add_filter('manage_cv_course_posts_columns', 'cv_one_pager_cv_course_columns');
+
+function cv_one_pager_cv_course_column_content($column, $post_id) {
+    if ($column === 'cv_provider') {
+        $provider = get_post_meta($post_id, '_cv_course_provider', true);
+        if (empty($provider)) {
+            $provider = get_post_meta($post_id, 'cv_course_provider', true);
+        }
+        echo esc_html($provider ?: '—');
+    } elseif ($column === 'cv_dates') {
+        $dates = get_post_meta($post_id, '_cv_course_dates', true);
+        if (empty($dates)) {
+            $dates = get_post_meta($post_id, 'cv_course_dates', true);
+        }
+        echo esc_html($dates ?: '—');
+    }
+}
+add_action('manage_cv_course_posts_custom_column', 'cv_one_pager_cv_course_column_content', 10, 2);
+
+/**
+ * Ensure default admin order for cv_experience, cv_education, cv_course is menu_order DESC.
  */
 function cv_one_pager_admin_experience_order($query) {
-    if (is_admin() && $query->is_main_query() && $query->get('post_type') === 'cv_experience') {
-        if (!$query->get('orderby')) {
-            $query->set('orderby', 'menu_order');
-            $query->set('order', 'DESC');
+    if (is_admin() && $query->is_main_query()) {
+        $pt = $query->get('post_type');
+        if (in_array($pt, array('cv_experience', 'cv_education', 'cv_course'), true)) {
+            if (!$query->get('orderby')) {
+                $query->set('orderby', 'menu_order');
+                $query->set('order', 'DESC');
+            }
         }
     }
 }
 add_action('pre_get_posts', 'cv_one_pager_admin_experience_order');
 
 /**
- * Admin action and notice to manually re-sort experiences if desired.
+ * Admin action and notice to manually re-sort experiences, education, and courses if desired.
  */
 function cv_one_pager_experience_admin_notices() {
     $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-    if ($screen && $screen->id === 'edit-cv_experience') {
-        if (isset($_GET['cv_experience_resorted'])) {
+    if ($screen) {
+        if ($screen->id === 'edit-cv_experience' && isset($_GET['cv_experience_resorted'])) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Työkokemukset järjestetty onnistuneesti uusimmasta vanhimpaan päivämäärien mukaan (2026 → 1996)!', 'cv-one-pager') . '</p></div>';
+        }
+        if ($screen->id === 'edit-cv_education' && isset($_GET['cv_education_resorted'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Koulutukset järjestetty onnistuneesti uusimmasta vanhimpaan päivämäärien mukaan!', 'cv-one-pager') . '</p></div>';
+        }
+        if ($screen->id === 'edit-cv_course' && isset($_GET['cv_course_resorted'])) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Kurssit järjestetty onnistuneesti uusimmasta vanhimpaan päivämäärien mukaan!', 'cv-one-pager') . '</p></div>';
         }
     }
 }
@@ -2332,26 +2851,71 @@ function cv_one_pager_handle_resort_experience_action() {
     if (!is_admin() || !current_user_can('edit_posts')) {
         return;
     }
-    if (isset($_GET['action']) && $_GET['action'] === 'cv_resort_experience' && check_admin_referer('cv_resort_experience_nonce')) {
-        cv_one_pager_sync_all_experience_menu_orders();
-        wp_safe_redirect(add_query_arg(array('post_type' => 'cv_experience', 'cv_experience_resorted' => '1'), admin_url('edit.php')));
-        exit;
+    if (isset($_GET['action'])) {
+        if ($_GET['action'] === 'cv_resort_experience' && check_admin_referer('cv_resort_experience_nonce')) {
+            cv_one_pager_sync_all_experience_menu_orders();
+            wp_safe_redirect(add_query_arg(array('post_type' => 'cv_experience', 'cv_experience_resorted' => '1'), admin_url('edit.php')));
+            exit;
+        }
+        if ($_GET['action'] === 'cv_resort_education' && check_admin_referer('cv_resort_education_nonce')) {
+            cv_one_pager_sync_all_education_menu_orders();
+            wp_safe_redirect(add_query_arg(array('post_type' => 'cv_education', 'cv_education_resorted' => '1'), admin_url('edit.php')));
+            exit;
+        }
+        if ($_GET['action'] === 'cv_resort_course' && check_admin_referer('cv_resort_course_nonce')) {
+            cv_one_pager_sync_all_course_menu_orders();
+            wp_safe_redirect(add_query_arg(array('post_type' => 'cv_course', 'cv_course_resorted' => '1'), admin_url('edit.php')));
+            exit;
+        }
     }
 }
 add_action('admin_init', 'cv_one_pager_handle_resort_experience_action');
 
 function cv_one_pager_add_resort_button() {
     $screen = function_exists('get_current_screen') ? get_current_screen() : null;
-    if ($screen && $screen->id === 'edit-cv_experience') {
-        $resort_url = wp_nonce_url(admin_url('edit.php?post_type=cv_experience&action=cv_resort_experience'), 'cv_resort_experience_nonce');
-        ?>
-        <script>
-        jQuery(document).ready(function($) {
-            $('.page-title-action').after('<a href="<?php echo esc_url($resort_url); ?>" class="page-title-action" style="margin-left: 8px;">Järjestä päivämäärien mukaan (2026 &rarr; 1996)</a>');
-        });
-        </script>
-        <?php
+    if ($screen) {
+        if ($screen->id === 'edit-cv_experience') {
+            $resort_url = wp_nonce_url(admin_url('edit.php?post_type=cv_experience&action=cv_resort_experience'), 'cv_resort_experience_nonce');
+            ?>
+            <script>
+            jQuery(document).ready(function($) {
+                $('.page-title-action').after('<a href="<?php echo esc_url($resort_url); ?>" class="page-title-action" style="margin-left: 8px;">Järjestä päivämäärien mukaan (2026 &rarr; 1996)</a>');
+            });
+            </script>
+            <?php
+        } elseif ($screen->id === 'edit-cv_education') {
+            $resort_url = wp_nonce_url(admin_url('edit.php?post_type=cv_education&action=cv_resort_education'), 'cv_resort_education_nonce');
+            ?>
+            <script>
+            jQuery(document).ready(function($) {
+                $('.page-title-action').after('<a href="<?php echo esc_url($resort_url); ?>" class="page-title-action" style="margin-left: 8px;">Järjestä päivämäärien mukaan (uusin ensin)</a>');
+            });
+            </script>
+            <?php
+        } elseif ($screen->id === 'edit-cv_course') {
+            $resort_url = wp_nonce_url(admin_url('edit.php?post_type=cv_course&action=cv_resort_course'), 'cv_resort_course_nonce');
+            ?>
+            <script>
+            jQuery(document).ready(function($) {
+                $('.page-title-action').after('<a href="<?php echo esc_url($resort_url); ?>" class="page-title-action" style="margin-left: 8px;">Järjestä päivämäärien mukaan (uusin ensin)</a>');
+            });
+            </script>
+            <?php
+        }
     }
 }
 add_action('admin_footer', 'cv_one_pager_add_resort_button');
+
+/**
+ * Prevent cURL error 28 timeout (IPv6 routing stall on Windows / XAMPP).
+ * Forces IPv4 for external HTTP requests (OpenAI API, Polylang, etc.)
+ * Safe for both Windows development and Ubuntu Linux production.
+ */
+function cv_force_ipv4_http_api_curl($handle, $parsed_args = array(), $url = '') {
+    if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+        curl_setopt($handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    }
+}
+add_action('http_api_curl', 'cv_force_ipv4_http_api_curl', 10, 3);
+
 

@@ -20,7 +20,7 @@ class CV_OAI_PLL_OpenAI_Client {
     /**
      * Default connection/request timeout in seconds.
      */
-    private static $request_timeout = 120;
+    private static $request_timeout = 300;
 
     /**
      * Sends a translation payload to the OpenAI Chat Completions API.
@@ -54,11 +54,52 @@ class CV_OAI_PLL_OpenAI_Client {
             'Content-Type'  => 'application/json',
         ];
 
-        $response = wp_remote_post(self::$chat_endpoint, [
-            'headers' => $headers,
-            'body'    => wp_json_encode($payload),
-            'timeout' => self::$request_timeout,
-        ]);
+        // Ensure cURL resolves via IPv4 to prevent Windows / XAMPP IPv6 routing black-hole timeouts (cURL error 28)
+        $curl_tweaks = function ($handle) {
+            if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+                curl_setopt($handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+            }
+            if (defined('CURLOPT_CONNECTTIMEOUT')) {
+                curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, 30);
+            }
+        };
+
+        add_action('http_api_curl', $curl_tweaks, 10, 1);
+
+        $timeout = (int) apply_filters('cv_oai_pll_request_timeout', self::$request_timeout);
+        if ($timeout < 30) {
+            $timeout = 30;
+        }
+
+        $max_attempts = 3;
+        $attempt      = 0;
+        $response     = null;
+
+        while ($attempt < $max_attempts) {
+            $attempt++;
+
+            $response = wp_remote_post(self::$chat_endpoint, [
+                'headers' => $headers,
+                'body'    => wp_json_encode($payload),
+                'timeout' => $timeout,
+            ]);
+
+            if (!is_wp_error($response)) {
+                break;
+            }
+
+            $err_msg = $response->get_error_message();
+            $is_timeout = (stripos($err_msg, 'cURL error 28') !== false || stripos($err_msg, 'timed out') !== false);
+
+            if (!$is_timeout || $attempt >= $max_attempts) {
+                break;
+            }
+
+            // Small delay before retry
+            sleep(2);
+        }
+
+        remove_action('http_api_curl', $curl_tweaks, 10);
 
         if (is_wp_error($response)) {
             return $response;

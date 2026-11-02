@@ -201,6 +201,9 @@ if ($is_admin_editor) {
 					$education_query['suppress_filters'] = false;
 				}
 				$education_items = get_posts($education_query);
+				if (function_exists('cv_one_pager_sort_education_items')) {
+					$education_items = cv_one_pager_sort_education_items($education_items);
+				}
 				?>
 				<?php foreach ($education_items as $item) : ?>
 					<?php 
@@ -248,6 +251,9 @@ if ($is_admin_editor) {
 					$courses_query['suppress_filters'] = false;
 				}
 				$courses = get_posts($courses_query);
+				if (function_exists('cv_one_pager_sort_course_items')) {
+					$courses = cv_one_pager_sort_course_items($courses);
+				}
 				?>
 				<?php foreach ($courses as $course) : ?>
 					<?php

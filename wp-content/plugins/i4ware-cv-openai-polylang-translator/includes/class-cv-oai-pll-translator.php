@@ -167,9 +167,24 @@ class CV_OAI_PLL_Translator {
                     $total_prompt_tokens += isset($response_data['usage']['prompt_tokens']) ? (int) $response_data['usage']['prompt_tokens'] : 0;
                     $total_completion_tokens += isset($response_data['usage']['completion_tokens']) ? (int) $response_data['usage']['completion_tokens'] : 0;
 
-                    $decoded_chunk = json_decode($response_content, true);
+                    // -----------------------------------------------------------------
+                    // Robust JSON extraction – the model may add explanations or stray
+                    // characters before/after the JSON object. Find the first opening brace
+                    // and the matching closing brace, slice that substring and decode it.
+                    // If it still fails, include the raw response in the exception.
+                    // -----------------------------------------------------------------
+                    $json_start = strpos($response_content, '{');
+                    $json_end   = strrpos($response_content, '}');
+                    if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
+                        $json_substring = substr($response_content, $json_start, $json_end - $json_start + 1);
+                        $decoded_chunk  = json_decode($json_substring, true);
+                    } else {
+                        $decoded_chunk = null;
+                    }
                     if (!is_array($decoded_chunk)) {
-                        throw new Exception(__('Failed to parse translation chunk as JSON.', 'cv-openai-polylang-translator'));
+                        $error_msg = __('Failed to parse translation chunk as JSON.', 'cv-openai-polylang-translator');
+                        $error_msg .= "\nRaw response: " . $response_content;
+                        throw new Exception($error_msg);
                     }
 
                     // Validate chunk response for quality and integrity
