@@ -13,7 +13,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class CV_OAI_PLL_Translator {
+class CV_OAI_PLL_Translator
+{
 
     /**
      * Translates a single WordPress post or page from Finnish into a target language.
@@ -24,9 +25,10 @@ class CV_OAI_PLL_Translator {
      * @param bool   $overwrite_draft  Whether the user explicitly confirmed overwriting an existing draft.
      * @return int|WP_Error New or updated translation post ID on success, WP_Error on failure.
      */
-    public static function translate_post($post_id, $target_lang, $options, $overwrite_draft = false, $bypass_lock = false, $bypass_cache = false) {
+    public static function translate_post($post_id, $target_lang, $options, $overwrite_draft = false, $bypass_lock = false, $bypass_cache = false)
+    {
         $start_time = microtime(true);
-        $post       = get_post($post_id);
+        $post = get_post($post_id);
 
         if (!$post) {
             return new WP_Error('invalid_post', __('Source post not found.', 'cv-openai-polylang-translator'));
@@ -38,7 +40,7 @@ class CV_OAI_PLL_Translator {
         }
 
         $api_key = get_option('cv_oai_pll_api_key', '');
-        $model   = get_option('cv_oai_pll_model', 'gpt-4o-mini');
+        $model = get_option('cv_oai_pll_model', 'gpt-4o-mini');
         if (empty($api_key)) {
             return new WP_Error('openai_missing_key', __('OpenAI API key is missing. Please configure it in settings.', 'cv-openai-polylang-translator'));
         }
@@ -54,8 +56,8 @@ class CV_OAI_PLL_Translator {
 
         // 2. Existing translation check
         $translations = pll_get_post_translations($post_id);
-        $existing_id  = isset($translations[$target_lang]) ? (int) $translations[$target_lang] : 0;
-        $is_update    = false;
+        $existing_id = isset($translations[$target_lang]) ? (int) $translations[$target_lang] : 0;
+        $is_update = false;
         $existing_post = null;
 
         if ($existing_id) {
@@ -143,16 +145,16 @@ class CV_OAI_PLL_Translator {
                     }
 
                     $chat_payload = [
-                        'model'       => $model,
+                        'model' => $model,
                         'temperature' => 0.2,
                         'response_format' => ['type' => 'json_object'],
-                        'messages'    => [
+                        'messages' => [
                             [
-                                'role'    => 'system',
+                                'role' => 'system',
                                 'content' => CV_OAI_PLL_OpenAI_Client::get_system_prompt($target_language_name),
                             ],
                             [
-                                'role'    => 'user',
+                                'role' => 'user',
                                 'content' => "Translate the following JSON object translatable fields into " . $target_language_name . ". IMPORTANT: Do not translate or transliterate trademark names, product names, or technology identifiers (such as i4ware, Atlassian, Jira, WordPress, OpenAI, Microsoft, SAP, ERP, SaaS, Polylang, ACF, Freshworks, Freshchat, Microsoft Teams). They must remain in Latin (English) characters exactly as written. Return only the translated JSON matching the structure:\n\n" . wp_json_encode($chunk),
                             ],
                         ],
@@ -168,22 +170,46 @@ class CV_OAI_PLL_Translator {
                     $total_completion_tokens += isset($response_data['usage']['completion_tokens']) ? (int) $response_data['usage']['completion_tokens'] : 0;
 
                     // -----------------------------------------------------------------
-                    // Robust JSON extraction – the model may add explanations or stray
-                    // characters before/after the JSON object. Find the first opening brace
-                    // and the matching closing brace, slice that substring and decode it.
-                    // If it still fails, include the raw response in the exception.
+                    // Robust JSON extraction – strip any leading/trailing text the model
+                    // might prepend or append. Locate the outermost braces, extract the
+                    // substring and decode it with error handling.
                     // -----------------------------------------------------------------
                     $json_start = strpos($response_content, '{');
-                    $json_end   = strrpos($response_content, '}');
+                    $json_end = strrpos($response_content, '}');
                     if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
                         $json_substring = substr($response_content, $json_start, $json_end - $json_start + 1);
-                        $decoded_chunk  = json_decode($json_substring, true);
+                        $json_substring = trim($json_substring);
+                        // Clean up potential UTF-8 control characters and stray backslashes
+                        // Convert to UTF-8, dropping invalid bytes
+                        $json_substring = @iconv('UTF-8', 'UTF-8//IGNORE', $json_substring);
+                        // Replace known mis‑encoded dash and quote characters
+                        $map = [
+                            "â€“" => "-",
+                            "â€”" => "--",
+                            "â€" => '"',
+                            "â€œ" => '"',
+                            "â€˜" => "'",
+                            "â€™" => "'",
+                        ];
+                        $json_substring = strtr($json_substring, $map);
+                        // Remove escaped backslashes that are not part of valid JSON
+                        $json_substring = preg_replace('/\\\\+/', '\\', $json_substring);
+
+                        try {
+                            $decoded_chunk = json_decode($json_substring, true, 512, JSON_THROW_ON_ERROR);
+                        } catch (JsonException $e) {
+                            $decoded_chunk = null;
+                            $json_error = $e->getMessage();                    // <<< NEW
+                        }
                     } else {
                         $decoded_chunk = null;
                     }
                     if (!is_array($decoded_chunk)) {
                         $error_msg = __('Failed to parse translation chunk as JSON.', 'cv-openai-polylang-translator');
                         $error_msg .= "\nRaw response: " . $response_content;
+                        if (isset($json_error)) {
+                            $error_msg .= "\nJSON error: " . $json_error;       // <<< NEW
+                        }
                         throw new Exception($error_msg);
                     }
 
@@ -220,7 +246,7 @@ class CV_OAI_PLL_Translator {
                 foreach ($translated_results as $k => $v) {
                     if (preg_match('/^(.*)_split_(\d+)$/', $k, $matches)) {
                         $base_key = $matches[1];
-                        $index    = (int) $matches[2];
+                        $index = (int) $matches[2];
                         $split_groups[$base_key][$index] = $v;
                     } else {
                         $reassembled_translated[$k] = $v;
@@ -248,12 +274,12 @@ class CV_OAI_PLL_Translator {
 
             // 8. Create or Update Translation Draft
             $post_data = [
-                'post_type'    => $post->post_type,
-                'post_status'  => $is_update ? get_post_status($existing_id) : 'draft',
-                'post_title'   => $compiled['post_title'],
+                'post_type' => $post->post_type,
+                'post_status' => $is_update ? get_post_status($existing_id) : 'draft',
+                'post_title' => $compiled['post_title'],
                 'post_excerpt' => $compiled['post_excerpt'],
                 'post_content' => $compiled['post_content'],
-                'menu_order'   => (int) $post->menu_order,
+                'menu_order' => (int) $post->menu_order,
             ];
 
             if ($is_update) {
@@ -315,9 +341,9 @@ class CV_OAI_PLL_Translator {
 
             // Store token usage in transient for the queue processor or stats
             set_transient('cv_oai_pll_last_tokens_usage', [
-                'post_id'           => $post_id,
-                'model'             => $model,
-                'prompt_tokens'     => $total_prompt_tokens,
+                'post_id' => $post_id,
+                'model' => $model,
+                'prompt_tokens' => $total_prompt_tokens,
                 'completion_tokens' => $total_completion_tokens,
             ], 60);
 
@@ -342,7 +368,8 @@ class CV_OAI_PLL_Translator {
     /**
      * Translates a Polylang language code to a readable name for the OpenAI prompt.
      */
-    public static function get_language_name_by_code($code) {
+    public static function get_language_name_by_code($code)
+    {
         $langs = [
             'fi' => 'Finnish',
             'en' => 'English',
@@ -370,13 +397,14 @@ class CV_OAI_PLL_Translator {
     /**
      * Replaces URLs in text with placeholders.
      */
-    public static function replace_urls_with_placeholders($text, &$url_map) {
+    public static function replace_urls_with_placeholders($text, &$url_map)
+    {
         $pattern = '/https?:\/\/[^\s\'"<>\(\)]+/i';
-        return preg_replace_callback($pattern, function($matches) use (&$url_map) {
+        return preg_replace_callback($pattern, function ($matches) use (&$url_map) {
             $url = $matches[0];
             $clean_url = rtrim($url, '.,;:!?');
             $punctuation = substr($url, strlen($clean_url));
-            
+
             $placeholder = array_search($clean_url, $url_map, true);
             if ($placeholder === false) {
                 $index = count($url_map);
@@ -390,9 +418,10 @@ class CV_OAI_PLL_Translator {
     /**
      * Replaces emails in text with placeholders.
      */
-    public static function replace_emails_with_placeholders($text, &$email_map) {
+    public static function replace_emails_with_placeholders($text, &$email_map)
+    {
         $pattern = '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i';
-        return preg_replace_callback($pattern, function($matches) use (&$email_map) {
+        return preg_replace_callback($pattern, function ($matches) use (&$email_map) {
             $email = $matches[0];
             $placeholder = array_search($email, $email_map, true);
             if ($placeholder === false) {
@@ -407,16 +436,36 @@ class CV_OAI_PLL_Translator {
     /**
      * Replaces HTML tags that are not typography/basic formatting with placeholders.
      */
-    public static function replace_html_tags_with_placeholders($text, &$tag_map) {
+    public static function replace_html_tags_with_placeholders($text, &$tag_map)
+    {
         $ignored_tags = [
-            'p', 'br', 'hr', 'strong', 'em', 'span', 'b', 'i', 'ul', 'ol', 'li', 
-            'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre'
+            'p',
+            'br',
+            'hr',
+            'strong',
+            'em',
+            'span',
+            'b',
+            'i',
+            'ul',
+            'ol',
+            'li',
+            'div',
+            'h1',
+            'h2',
+            'h3',
+            'h4',
+            'h5',
+            'h6',
+            'blockquote',
+            'code',
+            'pre'
         ];
 
         // Match any HTML tag: opening, closing, or self-closing
         $pattern = '/<\/?([a-zA-Z0-9]+)\b[^>]*>/';
 
-        return preg_replace_callback($pattern, function($matches) use (&$tag_map, $ignored_tags) {
+        return preg_replace_callback($pattern, function ($matches) use (&$tag_map, $ignored_tags) {
             $full_tag = $matches[0];
             $tag_name = strtolower($matches[1]);
 
@@ -435,14 +484,15 @@ class CV_OAI_PLL_Translator {
     /**
      * Restores original HTML tags from placeholders.
      */
-    public static function restore_html_tags_from_placeholders($text, $tag_map) {
+    public static function restore_html_tags_from_placeholders($text, $tag_map)
+    {
         if (empty($tag_map)) {
             return $text;
         }
 
         $pattern = '/HTMLTAGPLACEHOLDER\s*_\s*(\d+)/i';
 
-        return preg_replace_callback($pattern, function($matches) use ($tag_map) {
+        return preg_replace_callback($pattern, function ($matches) use ($tag_map) {
             $index = $matches[1];
             $key = 'HTMLTAGPLACEHOLDER_' . $index;
             if (isset($tag_map[$key])) {
@@ -460,24 +510,25 @@ class CV_OAI_PLL_Translator {
     /**
      * Synchronizes and translates categories and tags from the source post to the translated post.
      */
-    private static function sync_post_taxonomies($source_post_id, $translated_post_id, $target_lang, $api_key, $model) {
+    private static function sync_post_taxonomies($source_post_id, $translated_post_id, $target_lang, $api_key, $model)
+    {
         $taxonomies = ['category', 'post_tag'];
-        
+
         foreach ($taxonomies as $taxonomy) {
             $source_terms = wp_get_object_terms($source_post_id, $taxonomy);
             if (is_wp_error($source_terms) || empty($source_terms)) {
                 continue;
             }
-            
+
             $target_term_ids = [];
-            
+
             foreach ($source_terms as $source_term) {
                 $result = self::translate_term_by_id($source_term->term_id, $target_lang);
                 if (!is_wp_error($result) && isset($result['term_id'])) {
                     $target_term_ids[] = (int) $result['term_id'];
                 }
             }
-            
+
             if (!empty($target_term_ids)) {
                 wp_set_object_terms($translated_post_id, $target_term_ids, $taxonomy);
             }
@@ -491,14 +542,15 @@ class CV_OAI_PLL_Translator {
      * @param string $target_lang Target language code.
      * @return array|WP_Error Array with 'term_id' and 'usage', or WP_Error on failure.
      */
-    public static function translate_term_by_id($term_id, $target_lang, $bypass_cache = false) {
+    public static function translate_term_by_id($term_id, $target_lang, $bypass_cache = false)
+    {
         $term = get_term($term_id);
         if (!$term || is_wp_error($term)) {
             return new WP_Error('invalid_term', __('Source term not found.', 'cv-openai-polylang-translator'));
         }
 
         $taxonomy = $term->taxonomy;
-        
+
         // Check if translation already exists
         $translated_term_id = 0;
         if (function_exists('pll_get_term')) {
@@ -508,12 +560,12 @@ class CV_OAI_PLL_Translator {
         if ($translated_term_id && !$bypass_cache) {
             return [
                 'term_id' => (int) $translated_term_id,
-                'usage'   => ['prompt_tokens' => 0, 'completion_tokens' => 0, 'model' => 'Cache']
+                'usage' => ['prompt_tokens' => 0, 'completion_tokens' => 0, 'model' => 'Cache']
             ];
         }
 
         $api_key = get_option('cv_oai_pll_api_key', '');
-        $model   = get_option('cv_oai_pll_model', 'gpt-4o-mini');
+        $model = get_option('cv_oai_pll_model', 'gpt-4o-mini');
         if (empty($api_key)) {
             return new WP_Error('openai_missing_key', __('OpenAI API key is missing.', 'cv-openai-polylang-translator'));
         }
@@ -522,15 +574,15 @@ class CV_OAI_PLL_Translator {
         $target_language_name = self::get_language_name_by_code($target_lang);
 
         $prompt = [
-            'model'       => $model,
+            'model' => $model,
             'temperature' => 0.1,
-            'messages'    => [
+            'messages' => [
                 [
-                    'role'    => 'system',
+                    'role' => 'system',
                     'content' => sprintf("You are a professional localization translator. Translate the following WordPress %s name from Finnish to %s. Return only the translated name, nothing else.", $taxonomy, $target_language_name),
                 ],
                 [
-                    'role'    => 'user',
+                    'role' => 'user',
                     'content' => $term_name,
                 ]
             ]
@@ -573,7 +625,7 @@ class CV_OAI_PLL_Translator {
 
         if (function_exists('pll_save_term_translations')) {
             $translations = [
-                'fi'         => $term_id,
+                'fi' => $term_id,
                 $target_lang => $new_term_id,
             ];
             if (function_exists('pll_languages_list')) {
@@ -592,10 +644,10 @@ class CV_OAI_PLL_Translator {
 
         return [
             'term_id' => $new_term_id,
-            'usage'   => [
-                'prompt_tokens'     => isset($response['usage']['prompt_tokens']) ? (int) $response['usage']['prompt_tokens'] : 0,
+            'usage' => [
+                'prompt_tokens' => isset($response['usage']['prompt_tokens']) ? (int) $response['usage']['prompt_tokens'] : 0,
                 'completion_tokens' => isset($response['usage']['completion_tokens']) ? (int) $response['usage']['completion_tokens'] : 0,
-                'model'             => $model
+                'model' => $model
             ]
         ];
     }
@@ -607,7 +659,8 @@ class CV_OAI_PLL_Translator {
      * @param string $target_lang Target language code.
      * @return int|WP_Error Target menu term ID on success, WP_Error on failure.
      */
-    public static function translate_menu($menu_id, $target_lang) {
+    public static function translate_menu($menu_id, $target_lang)
+    {
         $source_menu = wp_get_nav_menu_object($menu_id);
         if (!$source_menu) {
             return new WP_Error('invalid_menu', __('Source menu not found.', 'cv-openai-polylang-translator'));
@@ -639,7 +692,7 @@ class CV_OAI_PLL_Translator {
             }
             if (function_exists('pll_save_term_translations')) {
                 $translations = [
-                    'fi'         => $menu_id,
+                    'fi' => $menu_id,
                     $target_lang => $translated_menu_id
                 ];
                 if (function_exists('pll_languages_list')) {
@@ -676,7 +729,7 @@ class CV_OAI_PLL_Translator {
         // 3. Replicate items and translate their references
         foreach ($source_items as $item) {
             $target_object_id = $item->object_id;
-            
+
             // Map linked posts/pages
             if ($item->type === 'post_type' && function_exists('pll_get_post')) {
                 $mapped_post_id = pll_get_post($item->object_id, $target_lang);
@@ -704,19 +757,19 @@ class CV_OAI_PLL_Translator {
 
             // Rebuild item args
             $args = [
-                'menu-item-object-id'   => $target_object_id,
-                'menu-item-object'      => $item->object,
-                'menu-item-parent-id'   => $target_parent,
-                'menu-item-position'    => $item->menu_order,
-                'menu-item-type'        => $item->type,
-                'menu-item-title'       => $translated_title,
-                'menu-item-url'         => $item->url,
+                'menu-item-object-id' => $target_object_id,
+                'menu-item-object' => $item->object,
+                'menu-item-parent-id' => $target_parent,
+                'menu-item-position' => $item->menu_order,
+                'menu-item-type' => $item->type,
+                'menu-item-title' => $translated_title,
+                'menu-item-url' => $item->url,
                 'menu-item-description' => $item->description,
-                'menu-item-attr-title'  => $item->post_excerpt,
-                'menu-item-target'      => $item->target,
-                'menu-item-classes'     => implode(' ', $item->classes),
-                'menu-item-xfn'         => $item->xfn,
-                'menu-item-status'      => 'publish',
+                'menu-item-attr-title' => $item->post_excerpt,
+                'menu-item-target' => $item->target,
+                'menu-item-classes' => implode(' ', $item->classes),
+                'menu-item-xfn' => $item->xfn,
+                'menu-item-status' => 'publish',
             ];
 
             $new_item_id = wp_update_nav_menu_item($translated_menu_id, 0, $args);
@@ -735,7 +788,8 @@ class CV_OAI_PLL_Translator {
      * @param string $target_lang Target language code.
      * @return string Translated text.
      */
-    public static function translate_text_inline($text, $target_lang) {
+    public static function translate_text_inline($text, $target_lang)
+    {
         if (empty($text) || !is_string($text)) {
             return $text;
         }
@@ -747,7 +801,7 @@ class CV_OAI_PLL_Translator {
         }
 
         $api_key = get_option('cv_oai_pll_api_key', '');
-        $model   = get_option('cv_oai_pll_model', 'gpt-4o-mini');
+        $model = get_option('cv_oai_pll_model', 'gpt-4o-mini');
         if (empty($api_key)) {
             return $text;
         }
@@ -755,15 +809,15 @@ class CV_OAI_PLL_Translator {
         $target_language_name = self::get_language_name_by_code($target_lang);
 
         $prompt = [
-            'model'       => $model,
+            'model' => $model,
             'temperature' => 0.1,
-            'messages'    => [
+            'messages' => [
                 [
-                    'role'    => 'system',
+                    'role' => 'system',
                     'content' => sprintf("You are a professional localization translator. Translate the following text from Finnish to %s. Return only the translated text, nothing else.", $target_language_name),
                 ],
                 [
-                    'role'    => 'user',
+                    'role' => 'user',
                     'content' => $text,
                 ]
             ]
