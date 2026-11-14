@@ -26,22 +26,30 @@
 	font-family: var(--gemini-font);
 	color: var(--gemini-text);
 	position: relative;
-	z-index: 999999;
+	z-index: 2147483647 !important;
 	line-height: 1.5;
 	box-sizing: border-box;
+	pointer-events: auto !important;
 }
 
 .gemini-avatar-widget * {
 	box-sizing: border-box;
 }
 
+/* Ensure Cookie Law Info backdrops or overlays never block or cover the avatar */
+.cli-modal-backdrop,
+.cli-popupbar-overlay,
+.cli-settings-overlay {
+	pointer-events: none !important;
+}
+
 /* ==========================================================================
    FLOATING LAUNCHER BUTTON
    ========================================================================== */
 .gemini-launcher-btn {
-	position: fixed;
-	bottom: 24px;
-	right: 24px;
+	position: fixed !important;
+	bottom: 24px !important;
+	right: 24px !important;
 	width: 66px;
 	height: 66px;
 	border-radius: 50%;
@@ -50,11 +58,14 @@
 	padding: 0;
 	cursor: pointer;
 	outline: none;
-	display: flex;
+	display: flex !important;
 	align-items: center;
 	justify-content: center;
 	transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-	z-index: 999999;
+	z-index: 2147483647 !important;
+	pointer-events: auto !important;
+	visibility: visible !important;
+	opacity: 1 !important;
 }
 
 .gemini-launcher-btn:hover {

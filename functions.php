@@ -644,7 +644,11 @@ function cv_one_pager_polylang_post_types($post_types, $is_settings) {
 add_filter('pll_get_post_types', 'cv_one_pager_polylang_post_types', 10, 2);
 
 function cv_one_pager_cookie_consent_flash_guard() {
-    echo '<style id="cv-cookie-consent-guard">#cookie-law-info-again{opacity:0;visibility:hidden;display:none;transition:opacity .2s ease}</style>';
+    echo '<style id="cv-cookie-consent-guard">
+        #cookie-law-info-again{opacity:0;visibility:hidden;display:none;transition:opacity .2s ease}
+        .cli-modal-backdrop, .cli-popupbar-overlay, .cli-settings-overlay { pointer-events: none !important; }
+        #gemini-avatar-widget, #gemini-avatar-launcher { z-index: 2147483647 !important; pointer-events: auto !important; }
+    </style>';
 }
 add_action('wp_head', 'cv_one_pager_cookie_consent_flash_guard', 1);
 
