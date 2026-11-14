@@ -37,7 +37,7 @@ $included_types = ! empty( $settings['included_post_types'] ) ? (array) $setting
 		<div class="gemini-admin-header-title">
 			<span class="dashicons dashicons-format-chat"></span>
 			<div>
-				<h1>Gemini AI -puhuva avatar ja avustaja</h1>
+				<?php echo pll__('Gemini AI -puhuva avatar ja avustaja'); ?>
 				<p class="description">Hallitse verkkosivuston tekoälyavustajaa, puhesynteesiä, tietopohjaa ja ulkoasua.</p>
 			</div>
 		</div>

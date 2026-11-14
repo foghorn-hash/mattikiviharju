@@ -13,6 +13,7 @@ $avatar_url   = ! empty( $settings['avatar_image_url'] ) ? $settings['avatar_ima
 $avatar_type  = ! empty( $settings['avatar_type'] ) ? $settings['avatar_type'] : 'photo';
 $current_lang = Gemini_Avatar_Public::get_current_language();
 
+
 $state_text = 'Valmiina';
 if ( 'sv' === $current_lang ) {
 	$state_text = 'Redo';

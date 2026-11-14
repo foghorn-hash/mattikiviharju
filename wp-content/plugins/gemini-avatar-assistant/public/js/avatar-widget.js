@@ -134,7 +134,9 @@
 				e.preventDefault();
 				const selected = pill.getAttribute('data-lang');
 				if (selected && selected !== currentLang) {
-					setLanguage(selected);
+					const url = new URL(window.location);
+					url.searchParams.set('lang', selected);
+					window.location.href = url.toString();
 				}
 			});
 		});

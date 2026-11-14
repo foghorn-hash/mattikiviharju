@@ -198,25 +198,65 @@ img {
   background: rgba(15, 23, 42, 0.35);
 }
 
-.lang-dropdown {
-  background: transparent;
-  border: none;
-  color: var(--text);
-  padding: 6px 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
+.nav-right .lang-switcher {
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-right .lang-dropdown {
+  color-scheme: dark;
+  min-width: 7rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border, #334155);
   border-radius: 8px;
+  background-color: var(--surface, #121b2d);
+  color: var(--text, #f1f5f9);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  outline: none;
 }
 
-.lang-dropdown:focus {
-  outline: 2px solid var(--accent);
+.nav-right .lang-dropdown:focus-visible {
+  outline: 2px solid var(--accent, #38bdf8);
+  outline-offset: 2px;
 }
 
-.lang-dropdown option {
-  background: var(--surface);
-  color: var(--text);
+@supports (appearance: base-select) and selector(::picker(select)) {
+
+  .nav-right .lang-dropdown,
+  .nav-right .lang-dropdown::picker(select) {
+    appearance: base-select;
+  }
+
+  .nav-right .lang-dropdown::picker(select) {
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--border, #334155);
+    border-radius: 8px;
+    background-color: var(--surface, #121b2d);
+    color: var(--text, #f1f5f9);
+  }
+
+  .nav-right .lang-dropdown option {
+    padding: 0.45rem 0.65rem;
+    border-radius: 4px;
+    background-color: transparent;
+    color: inherit;
+  }
+
+  .nav-right .lang-dropdown option:checked {
+    background-color: transparent;
+  }
+
+  .nav-right .lang-dropdown option:hover {
+    background-color: #26374e;
+  }
+
+  .nav-right .lang-dropdown option:focus-visible {
+    outline: 2px solid var(--accent, #38bdf8);
+    outline-offset: -2px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -796,7 +836,7 @@ img {
   gap: 16px;
 }
 
-.comment-list > .comment.thread-odd {
+.comment-list>.comment.thread-odd {
   margin-left: 12px;
 }
 
@@ -1009,7 +1049,8 @@ img {
 .post-content .wp-block-embed-youtube,
 .post-content figure.wp-block-embed {
   position: relative;
-  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  padding-bottom: 56.25%;
+  /* 16:9 aspect ratio */
   height: 0;
   overflow: hidden;
   margin: 24px 0;
@@ -1040,6 +1081,7 @@ img {
     flex-direction: column;
     gap: 12px;
   }
+
   .hero {
     padding-top: 40px;
   }
@@ -1850,18 +1892,21 @@ img {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .post-body-card {
     padding: 24px 20px;
   }
+
   .post-nav {
     grid-template-columns: 1fr;
   }
+
   .post-nav-next {
     grid-column: 1;
     text-align: left;
   }
+
   .post-nav-next .post-nav-sub {
     justify-content: flex-start;
   }
 }
-

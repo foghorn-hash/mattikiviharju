@@ -32,8 +32,8 @@ class Gemini_Avatar_Admin {
 
 	public function add_menu_page() {
 		add_options_page(
-			'Gemini AI-avustaja',
-			'Gemini AI-avustaja',
+			pll__( 'Gemini AI-avustaja', 'gemini-avatar-assistant' ),
+			pll__( 'Gemini AI-avustaja', 'gemini-avatar-assistant' ),
 			'manage_options',
 			'gemini-avatar-assistant',
 			array( $this, 'render_settings_page' )
@@ -168,7 +168,7 @@ class Gemini_Avatar_Admin {
 	public function ajax_rebuild_index() {
 		check_ajax_referer( 'gemini_avatar_admin_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => 'Ei oikeuksia.' ) );
+			wp_send_json_error( array( 'message' => pll__( 'Ei oikeuksia.', 'gemini-avatar-assistant' ) ) );
 		}
 
 		$chunks = Gemini_Avatar_Knowledge_Base::build_index();
@@ -186,7 +186,7 @@ class Gemini_Avatar_Admin {
 	public function ajax_test_api() {
 		check_ajax_referer( 'gemini_avatar_admin_nonce', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => 'Ei oikeuksia.' ) );
+			wp_send_json_error( array( 'message' => pll__( 'Ei oikeuksia.', 'gemini-avatar-assistant' ) ) );
 		}
 
 		$start = microtime( true );

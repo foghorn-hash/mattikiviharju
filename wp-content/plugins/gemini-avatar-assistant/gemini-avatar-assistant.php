@@ -13,14 +13,14 @@
  * License: GPL v2 or later
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
+if (!defined('ABSPATH')) {
 	exit;
 }
 
-define( 'GEMINI_AVATAR_VERSION', '1.0.0' );
-define( 'GEMINI_AVATAR_PLUGIN_FILE', __FILE__ );
-define( 'GEMINI_AVATAR_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'GEMINI_AVATAR_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define('GEMINI_AVATAR_VERSION', '1.0.0');
+define('GEMINI_AVATAR_PLUGIN_FILE', __FILE__);
+define('GEMINI_AVATAR_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('GEMINI_AVATAR_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Autoload / Include required classes
 require_once GEMINI_AVATAR_PLUGIN_DIR . 'includes/class-settings.php';
@@ -34,14 +34,33 @@ require_once GEMINI_AVATAR_PLUGIN_DIR . 'includes/class-gemini-avatar-assistant.
 /**
  * Plugin activation hook
  */
-register_activation_hook( __FILE__, array( 'Gemini_Avatar_Assistant', 'activate' ) );
+register_activation_hook(__FILE__, array('Gemini_Avatar_Assistant', 'activate'));
 
 /**
  * Plugin deactivation hook
  */
-register_deactivation_hook( __FILE__, array( 'Gemini_Avatar_Assistant', 'deactivate' ) );
+register_deactivation_hook(__FILE__, array('Gemini_Avatar_Assistant', 'deactivate'));
 
 /**
  * Initialize main plugin instance
  */
-add_action( 'plugins_loaded', array( 'Gemini_Avatar_Assistant', 'get_instance' ) );
+add_action('plugins_loaded', array('Gemini_Avatar_Assistant', 'get_instance'));
+
+if (!function_exists('gemini_avatar_get_option')) {
+	function gemini_avatar_get_option($key)
+	{
+		// Ensure $key is a string before calling ACF
+		if (!is_string($key)) {
+			return '';
+		}
+		// Prefer ACF option field, fall back to get_option()
+		if (function_exists('get_field')) {
+			$value = get_field($key, 'option');
+			if ($value !== null) {
+				return $value;
+			}
+		}
+		return get_option($key, '');
+	}
+}
+

@@ -77,7 +77,7 @@
                                         $is_current = !empty($lang['current_lang']);
                                         $name = !empty($lang['name']) ? $lang['name'] : $lang['slug'];
                                         ?>
-                                        <option value="<?php echo esc_url($lang['url']); ?>" <?php selected($is_current); ?>>
+                                        <option value="<?php echo esc_url($lang['url']); ?>" <?php selected($is_current); ?> >
                                             <?php echo esc_html($name); ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -94,19 +94,13 @@
                 </button>
                 <nav class="nav-links" id="primary-nav" aria-label="Primary">
                     <a href="<?php echo esc_url($anchor_base . '#about'); ?>"><?php echo esc_html($nav_about); ?></a>
-                    <a
-                        href="<?php echo esc_url($anchor_base . '#experience'); ?>"><?php echo esc_html($nav_experience); ?></a>
-                    <a
-                        href="<?php echo esc_url($anchor_base . '#education'); ?>"><?php echo esc_html($nav_education); ?></a>
-                    <a
-                        href="<?php echo esc_url($anchor_base . '#courses'); ?>"><?php echo esc_html($nav_courses); ?></a>
-                    <a
-                        href="<?php echo esc_url($anchor_base . '#projects'); ?>"><?php echo esc_html($nav_projects); ?></a>
+                    <a href="<?php echo esc_url($anchor_base . '#experience'); ?>"><?php echo esc_html($nav_experience); ?></a>
+                    <a href="<?php echo esc_url($anchor_base . '#education'); ?>"><?php echo esc_html($nav_education); ?></a>
+                    <a href="<?php echo esc_url($anchor_base . '#courses'); ?>"><?php echo esc_html($nav_courses); ?></a>
+                    <a href="<?php echo esc_url($anchor_base . '#projects'); ?>"><?php echo esc_html($nav_projects); ?></a>
                     <a href="<?php echo esc_url($anchor_base . '#skills'); ?>"><?php echo esc_html($nav_skills); ?></a>
-                    <a
-                        href="<?php echo esc_url($anchor_base . '#references'); ?>"><?php echo esc_html($nav_references); ?></a>
-                    <a
-                        href="<?php echo esc_url($anchor_base . '#contact'); ?>"><?php echo esc_html($nav_contact); ?></a>
+                    <a href="<?php echo esc_url($anchor_base . '#references'); ?>"><?php echo esc_html($nav_references); ?></a>
+                    <a href="<?php echo esc_url($anchor_base . '#contact'); ?>"><?php echo esc_html($nav_contact); ?></a>
                     <a href="<?php echo esc_url($blog_url); ?>"><?php echo esc_html($nav_blog); ?></a>
                 </nav>
             </div>
