@@ -56,21 +56,32 @@ if ( 'sv' === $current_lang ) {
 
 		<!-- DRAWER HEADER -->
 		<header class="gemini-drawer-header">
-			<div class="gemini-header-profile">
-				<div class="gemini-header-avatar-wrap">
-					<?php if ( ! empty( $avatar_url ) ) : ?>
-						<img src="<?php echo esc_url( $avatar_url ); ?>" alt="Avatar" class="gemini-header-avatar" />
-					<?php else : ?>
-						<span class="gemini-avatar-fallback-icon">🤖</span>
-					<?php endif; ?>
-					<span class="gemini-status-dot status-ready" id="gemini-header-status-dot"></span>
+			<div class="gemini-header-top-row">
+				<div class="gemini-header-profile">
+					<div class="gemini-header-avatar-wrap">
+						<?php if ( ! empty( $avatar_url ) ) : ?>
+							<img src="<?php echo esc_url( $avatar_url ); ?>" alt="Avatar" class="gemini-header-avatar" />
+						<?php else : ?>
+							<span class="gemini-avatar-fallback-icon">🤖</span>
+						<?php endif; ?>
+						<span class="gemini-status-dot status-ready" id="gemini-header-status-dot"></span>
+					</div>
+					<div class="gemini-header-info">
+						<h2 id="gemini-drawer-title" class="gemini-header-name"><?php echo esc_html( $settings['assistant_name'] ); ?></h2>
+						<div class="gemini-header-state" id="gemini-header-state-text"><?php echo esc_html( $state_text ); ?></div>
+					</div>
 				</div>
-				<div class="gemini-header-info">
-					<h2 id="gemini-drawer-title" class="gemini-header-name"><?php echo esc_html( $settings['assistant_name'] ); ?></h2>
-					<div class="gemini-header-state" id="gemini-header-state-text"><?php echo esc_html( $state_text ); ?></div>
-				</div>
+
+				<!-- Close / Minimize Button in Top-Right -->
+				<button type="button" id="gemini-btn-close" class="gemini-header-btn" title="Sulje ja pienennä" aria-label="Sulje avustaja">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
 			</div>
 
+			<!-- Actions & Language Switcher Below Profile -->
 			<div class="gemini-header-actions">
 				<!-- Language Switcher Pill Group -->
 				<div class="gemini-lang-selector" id="gemini-lang-selector" role="group" aria-label="Valitse kieli / Select language">
@@ -96,14 +107,6 @@ if ( 'sv' === $current_lang ) {
 				<button type="button" id="gemini-btn-reset" class="gemini-header-btn" title="Aloita uusi keskustelu" aria-label="Aloita alusta">
 					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path>
-					</svg>
-				</button>
-
-				<!-- Minimize / Close Button -->
-				<button type="button" id="gemini-btn-close" class="gemini-header-btn" title="Sulje ja pienennä" aria-label="Sulje avustaja">
-					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<line x1="18" y1="6" x2="6" y2="18"></line>
-						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
 			</div>

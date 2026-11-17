@@ -647,7 +647,8 @@ function cv_one_pager_cookie_consent_flash_guard() {
     echo '<style id="cv-cookie-consent-guard">
         #cookie-law-info-again{opacity:0;visibility:hidden;display:none;transition:opacity .2s ease}
         .cli-modal-backdrop, .cli-popupbar-overlay, .cli-settings-overlay { pointer-events: none !important; }
-        #gemini-avatar-widget, #gemini-avatar-launcher { z-index: 2147483647 !important; pointer-events: auto !important; }
+        #gemini-avatar-launcher { z-index: 2147483640 !important; pointer-events: auto !important; }
+        #gemini-avatar-drawer { z-index: 2147483647 !important; }
     </style>';
 }
 add_action('wp_head', 'cv_one_pager_cookie_consent_flash_guard', 1);

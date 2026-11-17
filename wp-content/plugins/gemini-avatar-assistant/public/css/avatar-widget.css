@@ -62,7 +62,7 @@
 	align-items: center;
 	justify-content: center;
 	transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-	z-index: 2147483647 !important;
+	z-index: 2147483640 !important;
 	pointer-events: auto !important;
 	visibility: visible !important;
 	opacity: 1 !important;
@@ -105,6 +105,12 @@
 	position: relative;
 	width: 58px;
 	height: 58px;
+	min-width: 58px;
+	min-height: 58px;
+	max-width: 58px;
+	max-height: 58px;
+	flex: 0 0 58px;
+	aspect-ratio: 1 / 1;
 	border-radius: 50%;
 	overflow: hidden;
 	background: var(--gemini-surface);
@@ -117,6 +123,7 @@
 	height: 100%;
 	object-fit: cover;
 	display: block;
+	aspect-ratio: 1 / 1;
 }
 
 .gemini-avatar-fallback-icon {
@@ -215,7 +222,11 @@
 
 /* Hide launcher when drawer is open */
 .gemini-avatar-widget.is-open .gemini-launcher-btn {
-	display: none;
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+	pointer-events: none !important;
+	z-index: -1 !important;
 }
 
 /* ==========================================================================
@@ -238,7 +249,7 @@
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	z-index: 999999;
+	z-index: 2147483647 !important;
 	animation: geminiDrawerEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -260,23 +271,38 @@
 /* DRAWER HEADER */
 .gemini-drawer-header {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 14px 18px;
+	flex-direction: column;
+	gap: 10px;
+	padding: 14px 18px 12px;
 	background: rgba(17, 24, 39, 0.85);
 	border-bottom: 1px solid var(--gemini-border);
+}
+
+.gemini-header-top-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
 }
 
 .gemini-header-profile {
 	display: flex;
 	align-items: center;
 	gap: 12px;
+	min-width: 0;
+	flex: 1;
 }
 
 .gemini-header-avatar-wrap {
 	position: relative;
 	width: 42px;
 	height: 42px;
+	min-width: 42px;
+	min-height: 42px;
+	max-width: 42px;
+	max-height: 42px;
+	flex: 0 0 42px;
+	aspect-ratio: 1 / 1;
 	border-radius: 50%;
 	border: 1.5px solid var(--gemini-accent);
 }
@@ -287,6 +313,7 @@
 	border-radius: 50%;
 	object-fit: cover;
 	display: block;
+	aspect-ratio: 1 / 1;
 }
 
 .gemini-status-dot {
@@ -297,6 +324,7 @@
 	height: 11px;
 	border-radius: 50%;
 	border: 2px solid var(--gemini-surface);
+	z-index: 5;
 }
 
 .gemini-status-dot.status-ready {
@@ -338,7 +366,10 @@
 .gemini-header-actions {
 	display: flex;
 	align-items: center;
+	justify-content: flex-end;
 	gap: 6px;
+	width: 100%;
+	padding-top: 4px;
 }
 
 /* Language Switcher in Drawer Header */
@@ -489,6 +520,12 @@
 	position: relative;
 	width: 68px;
 	height: 68px;
+	min-width: 68px;
+	min-height: 68px;
+	max-width: 68px;
+	max-height: 68px;
+	flex: 0 0 68px;
+	aspect-ratio: 1 / 1;
 	border-radius: 50%;
 	overflow: hidden;
 	background: #0f172a;
@@ -500,6 +537,7 @@
 	height: 100%;
 	object-fit: cover;
 	display: block;
+	aspect-ratio: 1 / 1;
 	transition: transform 0.2s ease;
 }
 
